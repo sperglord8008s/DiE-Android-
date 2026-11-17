@@ -15,16 +15,17 @@ if ! "$tools/apksigner" verify --verbose --print-certs "$apk" > "$tmp/signature.
   cat "$tmp/signature.txt"; exit 1
 fi
 "$tools/aapt2" dump permissions "$apk" > "$tmp/permissions.txt"
-if rg -q 'android.permission.INTERNET' "$tmp/permissions.txt"; then
-  echo 'Unexpected INTERNET permission in the packaged application.' >&2; exit 1
-fi
 "$tools/aapt2" dump badging "$apk" > "$tmp/badging.txt"
-for expected in "package: name='org.diemobile'" "minSdkVersion:'26'" "targetSdkVersion:'35'"; do
-  if ! rg -qF "$expected" "$tmp/badging.txt"; then
-    echo "Packaged application does not contain expected identity/API field: $expected" >&2
-    cat "$tmp/badging.txt"; exit 1
-  fi
-done
+python3 - "$tmp/permissions.txt" "$tmp/badging.txt" <<'PY'
+import sys
+from pathlib import Path
+permissions, badging = (Path(path).read_text() for path in sys.argv[1:])
+if 'android.permission.INTERNET' in permissions:
+    raise SystemExit('Unexpected INTERNET permission in the packaged application.')
+for expected in ("package: name='org.diemobile'", "minSdkVersion:'26'", "targetSdkVersion:'35'"):
+    if expected not in badging:
+        raise SystemExit('Packaged identity/API field missing: ' + expected + '\n' + badging)
+PY
 
 unzip -p "$apk" lib/arm64-v8a/libdiemobile.so > "$tmp/libdiemobile.so"
 "$readelf" -lW "$tmp/libdiemobile.so" > "$tmp/segments.txt"
