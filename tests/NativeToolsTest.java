@@ -24,7 +24,7 @@ public final class NativeToolsTest {
   String symbols=call(p,4,-1,0);contains(symbols,"die_fixture_export");
   String disasm=call(p,6,-1,0);contains(disasm,"NEXT=0x");
   String hashes=call(p,7,-1,0);contains(hashes,Inspector.toHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(Path.of(p)))));
-  String strings=call(p,8,-1,15);contains(strings,"DIE_FIXTURE_MARKER");
+  String strings=call(p,8,-1,14);contains(strings,"DIE_FIXTURE_MARKER");
   // Unsupported input must fail explicitly, never invent a decoded structure.
   Path raw=Files.createTempFile("die-test-raw",".bin");
   try{Files.write(raw,new byte[]{1,2,3,4,5,6});String error=Engine.tool(raw.toString(),0,-1,0,4);require(error.startsWith("ERROR:"),"Raw structural result unexpected: "+error);}

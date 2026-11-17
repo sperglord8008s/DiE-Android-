@@ -76,7 +76,7 @@ JNIEXPORT jbyteArray JNICALL Java_org_diemobile_Engine_toolNative(JNIEnv *env,jc
    else xx_buf_appendf(&b,"Disassembly status %d. Select an architecture or a valid file offset.\n",st);
   }cdie_disasm_close(d);break;}
  case 7:ok=cdie_hash_report(p,query&&*query?query:NULL,format,&text,&err);break;
- case 8:{cdie_strings_options opts=cdie_strings_defaults();opts.minimum_length=(unsigned)(min>=3&&min<=64?min:4);opts.encodings=(unsigned)(mode>=1&&mode<=15?mode:15);ok=cdie_strings_report(p,&opts,format,&text,&err);break;}
+ case 8:{cdie_strings_options opts=cdie_strings_defaults();opts.minimum_length=(unsigned)(min>=3&&min<=64?min:4);opts.encodings=(unsigned)(mode==1||mode==2||mode==4||mode==8||mode==14?mode:14);ok=cdie_strings_report(p,&opts,format,&text,&err);break;}
  case 10:ok=cdie_entropy_report(p,format,&text,&err);break;
  default:xx_buf_append_str(&b,"Unknown analysis tool.\n");ok=1;break;
  }
