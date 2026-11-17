@@ -12,6 +12,7 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | Native disassembly with offset and architecture | typed instruction pages and continuation/domain labeling host verified; Android row paging, next-block navigation, manual mode and Back checked with Robolectric/real host JNI; handset flow and control-flow analysis pending |
 | CRC32, MD5, SHA1, SHA256 | wired |
 | Unicode strings | wired, upstream limits |
+| Grouped string triage/classification with evidence and risk context | requested; URLs/IPs/endpoints, commands/APIs, paths, credentials, crypto and vulnerability/exploit indicators planned; original offsets/encodings and rule provenance required; implementation/verification pending |
 | Full paged read-only hex | wired, 4 KiB pages; table/physical-offset/unsigned-VA cross-links checked with Robolectric/real host JNI; handset flow pending |
 | Entropy region analysis, native block statistics | wired; selected physical-range SHA-256/CRC32/entropy verified with host fixtures and Android report flow with Robolectric; interactive zoom and handset flow pending |
 | APK metadata, declared permissions/components, signing fingerprint | partial |
@@ -22,7 +23,12 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | Live process/service diagnostics and privileged files | pending; explicit bridge required |
 | ZIP/APK nested member selection/extraction | complete bounded inventories, searchable 50-row folder pages, nested Back/recreation, private extraction with full-directory revalidation, size/CRC32/SHA-256 checks; host malformed/stale/duplicate/cancel fixtures and five Robolectric navigation/lifecycle/budget cases verified; handset flow and persistent cross-scan parent history pending |
 | Native resource payload extraction | selected resource or manually validated physical range staged for exact SAF byte export; host payload equality and Robolectric picker-delay/recreation/output checks verified; real document-provider flow pending |
-| Binary manifest/resource tables and DEX details | partial |
+| Binary manifest/resource tables | partial platform metadata; binary XML/resources.arsc investigation pending |
+| DEX metadata, Unicode class names and bytecode | pinned Google smali/dexlib2 + baksmali 3.0.10; main report uses Unicode/MUTF-8 indexing and explicit integrity/table evidence; typed lazy tables, payloads/debug/handlers, explicit reference scans, exact offsets and smali host verified, including classic 035–040 and 041 shared containers; four Robolectric report cases verified; table UI in progress, compact/optimized formats and handset flow pending |
+| MPV/media codec and container inspection | requested; engine/platform/license integration pending; Android codec inventory alone is not equivalent to media probing |
+| Binwalk firmware/embedded signature analysis | requested; integration and fixture verification pending |
+| Whole-blob media/resource carving (JPEG recovery / PhotoRec-style coverage) | requested; scanner, validators, candidate/range evidence and bounded extraction pending |
+| EXIF and comprehensive collected file metadata | requested; tag-preserving offline engine integration pending; current native/Android metadata remains partial |
 | AOSP apksig independent v1/v2/v3 verification and certificate metadata | host fixtures verified: separate v1/v2/v3 and combined signatures, exact certificate, unsigned, tampered and truncated APKs; device flow pending; v3.1 exposed but rotation fixtures pending |
 | v4 detached .idsig handling | pending |
 | Signature database browser, source, temporary editor, single-rule testing, profiling, tag filters | source retrieval, known edited-rule test and include-tag filtering host verified; profiling and device flow pending |
@@ -58,7 +64,7 @@ Compared with the pinned Detect-It-Easy README, CDiE README, `docs/DATABASE.md` 
 - CDiE hashes provide four algorithms. Desktop MD4, SHA224, SHA384 and SHA512 parity remains pending.
 - Archive scanning expands ZIP-family containers with upstream limits; 7z/RAR/CAB/ISO member expansion and ZIP64 remain unsupported by this backend. Some upstream resource/temporary-space failures skip members without a diagnostic; exports explicitly disclose this coverage limit.
 - XML/CSV/TSV scan export, directory/batch scanning, comparisons, saved profiles, demangling, debug-file/DWARF/PDB decoding and control-flow navigation remain pending in Android.
-- Native DataStructs cover PE/ELF/thin Mach-O; other formats are not thereby fully parsed. Android binary XML, resources.arsc and DEX instruction analysis remain incomplete.
+- Native DataStructs cover PE/ELF/thin Mach-O; other formats are not thereby fully parsed. The separate smali integration now supplies DEX metadata/instruction adapters; binary XML, resources.arsc, compact/optimized DEX, ART validation and broader Android format parity remain incomplete.
 - Automatic network database updates are deliberately absent. Bundled data is pinned and installed by revision; custom local import is tracked separately below.
 
 ## Offline custom databases

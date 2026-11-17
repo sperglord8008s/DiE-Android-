@@ -8,4 +8,10 @@ are bundled under assets/notices and assets/knowledge. AOSP apksig 8.9.2 is
 Apache-2.0; see apksig-8.9.2.txt. Imported custom rules retain the license notices
 provided by their source; import does not grant redistribution rights.
 
+Google smali/dexlib2 and baksmali 3.0.10 provide DEX interpretation and smali
+formatting. Their complete upstream licensing document is smali-3.0.10.txt;
+transitive dependency notices are in dex-dependencies.txt. Maven artifact/source
+checksums are recorded in scripts/dex-dependencies.sha256 and dex-sources.sha256
+in the corresponding source. analysis-engines.properties records the versions.
+
 This is an independent project, not an official Horsicq application.

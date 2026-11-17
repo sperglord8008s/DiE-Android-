@@ -4,6 +4,9 @@ Work is on `codex/workbench-parity`, proposed in [draft PR #1](https://github.co
 
 ## Implemented and fixture-verified in this work
 
+- DEX foundation: pinned Google smali/dexlib2 + baksmali 3.0.10 and Android Guava, bundled licensing/source notices and standalone dependency checksums. The main report now uses Unicode/MUTF-8 class indexing, table counts, per-entry Adler32/SHA-1 consistency and DEX SHA-256; ZIP duplicate-name/size/CRC/budget failures are explicit. Typed lazy metadata/bytecode/debug/exception/payload/reference tables, streaming complete-scope JSON/smali export, classic version and 041 shared-container contracts have host fixtures. Four Robolectric report integration cases pass alongside the previous fourteen UI cases. DEX table UI integration is the immediate active work. See [DEX investigation](dex-investigation.md).
+- Additional user scope is preserved in DESIGN-GOALS.md / FEATURE-PARITY.md: MPV/media codec inspection, Binwalk, whole-blob media/resource carving (JPEG/PhotoRec-like recovery), EXIF/all collected metadata, and grouped string classification with original offsets/encodings, rule provenance and risk context. These integrations are still pending; do not substitute a feature label for a working engine or claim string/signature matches prove behavior.
+
 - The main Scan workflow uses the pinned desktop CDiE backend. Scan/laboratory settings share one migrated preferences store. Results retain exact source paths, hierarchy, parser facts and diagnostics; 50-row searchable pages retain the full model. Physical entry offsets open hex/disassembly. Export schema v1 captures the original input SHA-256, scan options, engine/database identities and native JSON.
 - Bundled databases install into revision-specific private snapshots. Custom ZIP imports enforce path, duplicate, CRC, compressed/expanded size, member size and count limits. Original ZIPs, helpers, tags and license notices are retained. Native load checks precede atomic active-pointer changes; immutable paths invalidate native caches when switching/rolling back. Archive SHA-256 and enabled state are exported.
 - AOSP apksig reports aggregate signer errors/warnings, v1/v2/v3/v3.1 status and an explicit manifest-minimum-to-API-35 range. Real host-created v1/v2/v3 and combined signatures, exact certificates, unsigned, tampered and truncated APKs have fixtures. Rotation/v3.1 lineage and detached v4 remain unverified/pending.
@@ -23,6 +26,7 @@ Use Linux, JDK 17, Python 3, a C/C++ compiler, CMake 3.22.1, Android SDK platfor
 bash scripts/test.sh
 bash scripts/test-apk.sh
 bash scripts/test-models.sh
+bash scripts/test-dex.sh
 bash scripts/fetch-engine.sh
 bash scripts/fetch-knowledge.sh
 bash scripts/test-native.sh

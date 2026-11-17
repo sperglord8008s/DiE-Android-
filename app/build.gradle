@@ -19,6 +19,8 @@ android {
         externalNativeBuild { cmake { path 'src/main/cpp/CMakeLists.txt'; version '3.22.1' } }
     }
     sourceSets { main { assets.srcDir '../generated-assets' } }
+    sourceSets { test { java.srcDir '../tests/fixtures/dex' } }
+    packaging { resources { merges += ['LICENSE'] } }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     testOptions {
         unitTests.includeAndroidResources = true
@@ -42,6 +44,10 @@ android {
 // AOSP's standalone, Apache-2.0 APK signing-scheme verifier.
 dependencies {
     implementation 'com.android.tools.build:apksig:8.9.2'
+    // Google's maintained BSD-3-Clause smali fork; data parsing/formatting only.
+    implementation 'com.android.tools.smali:smali-dexlib2:3.0.10'
+    implementation 'com.android.tools.smali:smali-baksmali:3.0.10'
+    implementation 'com.google.guava:guava:31.1-android'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.robolectric:robolectric:4.14.1'
 }

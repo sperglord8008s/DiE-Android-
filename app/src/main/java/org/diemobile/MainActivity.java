@@ -107,7 +107,7 @@ public class MainActivity extends Activity {
     f=File.createTempFile("scan-",ext,getCacheDir());
     try(InputStream in=getContentResolver().openInputStream(u);OutputStream out=new FileOutputStream(f)){if(in==null)throw new IOException("No input data");byte[] b=new byte[65536];int count;long total=0;while((count=in.read(b))!=-1){if(cancellation.isRequested())throw new InterruptedIOException("Scan cancelled during input acquisition");total+=count;if(total>1024L*1024*1024)throw new IOException("Alpha limit: 1 GiB");out.write(b,0,count);}}
     r=Inspector.scan(f,minLen,cancellation::isRequested);
-    try{if(cancellation.isRequested())throw new InterruptedIOException("Scan cancelled");KnowledgeReport.Output k=KnowledgeReport.analyze(this,f,r,n);g=k.guide.toString();a=k.apk.toString();}catch(Exception e){g="Explanatory report unavailable: "+e.getMessage();}
+    try{if(cancellation.isRequested())throw new InterruptedIOException("Scan cancelled");KnowledgeReport.Output k=KnowledgeReport.analyze(this,f,r,n,cancellation::isRequested);g=k.guide.toString();a=k.apk.toString();}catch(Exception e){g="Explanatory report unavailable: "+e.getMessage();}
     if(Engine.AVAILABLE){try{
      databases=EngineDatabase.prepare(this);
      if(!cancellation.isRequested())facts=new JSONObject(Engine.desktop(f.getAbsolutePath(),databases.main.getAbsolutePath(),databases.custom.getAbsolutePath(),5,flags,0,options.includeTags,options.excludeTags,"",""));

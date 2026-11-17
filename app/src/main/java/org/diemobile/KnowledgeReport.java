@@ -10,9 +10,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.*;
 import java.util.zip.*;
+import java.util.function.BooleanSupplier;
 
 final class KnowledgeReport {
- static final int MAX_ENTRIES=10000, MAX_CLASSES=120000, MAX_DEX=32*1024*1024;
+ static final int MAX_ENTRIES=10000, MAX_CLASSES=DexDocument.MAX_CLASSES, MAX_DEX=DexDocument.MAX_BYTES;
  static final long MAX_TOTAL_DEX=96L*1024*1024;
  static final class Output {
   StringBuilder guide=new StringBuilder(), apk=new StringBuilder();
@@ -23,14 +24,20 @@ final class KnowledgeReport {
   return new String(bytes(in,max),StandardCharsets.UTF_8);
  }
  static byte[] bytes(InputStream in,int max)throws IOException{
+  return bytes(in,max,()->false);
+ }
+ static byte[] bytes(InputStream in,int max,BooleanSupplier cancelled)throws IOException{
   ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] buf=new byte[32768];int n;
-  while((n=in.read(buf))!=-1){if(n>max-out.size())throw new IOException("Size limit exceeded");out.write(buf,0,n);}
+  while((n=in.read(buf))!=-1){EvidenceRows.check(cancelled);if(n>max-out.size())throw new IOException("Size limit exceeded");out.write(buf,0,n);}
   return out.toByteArray();
  }
  static JSONObject asset(Context c,String path)throws Exception{
   try(InputStream in=c.getAssets().open(path)){return new JSONObject(read(in,16*1024*1024));}
  }
  static Output analyze(Context c,File file,Inspector.Result r,String displayName){
+  return analyze(c,file,r,displayName,()->false);
+ }
+ static Output analyze(Context c,File file,Inspector.Result r,String displayName,BooleanSupplier cancelled){
   Output o=new Output();
   o.guide.append("FILE 101\n\n").append(displayName).append("\n\n");
   o.guide.append("Observed format: ").append(r.type).append("\n");
@@ -46,8 +53,8 @@ final class KnowledgeReport {
   o.guide.append(String.format(Locale.ROOT,"%.4f of 8 bits per byte. ",r.entropy));
   o.guide.append("Entropy estimates how evenly byte values occur. Compression, encryption, images and random data can all produce high entropy. Low entropy may reflect repeated data or padding. Neither establishes malware or encryption. Use the graph to locate transitions, then inspect the corresponding content.\n\nSIGNATURES\nCDiE compares file structures and patterns against its database. A matching compiler, packer or SDK identifies a possible technology, not a verified author or runtime behavior. A missed match does not establish absence.\n\nSTRINGS AND HEX\nStrings are printable byte sequences and may expose names or configuration; they may also be unused or coincidental. Hex displays original bytes; an offset is a position in the file, not always a virtual memory address. Previews are bounded.\n\nLIMITS\nStatic analysis only: no app is installed, executed, or submitted online. Results are not a safety verdict. Malformed, encrypted, split or obfuscated content may be missed. Individual detection details in Scan show underlying rule output.\n");
   if(t.startsWith("ELF"))try{elf(file,o);}catch(Exception e){o.guide.append("\nELF header detail unavailable: ").append(e.getMessage()).append("\n");}
-  if(t.contains("ZIP"))try{archive(c,file,o);}catch(Exception e){o.item("Archive inspection incomplete: "+e.getMessage());}
-  else if(t.contains("DEX"))try{Set<String> classes=new TreeSet<>();try(InputStream in=new FileInputStream(file)){dex(bytes(in,MAX_DEX),classes);}o.section("DEX class inspection");o.item("Defined classes inspected: "+classes.size());trackers(c,classes,o); }catch(Exception e){o.item("DEX inspection incomplete: "+e.getMessage());}
+  if(t.contains("ZIP"))try{archive(c,file,o,cancelled);}catch(Exception e){o.item("Archive inspection incomplete: "+e.getMessage());}
+  else if(t.contains("DEX"))try{DexDocument document=DexDocument.read(file,cancelled);Set<String> classes=document.definedClassNames(cancelled);dexSummary(o,displayName,document);o.item("Distinct MUTF-8/Unicode defined class names inspected: "+classes.size());trackers(c,classes,o); }catch(Exception e){o.item("DEX inspection incomplete: "+e.getMessage());}
   else o.apk.append("Not a recognized ZIP/APK or DEX input. Use File info / File 101 for general interpretation.\n");
   return o;
  }
@@ -66,34 +73,38 @@ final class KnowledgeReport {
   if(off<0||n<1||off>b.length-n)throw new IOException("Header offset out of range");long v=0;
   for(int i=0;i<n;i++)v=(v<<8)|(b[off+(le?n-1-i:i)]&255L);return v;
  }
- static int u32(byte[] b,int off)throws IOException{long n=num(b,off,4,true);if(n>Integer.MAX_VALUE)throw new IOException("DEX offset too large");return (int)n;}
- static void table(byte[] b,int off,int count,int width)throws IOException{if(off<0||count<0||((long)off+(long)count*width)>b.length)throw new IOException("DEX table outside file");}
- static void dex(byte[] b,Set<String> out)throws IOException{
-  if(b.length<112||b[0]!='d'||b[1]!='e'||b[2]!='x'||b[3]!='\n'||num(b,40,4,true)!=0x12345678L)throw new IOException("Unsupported/truncated DEX");
-  int ns=u32(b,56),so=u32(b,60),nt=u32(b,64),to=u32(b,68),nc=u32(b,96),co=u32(b,100);
-  table(b,so,ns,4);table(b,to,nt,4);table(b,co,nc,32);
-  if(nc>MAX_CLASSES||out.size()+nc>MAX_CLASSES)throw new IOException("Class inspection limit exceeded");
-  for(int i=0;i<nc;i++){
-   int ti=u32(b,co+i*32);if(ti>=nt)throw new IOException("Invalid class type");
-   int si=u32(b,to+ti*4);if(si>=ns)throw new IOException("Invalid descriptor index");
-   int p=u32(b,so+si*4),len=0;boolean terminated=false;
-   for(int j=0;j<5&&p<b.length;j++){int x=b[p++]&255;if((x&128)==0){terminated=true;break;}}
-   if(!terminated)throw new IOException("Invalid DEX string length");
-   int start=p;while(p<b.length&&b[p]!=0&&len<2048){p++;len++;}
-   if(p>=b.length||b[p]!=0)continue;
-   if(len>2&&b[start]=='L'&&b[p-1]==';'){
-    // Class identifiers used by current literal signature matcher are ASCII.
-    String d=new String(b,start+1,len-2,StandardCharsets.UTF_8).replace('/','.');
-    if(d.matches("[A-Za-z0-9_.$]+"))out.add(d);
-   }
-  }
+ static DexDocument dex(byte[] b,Set<String> out,BooleanSupplier cancelled)throws Exception{
+  DexDocument document=DexDocument.takeOwnership(b,cancelled);Set<String> names=document.definedClassNames(cancelled);int added=0;
+  for(String name:names){EvidenceRows.check(cancelled);if(!out.contains(name))added++;}
+  if(added>MAX_CLASSES-out.size())throw new IOException("Class inspection limit exceeded (120,000 distinct names)");
+  out.addAll(names);return document;
  }
- static void archive(Context c,File file,Output o)throws Exception{
+ static void dexSummary(Output o,String name,DexDocument document){
+  o.section("DEX metadata — "+name+" — "+DexDocument.ENGINE+" "+DexDocument.VERSION);o.item("DEX bytes SHA-256: "+document.sha256);
+  for(DexDocument.Entry entry:document.entries){
+   o.item("Entry "+entry.index+": DEX "+entry.version+"; header @0x"+Integer.toHexString(entry.headerOffset)+"; declared entry bytes="+entry.fileSize
+    +"; classes="+entry.dex.getClassSection().size()+"; types="+entry.dex.getTypeSection().size()+"; strings="+entry.dex.getStringSection().size()
+    +"; method IDs="+entry.dex.getMethodSection().size()+"; field IDs="+entry.dex.getFieldSection().size()+"; prototypes="+entry.dex.getProtoSection().size());
+   o.item("Entry Adler32 stored="+entry.storedChecksum+", measured="+entry.measuredChecksum+", matches="+entry.checksumValid
+    +"; SHA-1 consistency stored="+entry.storedSignature+", measured="+entry.measuredSignature+", matches="+entry.signatureValid);
+  }
+  o.item("Header integrity is not publisher authentication or ART verification. Identifier counts include referenced types and members; they do not establish local definitions, loading or execution. Class-name matching is static evidence.");
+ }
+ static void archive(Context c,File file,Output o,BooleanSupplier cancelled)throws Exception{
   Set<String> nativeNames=new TreeSet<>(),abis=new TreeSet<>(),classes=new TreeSet<>();List<String> entries=new ArrayList<>();
   boolean manifest=false;int count=0,dexCount=0;long total=0,dexBytes=0;boolean partial=false;
   try(ZipFile zip=new ZipFile(file)){
+   Map<String,Integer> dexNames=new HashMap<>();Enumeration<? extends ZipEntry> directory=zip.entries();int directoryCount=0;
+   while(directory.hasMoreElements()){
+    EvidenceRows.check(cancelled);ZipEntry candidate=directory.nextElement();if(++directoryCount>100000)throw new IOException("Metadata directory budget: 100,000 entries; DEX-name uniqueness could not be established");
+    if(candidate.getName().matches("classes([0-9]+)?\\.dex")){
+     if(dexNames.containsKey(candidate.getName()))dexNames.put(candidate.getName(),2);
+     else if(dexNames.size()<128)dexNames.put(candidate.getName(),1);else partial=true;
+    }
+   }
    Enumeration<? extends ZipEntry> es=zip.entries();
    while(es.hasMoreElements()){
+    EvidenceRows.check(cancelled);
     ZipEntry e=es.nextElement();if(++count>MAX_ENTRIES){partial=true;break;}
     String n=e.getName();if(e.getSize()>0&&Long.MAX_VALUE-total>=e.getSize())total+=e.getSize();
     if(entries.size()<1000)entries.add(n+"  ["+e.getSize()+" bytes]");
@@ -101,13 +112,19 @@ final class KnowledgeReport {
     if(n.startsWith("lib/")&&n.endsWith(".so")){String[] parts=n.split("/");if(parts.length==3){abis.add(parts[1]);nativeNames.add(parts[2]);}}
     if(n.matches("classes([0-9]+)?\\.dex")){
      dexCount++;
-     if(e.getSize()<0||e.getSize()>MAX_DEX||dexBytes+e.getSize()>MAX_TOTAL_DEX){partial=true;continue;}
-     try(InputStream in=zip.getInputStream(e)){byte[] b=bytes(in,MAX_DEX);dexBytes+=b.length;dex(b,classes);}catch(Exception ex){partial=true;}
+     if(!Integer.valueOf(1).equals(dexNames.get(n))){partial=true;o.item("DEX "+n+" not inspected: duplicate name or 128-name budget exceeded");continue;}
+     if(e.getSize()<0||e.getSize()>MAX_DEX||e.getSize()>MAX_TOTAL_DEX-dexBytes){partial=true;o.item("DEX "+n+" not inspected: unknown size or 32 MiB/file / 96 MiB total budget");continue;}
+     dexBytes+=e.getSize(); // Reserve declared bytes even if parsing/CRC fails.
+     try(InputStream in=zip.getInputStream(e)){
+      byte[] b=bytes(in,(int)e.getSize(),cancelled);CRC32 crc=new CRC32();crc.update(b);
+      if(b.length!=e.getSize()||crc.getValue()!=e.getCrc())throw new IOException("Expanded size or CRC32 mismatch");
+      dexSummary(o,n,dex(b,classes,cancelled));
+     }catch(Exception ex){if(cancelled.getAsBoolean())throw ex;partial=true;o.item("DEX "+n+" inspection incomplete: "+ex.getMessage());}
     }
    }
   }
   o.section(manifest?"APK structure":"ZIP structure");o.item("Entries inspected: "+Math.min(count,MAX_ENTRIES));o.item("Declared expanded bytes: "+total+" (header values, not verified decompressed size)");
-  o.item("DEX files encountered: "+dexCount+"; ASCII defined class names inspected: "+classes.size());
+  o.item("DEX files encountered in the inspected inventory: "+dexCount+"; distinct MUTF-8/Unicode defined class names inspected: "+classes.size());
   o.item("Native ABI folders: "+(abis.isEmpty()?"none seen":abis));if(partial)o.item("PARTIAL: archive/DEX limits or parser errors; results are not exhaustive.");
   JSONObject rules=null;try{rules=asset(c,"knowledge/libchecker.json");}catch(Exception e){o.item("LibChecker rule database unavailable: "+e.getMessage());}
   o.section("Native libraries — machine-code modules loaded by applications");

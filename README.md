@@ -14,6 +14,7 @@ Development alpha with host JNI, Android UI simulation and CI build checks; hand
 - Versioned structured JSON report export using the system picker, with content identity, engine/database revisions, native evidence and explicit limitations. See [schema](docs/report-schema.md).
 - Searchable, paginated maps/imports/exports/symbols/resources/instructions with every native field, contextual explanations and explicit unsupported/errors. Navigate physical offsets or unsigned preferred VAs to hex/disassembly, retain Back context, measure range entropy/digests and export exact stored resource bytes. See [contracts and limits](docs/native-records.md).
 - Nested ZIP/APK browsing with folder search/paging, Back/recreation context and bounded private snapshots. Selected bytes require current directory metadata, exact expanded length and CRC32 checks, with a freshly measured SHA-256. See [archive acquisition](docs/archive-acquisition.md).
+- Google smali/dexlib2 + baksmali 3.0.10 now provide Unicode DEX class indexing and header integrity/table evidence in file/APK reports. Typed metadata/bytecode/reference/payload/debug adapters and full method smali are fixture-verified; their Android table UI is being integrated. See [DEX scope and contracts](docs/dex-investigation.md).
 - Desktop-inspired dark native UI: persistent scan flags, Scan / Rescan, file summary, expandable signature groups with details, raw JSON log, elapsed time and progress indicator. ARM64 native linkage; no Termux. Rescan reopens the selected URI (subject to provider permissions) with current settings.
 
 ## Build
@@ -24,6 +25,7 @@ JDK 17, Gradle 8.11.1, Android platform 35, CMake 3.22.1, NDK 28.2.13676358. API
 bash scripts/test.sh
 bash scripts/test-apk.sh
 bash scripts/test-models.sh
+bash scripts/test-dex.sh
 bash scripts/fetch-engine.sh
 bash scripts/test-native.sh
 bash scripts/fetch-knowledge.sh
@@ -56,3 +58,5 @@ Native Tools exposes upstream CDiE data structures, memory maps, imports, export
 Run `scripts/test.sh` for the generic inspector, custom databases and archive acquisition, `scripts/test-models.sh` for evidence/settings/range/export fixtures, `scripts/test-apk.sh` for real AOSP signing verification, and `scripts/test-native.sh` after `scripts/fetch-engine.sh` for Linux-host JNI fixtures (JDK 17, CMake, C compiler and Python 3). `JSON_JAR` and `APKSIG_JAR` accept cached, checksum-verified host dependencies for offline test runs. `NATIVE_BUILD_DIR` optionally retains a CMake build between native test runs.
 
 `scripts/test-workbench-ui.sh` builds host JNI/fixtures and runs fourteen Android UI/lifecycle cases with Robolectric API 28: nine native-workbench cases with actual JNI results and five archive cases with real ZIP streams. A 360×640 layout case checks that maps and disassembly retain usable result space. The SDK/JDK and fetched engine are required; JUnit 4.13.2, Robolectric 4.14.1 and its Android runtime are build-time test dependencies only. The test JVM keeps its download cache under `app/build/test-runtime-home`; retain it and the Gradle cache for offline reruns. The test provider captures export streams; real SAF permissions and handset behavior need device checks. Android CI runs these tests and independently cross-compiles/lints/verifies the ARM64 APK. No connected-device verification is claimed.
+
+That command also runs four Android DEX report-integration cases, for eighteen Android checks in total. `scripts/test-dex.sh` independently verifies real smali-engine metadata/bytecode/reference/payload/export contracts on the host; `DEX_DEPS_DIR` retains checksum-verified JARs for offline runs. See [DEX verification](docs/dex-investigation.md).

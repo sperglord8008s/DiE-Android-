@@ -52,6 +52,9 @@ unzip -p "$apk" assets/engine-revisions.properties | cmp - generated-assets/engi
 unzip -p "$apk" assets/knowledge/revisions.txt | cmp - generated-assets/knowledge/revisions.txt
 unzip -p "$apk" assets/notices/apksig-8.9.2.txt | cmp - app/src/main/assets/notices/apksig-8.9.2.txt
 unzip -p "$apk" assets/notices/DiE-Android-LICENSE.txt | cmp - LICENSE
+unzip -p "$apk" assets/analysis-engines.properties | cmp - app/src/main/assets/analysis-engines.properties
+unzip -p "$apk" assets/notices/smali-3.0.10.txt | cmp - app/src/main/assets/notices/smali-3.0.10.txt
+unzip -p "$apk" assets/notices/dex-dependencies.txt | cmp - app/src/main/assets/notices/dex-dependencies.txt
 unzip -p "$apk" assets/db/_init > "$tmp/db-init"
 test -s "$tmp/db-init"
 
@@ -64,6 +67,7 @@ manifest="$(dirname "$apk")/build-manifest.txt"
   echo 'Configuration: debug, org.diemobile, API 26 minimum / API 35 target, ARM64'
   echo 'Pinned toolchain: JDK 17, Gradle 8.11.1, NDK 28.2.13676358, CMake 3.22.1, build-tools 35.0.0'
   cat generated-assets/engine-revisions.properties generated-assets/knowledge/revisions.txt
+  cat app/src/main/assets/analysis-engines.properties
   echo 'Verification: APK signature, ZIP alignment, ELF 16 KiB alignment, application identity/API levels, no INTERNET permission, bundled revision/license assets'
   echo 'No device-runtime verification. Debug signing keys and local build paths may differ between builds; bit-identical signed APKs are not claimed.'
   cat "$tmp/signature.txt"
