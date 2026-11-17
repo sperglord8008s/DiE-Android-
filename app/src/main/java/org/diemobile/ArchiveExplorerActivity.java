@@ -1,91 +1,277 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package org.diemobile;
 
-import android.app.Activity;
+import android.app.*;
 import android.content.Intent;
-import android.os.Bundle;
-import android.view.View;
+import android.os.*;
+import android.text.*;
+import android.view.*;
 import android.widget.*;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.zip.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Browse a ZIP-compatible input without expanding its directory tree on disk.
- * Selecting a member copies only that member to a private random filename.
- * Archive names are display data, never filesystem paths.
- */
+/** Bounded, read-only ZIP exploration; nested snapshots have explicit ownership. */
 public final class ArchiveExplorerActivity extends Activity {
- private static final int MAX_ENTRIES=20000;
- private static final long MAX_MEMBER=256L*1024*1024;
- private final ExecutorService worker=Executors.newSingleThreadExecutor();
- private final List<Member> entries=new ArrayList<>();
- private File archive;
- private String prefix="";
- private ListView list;
- private TextView title,status;
- private EditText filter;
- private boolean busy;
- private static final class Member {
-  final String name;final long size,compressed,crc;final int method;final boolean dir;
-  Member(ZipEntry e){name=e.getName();size=e.getSize();compressed=e.getCompressedSize();crc=e.getCrc();method=e.getMethod();dir=e.isDirectory();}
- }
- private static final class Row {
-  final String display,path;final Member member;
-  Row(String d,String p,Member m){display=d;path=p;member=m;}
-  public String toString(){return display;}
- }
- private Button button(String s,Runnable r){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setOnClickListener(v->r.run());return b;}
- @Override public void onCreate(Bundle saved){
-  super.onCreate(saved);
-  String p=getIntent().getStringExtra("path");if(p==null){finish();return;}archive=new File(p);
-  LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
-  title=new TextView(this);title.setTextSize(18);root.addView(title);
-  TextView help=new TextView(this);help.setText("ZIP central-directory metadata. Sizes and CRC are declarations until the selected member is decompressed. Entries are never installed or executed.");root.addView(help);
-  root.addView(button("Parent directory",()->{if(busy)return;int slash=prefix.lastIndexOf('/',Math.max(0,prefix.length()-2));prefix=slash<0?"":prefix.substring(0,slash+1);render();}));
-  filter=new EditText(this);filter.setSingleLine();filter.setHint("Filter this directory");root.addView(filter);
-  status=new TextView(this);root.addView(status);list=new ListView(this);root.addView(list,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
-  filter.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int a,int b,int c){}public void onTextChanged(CharSequence s,int a,int b,int c){render();}public void afterTextChanged(android.text.Editable e){}});
-  busy=true;status.setText("Reading central directory…");worker.execute(()->{
-   List<Member> loaded=new ArrayList<>();String message;
-   try(ZipFile zip=new ZipFile(archive)){Enumeration<? extends ZipEntry> es=zip.entries();while(es.hasMoreElements()&&loaded.size()<MAX_ENTRIES)loaded.add(new Member(es.nextElement()));message=loaded.size()+" entries"+(es.hasMoreElements()?" (inventory capped)":"");}
-   catch(Exception e){message="Cannot parse ZIP directory: "+e.getMessage();}
-   final String result=message;runOnUiThread(()->{if(isDestroyed())return;entries.addAll(loaded);busy=false;status.setText(result);render();});
-  });
- }
- private void render(){
-  if(list==null)return;title.setText("Archive /"+prefix);String q=filter.getText().toString().toLowerCase(Locale.ROOT);TreeMap<String,Row> dirs=new TreeMap<>();List<Row> files=new ArrayList<>();
-  for(Member m:entries){
-   if(!m.name.startsWith(prefix)||m.name.equals(prefix))continue;
-   String rest=m.name.substring(prefix.length());int slash=rest.indexOf('/');
-   if(slash>=0){String n=rest.substring(0,slash+1);if(!n.toLowerCase(Locale.ROOT).contains(q))continue;dirs.putIfAbsent(n,new Row("Directory: "+n,prefix+n,null));}
-   else if(rest.toLowerCase(Locale.ROOT).contains(q)){String info=rest+"\n"+m.size+" bytes • compressed="+m.compressed+" • method="+m.method+" • CRC32="+Long.toHexString(m.crc);files.add(new Row(info,m.name,m));}
-  }
-  files.sort(Comparator.comparing(x->x.path));ArrayList<Row> rows=new ArrayList<>(dirs.values());rows.addAll(files);
-  list.setAdapter(new ArrayAdapter<Row>(this,android.R.layout.simple_list_item_1,rows));list.setOnItemClickListener((p,v,i,id)->{if(busy)return;Row row=rows.get(i);if(row.member==null){prefix=row.path;filter.setText("");render();}else select(row.member);});
- }
- private void select(Member m){
-  long same=entries.stream().filter(x->x.name.equals(m.name)).count();
-  if(same!=1){Toast.makeText(this,"Ambiguous duplicate entry name; extraction disabled",Toast.LENGTH_LONG).show();return;}
-  if(m.size<0||m.size>MAX_MEMBER){Toast.makeText(this,"Member exceeds 256 MiB or has unknown declared size",Toast.LENGTH_LONG).show();return;}
-  busy=true;status.setText("Decompressing one selected member…");
-  worker.execute(()->{
-   File output=null;String error=null;
-   try(ZipFile zip=new ZipFile(archive)){
-    // Confirm uniqueness against the entire directory even if displayed inventory was capped.
-    int found=0;ZipEntry selected=null;Enumeration<? extends ZipEntry> all=zip.entries();
-    while(all.hasMoreElements()){ZipEntry e=all.nextElement();if(e.getName().equals(m.name)){selected=e;found++;if(found>1)break;}}
-    if(found!=1||selected==null||selected.isDirectory())throw new IOException("Missing or duplicate archive member");
-    String leaf=m.name.substring(m.name.lastIndexOf('/')+1);String suffix=".bin";int dot=leaf.lastIndexOf('.');if(dot>=0&&leaf.substring(dot).matches("\\.[A-Za-z0-9]{1,12}"))suffix=leaf.substring(dot);
-    output=File.createTempFile("member-",suffix,getCacheDir());
-    CRC32 crc=new CRC32();long written=0;byte[] buf=new byte[65536];
-    try(InputStream in=zip.getInputStream(selected);FileOutputStream out=new FileOutputStream(output)){int n;while((n=in.read(buf))!=-1){written+=n;if(written>MAX_MEMBER||written>m.size)throw new IOException("Expanded member exceeds declared size or limit");out.write(buf,0,n);crc.update(buf,0,n);}}
-    if(written!=m.size||crc.getValue()!=m.crc)throw new IOException("Member size or CRC mismatch");
-   }catch(Exception e){error=e.getMessage();if(output!=null)output.delete();output=null;}
-   final File result=output;final String failure=error;
-   runOnUiThread(()->{if(isDestroyed()){if(result!=null)result.delete();return;}busy=false;if(result==null){status.setText("Extraction failed: "+failure);return;}setResult(RESULT_OK,new Intent().putExtra("path",result.getAbsolutePath()).putExtra("display",getIntent().getStringExtra("name")+"!/"+m.name));finish();});
-  });
- }
- @Override public void onDestroy(){worker.shutdown();super.onDestroy();}
+    static final int MAX_LEVELS = 16, MAX_PATH_CHARACTERS = 48 * 1024;
+    static final long MAX_RETAINED_BYTES = 512L * 1024 * 1024;
+    private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final ArrayList<Location> trail = new ArrayList<>();
+    private File snapshotDirectory;
+    private ArchiveStore.Inventory inventory;
+    private List<Row> visible = Collections.emptyList();
+    private ListView list;
+    private TextView title, status;
+    private EditText filter;
+    private Button parent, containerBack, previous, next, cancel, reload;
+    private boolean busy, binding;
+    private volatile int generation;
+    private AtomicBoolean cancellation = new AtomicBoolean();
+
+    private static final class Location {
+        final File file;
+        final String name;
+        final boolean owned;
+        long size;
+        String prefix = "", filter = "";
+        int page;
+        Location(File file, String name, boolean owned, long size) {
+            this.file = file; this.name = name; this.owned = owned; this.size = size;
+        }
+    }
+    private static final class Row {
+        final String label, path;
+        final ArchiveStore.Member member;
+        Row(String label, String path, ArchiveStore.Member member) {
+            this.label = label; this.path = path; this.member = member;
+        }
+        @Override public String toString() { return label; }
+    }
+    private Location current() { return trail.get(trail.size() - 1); }
+    private String displayName() {
+        StringBuilder name = new StringBuilder();
+        for (Location location : trail) { if (name.length() > 0) name.append("!/"); name.append(location.name); }
+        return name.toString();
+    }
+    private Button button(String text, Runnable action) {
+        Button view = new Button(this); view.setText(text); view.setAllCaps(false); view.setTextSize(12);
+        view.setOnClickListener(v -> action.run()); return view;
+    }
+    private void addButton(LinearLayout row, Button view) { row.addView(view, new LinearLayout.LayoutParams(0, -2, 1)); }
+    private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
+
+    @Override public void onCreate(Bundle saved) {
+        super.onCreate(saved);
+        String path = getIntent().getStringExtra("path");
+        if (path == null || !new File(path).isFile()) { finish(); return; }
+        snapshotDirectory = new File(getCacheDir(), "archive-snapshots");
+        String name = getIntent().getStringExtra("name"); if (name == null) name = new File(path).getName();
+        trail.add(new Location(new File(path), name, false, new File(path).length()));
+        String restoreMessage = restore(saved);
+        createViews(); bind(); load(restoreMessage);
+    }
+    private void createViews() {
+        LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(8), dp(8), dp(8), dp(8));
+        if (Build.VERSION.SDK_INT >= 30) {
+            getWindow().setDecorFitsSystemWindows(false);
+            root.setOnApplyWindowInsetsListener((view, insets) -> {
+                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                view.setPadding(bars.left + dp(8), bars.top + dp(8), bars.right + dp(8), bars.bottom + dp(8)); return insets;
+            });
+        }
+        title = new TextView(this); title.setTextSize(17); title.setMaxLines(3); title.setEllipsize(TextUtils.TruncateAt.MIDDLE); root.addView(title);
+        TextView help = new TextView(this);
+        help.setText("ZIP directory evidence: sizes, method and CRC32 are declarations until extraction checks them. Nested ZIPs use private snapshots. No member is installed or executed; names are never output paths."); root.addView(help);
+        LinearLayout navigation = new LinearLayout(this);
+        parent = button("Parent folder", this::parentFolder); addButton(navigation, parent);
+        containerBack = button("Back archive", this::backArchive); addButton(navigation, containerBack);
+        reload = button("Reload", () -> load("")); addButton(navigation, reload);
+        cancel = button("Cancel", () -> { if (busy) { cancellation.set(true); status.setText("Cancellation requested • waiting for archive I/O"); } }); addButton(navigation, cancel); root.addView(navigation);
+        filter = new EditText(this); filter.setSingleLine(); filter.setHint("Filter this folder (up to 1024 characters)");
+        filter.setFilters(new InputFilter[]{new InputFilter.LengthFilter(1024)}); root.addView(filter);
+        LinearLayout pages = new LinearLayout(this);
+        previous = button("Previous 50", () -> { if (!busy) { current().page--; render(); } }); addButton(pages, previous);
+        next = button("Next 50", () -> { if (!busy) { current().page++; render(); } }); addButton(pages, next); root.addView(pages);
+        status = new TextView(this); root.addView(status); list = new ListView(this); root.addView(list, new LinearLayout.LayoutParams(-1, 0, 1)); setContentView(root);
+        filter.addTextChangedListener(new TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int a, int before, int after) {}
+            public void afterTextChanged(Editable value) {}
+            public void onTextChanged(CharSequence value, int a, int before, int count) {
+                if (!binding) { current().filter = value.toString(); current().page = 0; render(); }
+            }
+        });
+        list.setOnItemClickListener((p, view, index, id) -> {
+            if (busy) return; Row row = visible.get(index);
+            if (row.member == null) {
+                if (pathCharacters(row.path, null) > MAX_PATH_CHARACTERS) { status.setText("Navigation path budget: 48 Ki-characters across retained locations"); return; }
+                current().prefix = row.path; current().filter = ""; current().page = 0; bind(); render();
+            } else details(row.member);
+        });
+    }
+    private void bind() {
+        binding = true; filter.setText(current().filter); title.setText(displayName() + "\n/" + current().prefix); binding = false;
+    }
+    private int pathCharacters(String currentPrefix, String newName) {
+        int total = newName == null ? 0 : newName.length();
+        for (int i = 0; i < trail.size(); i++) {
+            Location location = trail.get(i);
+            if (i > 0) total += location.name.length();
+            total += i + 1 == trail.size() ? currentPrefix.length() : location.prefix.length();
+        }
+        return total;
+    }
+    private int begin(String message) {
+        cancellation.set(true); cancellation = new AtomicBoolean(); int ticket = ++generation; busy = true;
+        for (View view : new View[]{parent, containerBack, previous, next, reload, filter, list}) view.setEnabled(false);
+        cancel.setEnabled(true); status.setText(message); return ticket;
+    }
+    private void settled() {
+        busy = false; reload.setEnabled(true); filter.setEnabled(true); list.setEnabled(true); cancel.setEnabled(false);
+    }
+    private void load(String notice) {
+        if (busy) return;
+        final Location location = current(); final int ticket = begin("Reading complete ZIP directory…"); final AtomicBoolean stop = cancellation;
+        inventory = null; visible = Collections.emptyList(); list.setAdapter(null);
+        worker.execute(() -> {
+            ArchiveStore.Inventory result = null; String error = "";
+            try {
+                result = ArchiveStore.read(location.file, stop::get);
+                if (result.sourceSize != location.size) throw new IOException("Archive length changed; reopen the source from Scan");
+            } catch (Exception e) { result = null; error = e.getMessage(); }
+            final ArchiveStore.Inventory loaded = result; final String failure = error;
+            runOnUiThread(() -> {
+                if (isDestroyed() || ticket != generation) return; settled(); inventory = stop.get() ? null : loaded; render();
+                if (inventory == null) status.setText(stop.get() ? "Archive operation cancelled" : "Cannot read archive: " + failure);
+                else if (!notice.isEmpty()) status.append(" • " + notice);
+            });
+        });
+    }
+    private void render() {
+        if (list == null) return;
+        title.setText(displayName() + "\n/" + current().prefix);
+        parent.setEnabled(!busy && !current().prefix.isEmpty()); containerBack.setEnabled(!busy && trail.size() > 1);
+        previous.setEnabled(false); next.setEnabled(false);
+        if (inventory == null) return;
+        String query = current().filter.toLowerCase(Locale.ROOT);
+        TreeMap<String, Row> directories = new TreeMap<>(); List<Row> files = new ArrayList<>();
+        for (ArchiveStore.Member member : inventory.members) {
+            if (!member.name.startsWith(current().prefix) || member.name.equals(current().prefix)) continue;
+            String rest = member.name.substring(current().prefix.length()); int slash = rest.indexOf('/');
+            if (slash >= 0) {
+                String folder = rest.substring(0, slash + 1);
+                if (folder.toLowerCase(Locale.ROOT).contains(query)) directories.putIfAbsent(folder, new Row("Directory: " + (folder.length() > 160 ? folder.substring(0, 160) + "… [open directory]" : folder), current().prefix + folder, null));
+            } else if (rest.toLowerCase(Locale.ROOT).contains(query)) {
+                String info = "#" + member.index + " " + abbreviated(rest) + "\n" + member.size + " bytes • compressed=" + member.compressedSize
+                    + " • method=" + member.method + " • CRC32=" + String.format(Locale.ROOT, "%08X", member.crc32)
+                    + (member.occurrences > 1 ? " • DUPLICATE NAME (" + member.occurrences + ")" : "");
+                files.add(new Row(info, member.name, member));
+            }
+        }
+        files.sort(Comparator.comparing(row -> row.path)); ArrayList<Row> rows = new ArrayList<>(directories.values()); rows.addAll(files);
+        int pages = Math.max(1, (rows.size() + 49) / 50); current().page = Math.max(0, Math.min(current().page, pages - 1));
+        int from = current().page * 50; visible = new ArrayList<>(rows.subList(from, Math.min(rows.size(), from + 50)));
+        list.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, visible)); list.setSelection(0);
+        previous.setEnabled(!busy && current().page > 0); next.setEnabled(!busy && current().page + 1 < pages);
+        if (!busy) status.setText(rows.size() + " folder matches • page " + (current().page + 1) + "/" + pages + " • " + inventory.members.size()
+            + " archive entries • level " + trail.size() + "/" + MAX_LEVELS + " • " + retainedBytes() + " retained nested bytes");
+    }
+    private static String abbreviated(String name) { return name.length() > 160 ? name.substring(0, 160) + "… [tap for full name]" : name; }
+    private void parentFolder() {
+        if (busy || current().prefix.isEmpty()) return;
+        int slash = current().prefix.lastIndexOf('/', Math.max(0, current().prefix.length() - 2));
+        current().prefix = slash < 0 ? "" : current().prefix.substring(0, slash + 1); current().filter = ""; current().page = 0; bind(); render();
+    }
+    private void backArchive() {
+        if (busy || trail.size() < 2) return;
+        Location removed = trail.remove(trail.size() - 1); if (removed.owned) removed.file.delete(); bind(); load("");
+    }
+    private long retainedBytes() { long total = 0; for (Location location : trail) if (location.owned) total += location.size; return total; }
+    private void details(ArchiveStore.Member member) {
+        TextView fields = new TextView(this); fields.setTextIsSelectable(true); fields.setPadding(dp(12), dp(8), dp(12), dp(8));
+        fields.setText("Central-directory index: " + member.index + "\nName: " + member.name + "\nDeclared expanded size: " + member.size
+            + " bytes\nDeclared compressed size: " + member.compressedSize + " bytes\nCompression method: " + member.method
+            + (member.method == 0 ? " (stored)" : member.method == 8 ? " (deflate)" : " (not supported by this reader)")
+            + "\nDeclared CRC32: " + String.format(Locale.ROOT, "%08X", member.crc32) + "\nName occurrences: " + member.occurrences
+            + "\n\nExtraction checks the complete directory, expanded length and CRC32, and computes SHA-256. CRC32 does not authenticate a publisher. Duplicate names cannot be selected unambiguously. Stored/compressed sizes do not establish behavior.");
+        ScrollView scroll = new ScrollView(this); scroll.addView(fields);
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Archive member evidence").setView(scroll).setNegativeButton("Close", null)
+            .setNeutralButton("Browse nested ZIP", (d, which) -> select(member, true)).setPositiveButton("Analyze member", (d, which) -> select(member, false)).show();
+        boolean allowed = member.occurrences == 1 && member.size >= 0 && member.size <= ArchiveStore.MAX_MEMBER
+            && member.crc32 >= 0 && (member.method == 0 || member.method == 8);
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(allowed); dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setEnabled(allowed);
+    }
+    private void select(ArchiveStore.Member member, boolean nested) {
+        if (busy || inventory == null) return;
+        if (nested && (trail.size() >= MAX_LEVELS || member.size > MAX_RETAINED_BYTES - retainedBytes()
+            || pathCharacters(current().prefix, member.name) > MAX_PATH_CHARACTERS)) {
+            status.setText("Nested navigation budget: 16 levels, 512 MiB retained snapshots and 48 Ki-characters of location paths"); return;
+        }
+        final ArchiveStore.Inventory source = inventory; final int ticket = begin("Validating and extracting one member…"); final AtomicBoolean stop = cancellation;
+        worker.execute(() -> {
+            ArchiveStore.Extracted extracted = null; ArchiveStore.Inventory opened = null; String error = "";
+            try {
+                extracted = ArchiveStore.extract(source, member, snapshotDirectory, stop::get);
+                if (nested) opened = ArchiveStore.read(extracted.file, stop::get);
+                if (stop.get()) throw new InterruptedIOException("Archive operation cancelled");
+            } catch (Exception e) { if (extracted != null) extracted.file.delete(); extracted = null; error = e.getMessage(); }
+            final ArchiveStore.Extracted result = extracted; final ArchiveStore.Inventory child = opened; final String failure = error;
+            runOnUiThread(() -> {
+                if (isDestroyed() || ticket != generation) { if (result != null) result.file.delete(); return; }
+                settled(); render();
+                if (result == null) { status.setText("Member extraction failed: " + failure); return; }
+                if (stop.get()) { result.file.delete(); status.setText("Archive operation cancelled"); return; }
+                if (nested) {
+                    trail.add(new Location(result.file, member.name, true, result.size)); inventory = child; bind(); render();
+                } else {
+                    setResult(RESULT_OK, new Intent().putExtra("path", result.file.getAbsolutePath()).putExtra("display", displayName() + "!/" + member.name)
+                        .putExtra("memberSha256", result.sha256)); finish(); // Ownership of this leaf transfers to MainActivity.
+                }
+            });
+        });
+    }
+    @Override public void onBackPressed() {
+        if (busy) { cancellation.set(true); status.setText("Cancellation requested • wait for archive I/O before leaving"); }
+        else if (!current().prefix.isEmpty()) parentFolder(); else if (trail.size() > 1) backArchive(); else super.onBackPressed();
+    }
+    @Override protected void onSaveInstanceState(Bundle state) {
+        super.onSaveInstanceState(state); ArrayList<Bundle> locations = new ArrayList<>();
+        for (int i = 0; i < trail.size(); i++) {
+            Location location = trail.get(i); Bundle item = new Bundle(); item.putString("path", location.file.getAbsolutePath());
+            if (i > 0) item.putString("name", location.name);
+            item.putLong("size", location.size); item.putString("prefix", location.prefix); item.putString("filter", location.filter); item.putInt("page", location.page); locations.add(item);
+        }
+        state.putParcelableArrayList("archiveTrail", locations);
+    }
+    private String restore(Bundle state) {
+        if (state == null) return "";
+        ArrayList<Bundle> locations = state.getParcelableArrayList("archiveTrail");
+        if (locations == null || locations.isEmpty() || locations.size() > MAX_LEVELS) return "Navigation state unavailable; reopened outer archive";
+        try {
+            if (!current().file.getCanonicalPath().equals(locations.get(0).getString("path"))) throw new IOException("Different root");
+            for (int i = 0; i < locations.size(); i++) {
+                Bundle item = locations.get(i); Location location;
+                if (i == 0) location = current();
+                else {
+                    File cached = new File(item.getString("path", "")).getCanonicalFile(); long size = item.getLong("size", -1);
+                    if (!snapshotDirectory.getCanonicalFile().equals(cached.getParentFile()) || !cached.getName().startsWith("archive-member-")
+                        || !cached.isFile() || cached.length() != size || size < 0 || size > ArchiveStore.MAX_MEMBER
+                        || size > MAX_RETAINED_BYTES - retainedBytes()) throw new IOException("Nested snapshot expired");
+                    location = new Location(cached, item.getString("name", ""), true, size); trail.add(location);
+                }
+                location.prefix = item.getString("prefix", ""); location.filter = item.getString("filter", ""); location.page = Math.max(0, item.getInt("page"));
+                if (location.filter.length() > 1024 || pathCharacters(location.prefix, null) > MAX_PATH_CHARACTERS) throw new IOException("Navigation state exceeds budgets");
+            }
+            return "Restored archive navigation";
+        } catch (IOException e) {
+            while (trail.size() > 1) { Location removed = trail.remove(trail.size() - 1); removed.file.delete(); }
+            current().prefix = ""; current().filter = ""; current().page = 0;
+            return "Nested navigation expired; reopened outer archive";
+        }
+    }
+    @Override protected void onDestroy() {
+        generation++; cancellation.set(true); worker.shutdown();
+        if (!isChangingConfigurations()) for (Location location : trail) if (location.owned) location.file.delete();
+        super.onDestroy();
+    }
 }

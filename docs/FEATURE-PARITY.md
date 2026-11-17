@@ -20,7 +20,7 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | Read-only permitted filesystem and declared service inventory | wired |
 | OS Binder service registrations | wired, normal UID visibility only |
 | Live process/service diagnostics and privileged files | pending; explicit bridge required |
-| ZIP/APK nested member selection/extraction | wired; 256 MiB cap, private extraction, CRC check |
+| ZIP/APK nested member selection/extraction | complete bounded inventories, searchable 50-row folder pages, nested Back/recreation, private extraction with full-directory revalidation, size/CRC32/SHA-256 checks; host malformed/stale/duplicate/cancel fixtures and five Robolectric navigation/lifecycle/budget cases verified; handset flow and persistent cross-scan parent history pending |
 | Native resource payload extraction | selected resource or manually validated physical range staged for exact SAF byte export; host payload equality and Robolectric picker-delay/recreation/output checks verified; real document-provider flow pending |
 | Binary manifest/resource tables and DEX details | partial |
 | AOSP apksig independent v1/v2/v3 verification and certificate metadata | host fixtures verified: separate v1/v2/v3 and combined signatures, exact certificate, unsigned, tampered and truncated APKs; device flow pending; v3.1 exposed but rotation fixtures pending |
@@ -47,6 +47,8 @@ Desktop-backend fixtures validate candidate types, parser facts, loaded signatur
 Typed native table and range contracts, limits and additional fixtures are documented in [native-records.md](native-records.md). JNI fixtures additionally check 10,000-record preservation/over-limit errors, high unsigned VAs, IAT offsets versus symbol-record offsets, virtual tails, stored payload extraction and instruction-page continuation.
 
 `scripts/test-workbench-ui.sh` builds Linux JNI and runs eight Robolectric API 28 Android UI/lifecycle cases against it: 10,000-row search/paging/Back; immutable resource export across picker delay and recreation; filtered full-table report export; manual disassembly mode and separate row/block pages; exact resource-range digest export; displayed-versus-edited mode preservation across Back/recreation; unsigned preferred-VA navigation; queued table cancellation/recovery. The native methods are not mocked. The document provider is a test output stream, so this does not verify a real SAF permission grant, picker implementation, ARM64 runtime, handset layout or API 26/35 lifecycle behavior. Android CI runs these checks in addition to ARM64 compilation, lint and APK verification. A separate JVM verifies explicit errors when JNI is unavailable.
+
+The same UI command also runs five archive cases with real ZIP streams: parent folder/filter/page restoration; nested recreation and leaf ownership; invalid nested ZIP recovery; queued cancellation/reload; and the 16-level limit. Host acquisition fixtures run in `scripts/test.sh`. See [archive-acquisition.md](archive-acquisition.md) for exact budgets, supported methods, ownership and remaining ZIP/provenance gaps. These checks are separate from the native DEX/ZIP identification-only fixtures.
 
 ## Desktop upstream gap audit
 
