@@ -33,8 +33,11 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | Desktop scan cooperative cancellation and result cache | cache hit and byte-change invalidation host verified; request-owned cancellation, deterministic queued-cancel/recovery and Java streaming cancellation host verified; active native interrupt latency and handset lifecycle tests pending |
 | Batch scanning, diff, profiles, isolated native worker | pending |
 | Device testing, regression fixtures, license audit, reproducible signing | pending |
+| Packaged ARM64 APK signing/identity, offline assets and static 16 KiB alignment | build-time verification script and CI gate; actual 16 KiB Android runtime/device verification pending |
 
 A functional alpha may have pending items. Do not describe it as a full port until parity is verified.
+
+See [continuation instructions](continuation.md) for the build/check commands, implemented-versus-verified scope and next work.
 
 ## Automated verification
 Linux host JNI fixture job exercises ELF structures, section and default maps, imports, exports, symbols, disassembly, hash comparison and strings. Deterministic PE32, PE64 and thin Mach-O fixtures check structures, supported maps, entry-point mapping and decoding. Truncated ELF/PE/Mach-O headers must return explicit errors. Minimal DEX and ZIP fixtures check recognition only, not full format validity. This complements Android ARM64 cross-compilation and does not verify handset behavior.

@@ -26,13 +26,14 @@ bash scripts/fetch-engine.sh
 bash scripts/test-native.sh
 bash scripts/fetch-knowledge.sh
 ./gradlew :app:assembleDebug :app:lintDebug
+bash scripts/verify-apk.sh app/build/outputs/apk/debug/app-debug.apk
 ```
 
-CDiE and submodules are pinned. The Gradle wrapper pins 8.11.1 with a distribution SHA-256. Build-time downloads only. GitHub Actions uploads debug APKs if compilation succeeds. Java-only fallback: `./gradlew -PwithCdie=false :app:assembleDebug` (no compiler/packer detection).
+CDiE and submodules are pinned. The Gradle wrapper pins 8.11.1 with a distribution SHA-256. Build-time downloads only. GitHub Actions uploads the verified debug APK, checksum and source/data/signer build manifest. Debug signing keys and build paths can differ; bit-identical signed APKs are not claimed. Java-only fallback: `./gradlew -PwithCdie=false :app:assembleDebug` (no compiler/packer detection; the native APK verification script intentionally requires the full ARM64 build).
 
 ## Limits / roadmap
 
-Inputs capped at 1 GiB; crash recovery and native worker isolation remain pending. ASCII preview is capped at approximately 200k characters, runs at 4096, hex preview at 4096 bytes and entropy at 256 blocks; Native Tools provides paged hex, Unicode extraction, disassembly and native tables. Main Scan and the laboratory have request-owned cancellation, with queued-cancel and recovery fixtures; native interruption remains cooperative and active interrupt latency is unverified. Some provider, metadata and rule operations must return before cancellation settles. Cache hits and byte-change invalidation have host fixtures. Native reports have explicit output limits. Archive expansion inherits CDiE's unsupported formats and some silent member-skipping limits, disclosed in exports. Device verification, broad Qt comparison, batch/profile controls, 16 KB page-size verification and a complete license audit remain pending. Consult the [current parity matrix](docs/FEATURE-PARITY.md), rather than treating a successful build as runtime verification.
+Inputs capped at 1 GiB; crash recovery and native worker isolation remain pending. ASCII preview is capped at approximately 200k characters, runs at 4096, hex preview at 4096 bytes and entropy at 256 blocks; Native Tools provides paged hex, Unicode extraction, disassembly and native tables. Main Scan and the laboratory have request-owned cancellation, with queued-cancel and recovery fixtures; native interruption remains cooperative and active interrupt latency is unverified. Some provider, metadata and rule operations must return before cancellation settles. Cache hits and byte-change invalidation have host fixtures. Native reports have explicit output limits. Archive expansion inherits CDiE's unsupported formats and some silent member-skipping limits, disclosed in exports. Device verification (including actual 16 KiB page operation), broad Qt comparison, batch/profile controls and a complete license audit remain pending. Consult the [current parity matrix](docs/FEATURE-PARITY.md) and [continuation point](docs/continuation.md).
 
 ## License
 

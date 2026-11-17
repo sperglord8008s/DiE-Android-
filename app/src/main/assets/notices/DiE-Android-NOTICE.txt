@@ -1,0 +1,11 @@
+DiE Android (unofficial)
+Frontend license: GPL-3.0-only; the full license is bundled as DiE-Android-LICENSE.txt.
+Corresponding source: https://github.com/sperglord8008s/DiE-Android-
+
+CDiE, xxfclib, the Detect-It-Easy signature database and knowledge sources retain
+their original licenses. Their pinned revisions and available upstream notices
+are bundled under assets/notices and assets/knowledge. AOSP apksig 8.9.2 is
+Apache-2.0; see apksig-8.9.2.txt. Imported custom rules retain the license notices
+provided by their source; import does not grant redistribution rights.
+
+This is an independent project, not an official Horsicq application.

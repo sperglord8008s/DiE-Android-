@@ -23,10 +23,14 @@ jobs:
       - run: bash scripts/fetch-engine.sh
       - run: bash scripts/fetch-knowledge.sh
       - run: ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
+      - run: bash scripts/verify-apk.sh app/build/outputs/apk/debug/app-debug.apk
       - uses: actions/upload-artifact@v4
         with:
           name: die-android-arm64-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/debug/*.sha256
+            app/build/outputs/apk/debug/build-manifest.txt
           if-no-files-found: error
 
   native-integration:
