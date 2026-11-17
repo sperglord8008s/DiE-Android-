@@ -1,4 +1,4 @@
-# DiE Android (unofficial) — 0.1.0-alpha
+# DiE Android (unofficial) — 0.2.0-alpha
 
 Offline native Android frontend for the open-source Detect It Easy ecosystem. Independent project, not an official Horsicq application.
 
@@ -10,7 +10,7 @@ Source prototype, not an audited or device-tested release. Android compilation, 
 - Streaming header identification, SHA-256, Shannon entropy, touch-selectable block entropy, searchable ASCII strings and hex preview.
 - JNI binding to CDiE's public DIE_ScanFileA function; serialized calls, pinned bundled signature database, deep/heuristic/recursive/aggressive/parent-format flags. Explicit engine errors.
 - JSON report export using the system picker.
-- Dark native UI, worker thread, ARM64 native linkage; no Termux.
+- Desktop-inspired dark native UI: persistent scan flags, Scan / Rescan, file summary, expandable signature groups with details, raw JSON log, elapsed time and progress indicator. ARM64 native linkage; no Termux. Rescan reopens the selected URI (subject to provider permissions) with current settings.
 
 ## Build
 
