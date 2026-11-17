@@ -16,7 +16,7 @@
 #define U64(n) ((unsigned long long)(n))
 #define I64(n) ((long long)(n))
 
-static atomic_bool cancel_requested = ATOMIC_VAR_INIT(false);
+static atomic_bool cancel_requested = false;
 
 typedef struct desktop_output {
     xx_buf_t buf;
