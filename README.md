@@ -17,6 +17,7 @@ Development alpha with host JNI, Android UI simulation and CI build checks; hand
 - Google smali/dexlib2 + baksmali 3.0.10 provide Unicode DEX class indexing and integrity/table evidence. **APK / SDKs → DEX tables / bytecode / references / smali** opens lazy searchable tables, explicit reference/caller links, complete payloads, debug/exception records, byte-range actions and actual method smali. APK DEX members are privately acquired with size/CRC checks. See [DEX scope and contracts](docs/dex-investigation.md).
 - **Strings → Grouped string classifier** scans whole supported inputs with UTF-8/anchored UTF-16 and groups URLs/endpoints, commands/APIs, secret candidates, crypto, persistence, anti-analysis and vulnerability/exploit indicators. Exact DEX values have the same classifier and caller links. Every observation preserves rules, physical spans and limitations; no online service or malware verdict is involved. See [string scope and verification](docs/string-investigation.md).
 - **File info → Collected metadata** exposes EXIF/GPS/IPTC/ICC/XMP and supported image/media fields through source-built metadata-extractor/AOSP XMP. Directory relationships, raw typed values, reader errors, complete binary/text values and streamed exports remain separate from descriptions and previews. See [metadata scope and verification](docs/metadata-investigation.md).
+- **File info → Binwalk / resource carving** uses actual upstream validators and all 251 compiled magic patterns over the supported whole blob, retaining nested content, rejected candidates and unknown lengths. Exact bounded stored ranges can be recovered/exported. The ARM64 integration uses a private isolated service; host parser/range fixtures pass, while its handset IPC path remains unverified. See [Binwalk scope](docs/binwalk-investigation.md).
 - Desktop-inspired dark native UI: persistent scan flags, Scan / Rescan, file summary, expandable signature groups with details, raw JSON log, elapsed time and progress indicator. ARM64 native linkage; no Termux. Rescan reopens the selected URI (subject to provider permissions) with current settings.
 
 ## Build
@@ -32,6 +33,8 @@ bash scripts/fetch-engine.sh
 bash scripts/test-native.sh
 bash scripts/fetch-knowledge.sh
 bash scripts/fetch-metadata.sh
+bash scripts/fetch-binwalk.sh
+bash scripts/build-binwalk.sh android
 ./gradlew :app:assembleDebug :app:lintDebug
 bash scripts/verify-apk.sh app/build/outputs/apk/debug/app-debug.apk
 bash scripts/test-workbench-ui.sh
@@ -62,4 +65,4 @@ Run `scripts/test.sh` for the generic inspector, custom databases and archive ac
 
 `scripts/test-workbench-ui.sh` builds host JNI/fixtures and runs fourteen Android UI/lifecycle cases with Robolectric API 28: nine native-workbench cases with actual JNI results and five archive cases with real ZIP streams. A 360×640 layout case checks that maps and disassembly retain usable result space. The SDK/JDK and fetched engine are required; JUnit 4.13.2, Robolectric 4.14.1 and its Android runtime are build-time test dependencies only. The test JVM keeps its download cache under `app/build/test-runtime-home`; retain it and the Gradle cache for offline reruns. The test provider captures export streams; real SAF permissions and handset behavior need device checks. Android CI runs these tests and independently cross-compiles/lints/verifies the ARM64 APK. No connected-device verification is claimed.
 
-That command also runs four DEX report-integration cases, seven DEX viewer cases, six string viewer cases and six metadata viewer cases, for thirty-seven Android checks in total. `scripts/test-dex.sh`, `scripts/test-strings.sh` and `scripts/test-metadata.sh` check real engine contracts, encodings/locations, complete values, exports and limits on the host. `DEX_DEPS_DIR` / `METADATA_DEPS_DIR` retain checksum-verified dependencies/sources for offline runs. See the linked tool contracts above.
+That command also runs four DEX report-integration cases, seven DEX viewer cases, six string viewer cases, six metadata cases and two binary-worker boundary cases, for thirty-nine Android checks in total. `scripts/test-dex.sh`, `scripts/test-strings.sh`, `scripts/test-metadata.sh` and `scripts/test-binwalk.sh` check real engine/encoding/location/value/range contracts on the host. The binary engine requires Rust 1.90.0; Gradle rebuilds its ARM64 library when native inputs change. `DEX_DEPS_DIR`, `METADATA_DEPS_DIR`, Cargo/toolchain caches and `BINARY_BUILD_DIR` support offline reruns. See the linked contracts above.

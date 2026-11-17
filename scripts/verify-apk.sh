@@ -16,6 +16,7 @@ if ! "$tools/apksigner" verify --verbose --print-certs "$apk" > "$tmp/signature.
 fi
 "$tools/aapt2" dump permissions "$apk" > "$tmp/permissions.txt"
 "$tools/aapt2" dump badging "$apk" > "$tmp/badging.txt"
+"$tools/aapt2" dump xmltree "$apk" --file AndroidManifest.xml > "$tmp/manifest-tree.txt"
 python3 - "$tmp/permissions.txt" "$tmp/badging.txt" <<'PY'
 import sys
 from pathlib import Path
@@ -26,26 +27,49 @@ for expected in ("package: name='org.diemobile'", "minSdkVersion:'26'", "targetS
     if expected not in badging:
         raise SystemExit('Packaged identity/API field missing: ' + expected + '\n' + badging)
 PY
-
-unzip -p "$apk" lib/arm64-v8a/libdiemobile.so > "$tmp/libdiemobile.so"
-"$readelf" -lW "$tmp/libdiemobile.so" > "$tmp/segments.txt"
-python3 - "$tmp/libdiemobile.so" "$tmp/segments.txt" <<'PY'
+python3 - "$tmp/manifest-tree.txt" <<'PY'
+from pathlib import Path
 import sys
-with open(sys.argv[1], 'rb') as stream:
-    header = stream.read(20)
-assert header[:6] == b'\x7fELF\x02\x01', 'Expected a little-endian ELF64 library'
-assert int.from_bytes(header[18:20], 'little') == 183, 'Expected AArch64 machine type'
-loads = []
-with open(sys.argv[2]) as stream:
-    for line in stream:
-        fields = line.split()
-        if fields and fields[0] == 'LOAD':
-            offset, address, alignment = int(fields[1], 16), int(fields[2], 16), int(fields[-1], 16)
-            assert alignment >= 16384 and alignment & (alignment - 1) == 0, 'ELF LOAD alignment below 16 KiB'
-            assert offset % 16384 == address % 16384, 'ELF segment not congruent at 16 KiB'
-            loads.append(alignment)
-assert loads, 'No ELF LOAD segments'
-print('ARM64 ELF LOAD segments and APK native-library placement satisfy static 16 KiB alignment checks.')
+lines=Path(sys.argv[1]).read_text().splitlines();blocks=[]
+for i,line in enumerate(lines):
+    if line.strip().startswith('E: service '):
+        indent=len(line)-len(line.lstrip());block=[]
+        for child in lines[i+1:]:
+            if child.strip().startswith('E:') and len(child)-len(child.lstrip())<=indent:
+                break
+            block.append(child)
+        if any('org.diemobile.BinaryWorkerService' in child for child in block):
+            blocks.append(block)
+assert len(blocks)==1,'Expected one packaged BinaryWorkerService'
+block=blocks[0]
+assert any(':isolatedProcess(' in line and line.endswith('=true') for line in block),'Binary worker lost UID isolation'
+assert any(':exported(' in line and line.endswith('=false') for line in block),'Binary worker became externally accessible'
+assert any(':process(' in line and '":binary_worker"' in line for line in block),'Binary worker lost its separate process'
+print('Packaged binary worker is private and requests a separate isolated UID/process.')
+PY
+
+python3 - "$apk" "$readelf" "$tmp" <<'PY'
+from pathlib import Path
+import subprocess
+import sys
+import zipfile
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    names=[name for name in archive.namelist() if name.startswith('lib/') and name.endswith('.so')]
+    assert {'lib/arm64-v8a/libdiemobile.so','lib/arm64-v8a/libdiebinwalk.so'} <= set(names), 'Required native engine library missing'
+    for name in names:
+        assert name.startswith('lib/arm64-v8a/'), 'Unexpected native ABI: '+name
+        data=archive.read(name);header=data[:20]
+        assert header[:6]==b'\x7fELF\x02\x01' and int.from_bytes(header[18:20],'little')==183, 'Expected little-endian AArch64 ELF64: '+name
+        path=Path(sys.argv[3])/Path(name).name;path.write_bytes(data)
+        segments=subprocess.check_output([sys.argv[2],'-lW',str(path)],text=True);loads=[]
+        for line in segments.splitlines():
+            fields=line.split()
+            if fields and fields[0]=='LOAD':
+                offset,address,alignment=int(fields[1],16),int(fields[2],16),int(fields[-1],16)
+                assert alignment>=16384 and alignment&(alignment-1)==0 and offset%16384==address%16384, 'Invalid 16 KiB LOAD alignment: '+name
+                loads.append(alignment)
+        assert loads,'No ELF LOAD segments: '+name
+        print('Static ARM64 / 16 KiB ELF verification:',name)
 PY
 
 unzip -p "$apk" assets/engine-revisions.properties | cmp - generated-assets/engine-revisions.properties
@@ -58,6 +82,9 @@ unzip -p "$apk" assets/notices/dex-dependencies.txt | cmp - app/src/main/assets/
 unzip -p "$apk" assets/notices/metadata-extractor-2.22.0.txt | cmp - app/src/main/assets/notices/metadata-extractor-2.22.0.txt
 unzip -p "$apk" assets/notices/xmp-aosp-BSD.txt | cmp - app/src/main/assets/notices/xmp-aosp-BSD.txt
 unzip -p "$apk" assets/notices/metadata-source-headers.txt | cmp - app/src/main/assets/notices/metadata-source-headers.txt
+unzip -p "$apk" assets/notices/binwalk-3.1.1.txt | cmp - app/src/main/assets/notices/binwalk-3.1.1.txt
+unzip -p "$apk" assets/notices/binary-dependencies.txt | cmp - app/src/main/assets/notices/binary-dependencies.txt
+unzip -p "$apk" assets/notices/rust-stdlib-1.90.0.html | cmp - app/src/main/assets/notices/rust-stdlib-1.90.0.html
 unzip -p "$apk" assets/db/_init > "$tmp/db-init"
 test -s "$tmp/db-init"
 
@@ -68,7 +95,8 @@ manifest="$(dirname "$apk")/build-manifest.txt"
   echo "Source revision: $source_revision"
   echo "Uncommitted source entries at verification: $source_changes"
   echo 'Configuration: debug, org.diemobile, API 26 minimum / API 35 target, ARM64'
-  echo 'Pinned toolchain: JDK 17, Gradle 8.11.1, NDK 28.2.13676358, CMake 3.22.1, build-tools 35.0.0'
+  echo 'Pinned toolchain: JDK 17, Rust 1.90.0, Gradle 8.11.1, NDK 28.2.13676358, CMake 3.22.1, build-tools 35.0.0'
+  sha256sum binary-engine/Cargo.lock
   cat generated-assets/engine-revisions.properties generated-assets/knowledge/revisions.txt
   cat app/src/main/assets/analysis-engines.properties
   echo 'Verification: APK signature, ZIP alignment, ELF 16 KiB alignment, application identity/API levels, no INTERNET permission, bundled revision/license assets'

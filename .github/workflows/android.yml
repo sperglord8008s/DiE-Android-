@@ -23,6 +23,11 @@ jobs:
       - run: bash scripts/fetch-engine.sh
       - run: bash scripts/fetch-knowledge.sh
       - run: bash scripts/fetch-metadata.sh
+      - uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          targets: aarch64-linux-android
+      - run: bash scripts/build-binwalk.sh android
+      - run: bash scripts/check-binary-notices.sh
       - run: ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
       - run: bash scripts/verify-apk.sh app/build/outputs/apk/debug/app-debug.apk
       - run: bash scripts/test-workbench-ui.sh
@@ -59,3 +64,15 @@ jobs:
       - run: bash scripts/test-dex.sh
       - run: bash scripts/test-strings.sh
       - run: bash scripts/test-metadata.sh
+
+  binary-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: dtolnay/rust-toolchain@1.90.0
+      - run: bash scripts/test-binwalk.sh
+      - run: bash scripts/check-binary-notices.sh

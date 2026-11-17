@@ -7,7 +7,8 @@ Work is on `codex/workbench-parity`, proposed in [draft PR #1](https://github.co
 - DEX: pinned Google smali/dexlib2 + baksmali 3.0.10 and Android Guava, complete licensing/source notices and standalone dependency checksums. The main report uses Unicode/MUTF-8 indexing, table counts, Adler32/SHA-1 consistency and DEX SHA-256; ZIP duplicate-name/size/CRC/budget failures are explicit. APK / SDKs opens lazy typed metadata/bytecode/debug/exception/payload/reference tables, real method smali and physical byte actions. Complete scoped exports, 64-location Back/recreation, captured versus draft filters, classic versions and 041 shared containers have host fixtures. Four report and six viewer Robolectric cases join the previous fourteen UI cases. See [DEX investigation](dex-investigation.md).
 - String investigation: 43 built-in rules, 16 overlapping groups and full rule catalog/context/identity. Whole-input UTF-8/anchored UTF-16 scanning and exact DEX MUTF-8 classification preserve physical match/range evidence; private byte/text snapshots keep exports and hex independent of source expiry. All-rule host fixtures, six string viewer cases and one added DEX viewer case pass (31 Android checks total). See [string contracts](string-investigation.md).
 - Collected metadata: source-built metadata-extractor 2.22.0 (Apache-2.0) plus Adobe XMP Core 5.1.0-jc003 from pinned AOSP BSD source, with a complete compatibility/XML gate patch. Directory/tag/error/XMP views retain raw types/relationships and stream complete values to JSON; exact binary/text values are exportable. Host JPEG/EXIF/GPS/ICC/XMP/PNG/WAV fixtures and six metadata Android cases pass (37 Android checks total). See [metadata contracts](metadata-investigation.md).
-- Remaining additional user scope: actual MPV/media codec probing, Binwalk and whole-blob media/resource carving (JPEG/PhotoRec-like recovery). These engines remain pending; metadata readers are not substitutes. Continue with broad validated carving and actual media/Binwalk engines, then Android binary XML/resources and the desktop gap list. Never claim strings/signature candidates prove behavior.
+- Binwalk: unmodified upstream source 26713972 (3.1.1), 111 signatures/251 patterns and actual validators, with an explicit full-blob/overlap adapter, complete unresolved/candidate/catalog evidence and exact bounded stored-byte recovery. Linux JNI fixtures cover nested media, JPEG/ICC false EOI, unknown extents, descriptor ownership and immutable carving. ARM64 builds and both native-library 16 KiB checks pass. The private isolated worker is wired; two manifest/UID-refusal Robolectric cases bring the suite to 39, but real Binder/isolated UID/crash/cancellation flow is not device verified. See [Binwalk contracts](binwalk-investigation.md).
+- Remaining additional user scope: actual MPV/media codec probing, broader PhotoRec/JPEG Digger/fragment recovery and exhaustive media coverage. Continue with MPV probing and worker-device validation, then Android binary XML/resources and the desktop gap list. Never claim strings/signature candidates prove behavior.
 
 - The main Scan workflow uses the pinned desktop CDiE backend. Scan/laboratory settings share one migrated preferences store. Results retain exact source paths, hierarchy, parser facts and diagnostics; 50-row searchable pages retain the full model. Physical entry offsets open hex/disassembly. Export schema v1 captures the original input SHA-256, scan options, engine/database identities and native JSON.
 - Bundled databases install into revision-specific private snapshots. Custom ZIP imports enforce path, duplicate, CRC, compressed/expanded size, member size and count limits. Original ZIPs, helpers, tags and license notices are retained. Native load checks precede atomic active-pointer changes; immutable paths invalidate native caches when switching/rolling back. Archive SHA-256 and enabled state are exported.
@@ -31,9 +32,12 @@ bash scripts/test-models.sh
 bash scripts/test-dex.sh
 bash scripts/test-strings.sh
 bash scripts/test-metadata.sh
+bash scripts/test-binwalk.sh
 bash scripts/fetch-engine.sh
 bash scripts/fetch-knowledge.sh
 bash scripts/fetch-metadata.sh
+bash scripts/fetch-binwalk.sh
+bash scripts/build-binwalk.sh android
 bash scripts/test-native.sh
 ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
 bash scripts/verify-apk.sh app/build/outputs/apk/debug/app-debug.apk
@@ -56,3 +60,5 @@ Engine: `f055daa56fd3feef1db4d6dbc187cb292de24ea9`; signature data: `7ef816ee64e
 6. Move native parsing into a separately designed isolated worker with cancellation/resource budgets before claiming suitability for arbitrary hostile samples. Add interrupted-import/stale-staging cleanup, power-loss recovery and snapshot storage reclamation. Existing atomic rename tests do not prove power-loss durability. Native script testing still has no cancellation scope.
 
 The optional privileged process/service bridge remains absent. Do not infer live service state from manifest declarations or bypass ordinary UID restrictions. The complete linked/data license audit and reproducible release signing remain pending despite the bundled notices.
+
+The binary engine additionally requires Rust 1.90.0 and `aarch64-linux-android`. `DIE_RUST_ROOT` can point to a standalone toolchain and `BINARY_BUILD_DIR` retain Cargo output; Cargo's cache/source checkout and toolchain must be retained for offline use. Gradle forwards `--offline` to its native build. The worker is private and unprivileged; it is unrelated to the still-absent Shizuku/root bridge. Its isolated-process design does not migrate the other parsers or imply handset verification.

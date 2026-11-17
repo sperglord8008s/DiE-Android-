@@ -22,3 +22,13 @@ built from pinned source archives with the documented compatibility/XML gate
 patch. Full terms and source notices: metadata-extractor-2.22.0.txt,
 xmp-aosp-BSD.txt and metadata-source-headers.txt. Corresponding source/build
 instructions are included in the repository's metadata-engine module.
+
+Binwalk 3.1.1 source commit 26713972e3f9f52dc37d4a421c4554b0bd9e82ef
+provides binary signatures/format validators under MIT (binwalk-3.1.1.txt).
+The GPL-3.0 JNI/scanning adapter uses a separate core-only Cargo manifest;
+the upstream library source is unmodified. Cargo.lock pins dependencies,
+including delink b58c93732c3578af08d39d2fc2aeaada5b1c3ee1. Full resolved
+dependency license texts are in binary-dependencies.txt. Linked Rust 1.90.0
+standard-library notices are in rust-stdlib-1.90.0.html. The two shared JNI
+workspace license files omitted by jni-sys-macros 0.4.1's crate archive are
+retained at their pinned source commit in binary-engine/licenses.

@@ -3,6 +3,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 if [[ ! -f vendor/metadata-engine/revision.txt ]]; then bash scripts/fetch-metadata.sh; fi
+bash scripts/build-binwalk.sh host
+if [[ ! -f app/build/generated-binwalk-jni/arm64-v8a/libdiebinwalk.so ]]; then bash scripts/build-binwalk.sh android; fi
 build="${NATIVE_BUILD_DIR:-$PWD/app/build/host-native}"
 fixtures="$PWD/app/build/host-ui-fixtures"
 cmake -S app/src/main/cpp -B "$build" -DCMAKE_BUILD_TYPE=Release
