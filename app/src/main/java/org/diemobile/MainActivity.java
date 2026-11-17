@@ -127,12 +127,18 @@ public class MainActivity extends Activity {
  private void openNativeToolAt(int tool,long offset){if(retainedFile==null)return;Intent i=new Intent(this,NativeToolsActivity.class);i.putExtra("path",retainedFile.getAbsolutePath());i.putExtra("name",name);i.putExtra("tool",tool);i.putExtra("offset",offset);startActivity(i);}
  private void showNativeFacts(){
   if(evidence==null||!evidence.ok)return;
-  field("Architecture",evidence.architecture+" / "+evidence.mode+" / "+evidence.endianness,"Parser-reported architecture, execution mode and byte order. These describe the file, not this Android device or a runtime process.");
+  String machine=evidence.architecture.isEmpty()?"Unknown":evidence.architecture;
+  if(!evidence.mode.isEmpty())machine+=" / "+evidence.mode;
+  if(!evidence.endianness.isEmpty())machine+=" / "+evidence.endianness;
+  field("Architecture",machine,"Parser-reported architecture, execution mode and byte order. These describe the file, not this Android device or a runtime process. An empty parser field does not establish a machine architecture.");
   if(nativeFacts!=null&&nativeFacts.optBoolean("ok")){
-   field("Image base",nativeFacts.optString("base"),"Preferred loader address before relocation or ASLR. A virtual address is not a physical file offset.");
-   field("Entry VA",nativeFacts.optString("entry"),"Format-declared entry point in the virtual address domain. Loader initialization and other entry paths may run first.");
+   String formatPage=nativeFacts.optString("page");
+   if(formatPage.equals("PE")||formatPage.equals("ELF")||formatPage.equals("Mach-O")){
+    field("Image base",nativeFacts.optString("base"),"Preferred loader address before relocation or ASLR. A virtual address is not a physical file offset.");
+    field("Entry VA",nativeFacts.optString("entry"),"Format-declared entry point in the virtual address domain. Loader initialization and other entry paths may run first.");
+   }
    long entry=nativeFacts.optLong("entryOffset",-1);
-   if(entry>=0){field("Entry offset",String.format(Locale.ROOT,"0x%X",entry),"Physical byte offset mapped by the native parser. Inspect bytes and instruction decoding to corroborate the entry point.");pane.addView(btn("Hex at entry point",()->openNativeToolAt(9,entry)));pane.addView(btn("Disassemble entry point",()->openNativeToolAt(6,entry)));}
+   if((nativeFacts.optInt("flags")&(1<<14))!=0&&entry>=0){field("Entry offset",String.format(Locale.ROOT,"0x%X",entry),"Physical byte offset mapped by the native parser (GUI_FACTS_ENTRY_OFFSET). Inspect bytes and instruction decoding to corroborate the entry point.");pane.addView(btn("Hex at entry point",()->openNativeToolAt(9,entry)));pane.addView(btn("Disassemble entry point",()->openNativeToolAt(6,entry)));}
   }
   if(database!=null)field("Database",database.signatureRevision,"Exact bundled Detect-It-Easy signature database Git revision. The engine revision and options are preserved in report exports.");
  }
