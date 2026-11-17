@@ -29,7 +29,7 @@ public class MainActivity extends Activity {
  private CheckBox deep,recursive,heuristic,aggressive,all;
  private EditText min;
  private Inspector.Result result;
- private String name="",report="",error="";
+ private String name="",report="",error="",guide="",apkReport="";
  private boolean busy;
  private Uri pending;
  private int page;
@@ -65,7 +65,7 @@ public class MainActivity extends Activity {
   min=new EditText(this);min.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);min.setText(""+prefs.getInt("min",4));
   for(CheckBox c:new CheckBox[]{deep,heuristic,recursive,aggressive,all})c.setOnCheckedChangeListener((b,v)->settingsChanged());
   tabs=new LinearLayout(this);HorizontalScrollView hs=new HorizontalScrollView(this);hs.setHorizontalScrollBarEnabled(false);hs.addView(tabs);root.addView(hs);
-  String[] labels={"Scan","File info","Entropy","Strings","Hex","Log / JSON"};for(int i=0;i<labels.length;i++){final int p=i;tabs.addView(btn(labels[i],()->{page=p;show();}));}
+  String[] labels={"Scan","File info","File 101","APK / SDKs","Entropy","Strings","Hex","Log / JSON"};for(int i=0;i<labels.length;i++){final int p=i;tabs.addView(btn(labels[i],()->{page=p;show();}));}
   View line=new View(this);line.setBackgroundColor(0xff44525e);root.addView(line,new LinearLayout.LayoutParams(-1,dp(1)));
   ScrollView sc=new ScrollView(this);pane=vertical();sc.addView(pane);root.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
   progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setMax(100);progress.setProgress(0);root.addView(progress,new LinearLayout.LayoutParams(-1,dp(5)));
@@ -74,26 +74,35 @@ public class MainActivity extends Activity {
  private int currentFlags(){return (deep.isChecked()?1:0)|(heuristic.isChecked()?2:0)|(all.isChecked()?4:0)|(recursive.isChecked()?8:0)|(aggressive.isChecked()?32:0)|16;}
  private int minLength(){try{return Math.max(3,Math.min(64,Integer.parseInt(min.getText().toString())));}catch(Exception e){return 4;}}
  private void settingsChanged(){getSharedPreferences("scan_options",MODE_PRIVATE).edit().putBoolean("deep",deep.isChecked()).putBoolean("heuristic",heuristic.isChecked()).putBoolean("recursive",recursive.isChecked()).putBoolean("aggressive",aggressive.isChecked()).putBoolean("all",all.isChecked()).putInt("min",minLength()).apply();settingsDirty=currentFlags()!=scannedFlags||minLength()!=scannedMin;if(!busy&&selectedUri!=null&&settingsDirty){status.setText("Settings changed • press Scan / Rescan");}else if(!busy&&result!=null)finishedStatus();}
- private void optionsDialog(){LinearLayout form=vertical();form.setPadding(dp(18),dp(8),dp(18),dp(8));TextView desc=txt("Deep: additional signature rules.\nHeuristic: infer probable matches.\nRecursive: inspect embedded files.\nAggressive: additional speculative checks.\nAll types: also scan compatible parent formats.\n\nMinimum ASCII string length (3–64)",14);form.addView(desc);EditText entry=new EditText(this);entry.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);entry.setText(min.getText());form.addView(entry);new AlertDialog.Builder(this).setTitle("Scan options").setView(form).setNegativeButton("Cancel",null).setPositiveButton("Apply",(d,w)->{min.setText(entry.getText());min.setText(""+minLength());settingsChanged();}).show();}
+ private void optionsDialog(){LinearLayout form=vertical();form.setPadding(dp(18),dp(8),dp(18),dp(8));TextView desc=txt("Deep: additional signature rules.\nHeuristic: infer probable matches.\nRecursive: inspect embedded files.\nAggressive: additional speculative checks.\nAll types: also scan compatible parent formats.\n\nMinimum ASCII string length (3–64)",14);form.addView(desc);EditText entry=new EditText(this);entry.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);entry.setText(min.getText());form.addView(entry);form.addView(btn("Import Exodus database (JSON)",()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");startActivityForResult(i,3);}));new AlertDialog.Builder(this).setTitle("Scan options").setView(form).setNegativeButton("Cancel",null).setPositiveButton("Apply",(d,w)->{min.setText(entry.getText());min.setText(""+minLength());settingsChanged();}).show();}
  private void finishedStatus(){status.setText(String.format(Locale.ROOT,"%s • %d ms%s",error.isEmpty()?"Scan complete":"Local scan / engine error",elapsedMs,settingsDirty?" • settings changed":""));}
  private void receive(Intent i){if(i==null)return;Uri u=null;if(Intent.ACTION_VIEW.equals(i.getAction()))u=i.getData();else if(Intent.ACTION_SEND.equals(i.getAction()))u=i.getParcelableExtra(Intent.EXTRA_STREAM);if(u!=null&&"content".equals(u.getScheme()))scan(u);}
- @Override protected void onActivityResult(int req,int code,Intent data){super.onActivityResult(req,code,data);if(code==RESULT_OK&&data!=null&&data.getData()!=null){if(req==1){try{getContentResolver().takePersistableUriPermission(data.getData(),data.getFlags()&Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException ignored){}scan(data.getData());}if(req==2)save(data.getData());}}
+ @Override protected void onActivityResult(int req,int code,Intent data){super.onActivityResult(req,code,data);if(code==RESULT_OK&&data!=null&&data.getData()!=null){if(req==1){try{getContentResolver().takePersistableUriPermission(data.getData(),data.getFlags()&Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException ignored){}scan(data.getData());}if(req==2)save(data.getData());if(req==3)importExodus(data.getData());}}
+ private void importExodus(Uri u){
+  worker.execute(()->{String msg;File temp=new File(getFilesDir(),"exodus-trackers.tmp");try(InputStream in=getContentResolver().openInputStream(u)){
+   if(in==null)throw new IOException("No input");byte[] data=KnowledgeReport.bytes(in,8*1024*1024);JSONObject obj=new JSONObject(new String(data,StandardCharsets.UTF_8));obj.getJSONObject("trackers");
+   try(FileOutputStream out=new FileOutputStream(temp)){out.write(data);}
+   if(!temp.renameTo(new File(getFilesDir(),"exodus-trackers.json")))throw new IOException("Cannot store snapshot");
+   msg="Exodus snapshot imported. Rescan to apply.";
+  }catch(Exception e){temp.delete();msg="Import failed: "+e.getMessage();}final String text=msg;runOnUiThread(()->{if(!isDestroyed())Toast.makeText(this,text,Toast.LENGTH_LONG).show();});});
+ }
  private String fileName(Uri u){try(Cursor c=getContentResolver().query(u,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){if(c!=null&&c.moveToFirst()&&!c.isNull(0))return c.getString(0);}catch(Exception ignored){}return "input.bin";}
  private void scan(Uri u){
-  if(busy){pending=u;return;}selectedUri=u;busy=true;result=null;report="";error="";status.setText("Scanning locally…");fileLabel.setText(u.getLastPathSegment()==null?"Selected file":u.getLastPathSegment());open.setEnabled(false);rescan.setEnabled(false);export.setEnabled(false);progress.setIndeterminate(true);show();
+  if(busy){pending=u;return;}selectedUri=u;busy=true;result=null;report="";error="";guide="";apkReport="";status.setText("Scanning locally…");fileLabel.setText(u.getLastPathSegment()==null?"Selected file":u.getLastPathSegment());open.setEnabled(false);rescan.setEnabled(false);export.setEnabled(false);progress.setIndeterminate(true);show();
   int flags=currentFlags();final int minLen=minLength();final long started=SystemClock.elapsedRealtime();
   worker.execute(()->{
-   File f=null;Inspector.Result r=null;String n="",rep="",err="",fail="";
+   File f=null;Inspector.Result r=null;String n="",rep="",err="",fail="",g="",a="";
    try{
     n=fileName(u);String ext=".bin";int dot=n.lastIndexOf('.');if(dot>=0&&n.substring(dot).matches("\\.[a-zA-Z0-9]{1,12}"))ext=n.substring(dot);
     f=File.createTempFile("scan-",ext,getCacheDir());
     try(InputStream in=getContentResolver().openInputStream(u);OutputStream out=new FileOutputStream(f)){if(in==null)throw new IOException("No input data");byte[] b=new byte[65536];int count;long total=0;while((count=in.read(b))!=-1){total+=count;if(total>1024L*1024*1024)throw new IOException("Alpha limit: 1 GiB");out.write(b,0,count);}}
     r=Inspector.scan(f,minLen);
+    try{KnowledgeReport.Output k=KnowledgeReport.analyze(this,f,r,n);g=k.guide.toString();a=k.apk.toString();}catch(Exception e){g="Explanatory report unavailable: "+e.getMessage();}
     if(Engine.AVAILABLE){try{File db=new File(getFilesDir(),"cdie-db-v1");File marker=new File(db,".ready");if(!marker.isFile()){copyAssets("db",db);if(!marker.createNewFile())throw new IOException("Cannot mark database ready");}rep=Engine.scan(f.getAbsolutePath(),db.getAbsolutePath(),flags);}catch(Exception|LinkageError e){err=e.toString();}}
     else err="CDiE not bundled; compiler/packer detection unavailable.";
    }catch(Exception e){fail=e.toString();}finally{if(f!=null)f.delete();}
-   final Inspector.Result fr=r;final String fn=n,fp=rep,fe=err,ff=fail;
-   runOnUiThread(()->{if(isDestroyed())return;result=fr;name=fn;report=fp;error=fe;busy=false;elapsedMs=SystemClock.elapsedRealtime()-started;scannedFlags=flags;scannedMin=minLen;settingsDirty=currentFlags()!=flags||minLength()!=minLen;fileLabel.setText(fn.isEmpty()?"Selected file":fn);open.setEnabled(true);rescan.setEnabled(selectedUri!=null);export.setEnabled(result!=null);progress.setIndeterminate(false);progress.setProgress(result!=null?100:0);if(ff.isEmpty())finishedStatus();else status.setText(ff);show();if(pending!=null){Uri next=pending;pending=null;scan(next);}});
+   final Inspector.Result fr=r;final String fn=n,fp=rep,fe=err,ff=fail,fg=g,fa=a;
+   runOnUiThread(()->{if(isDestroyed())return;result=fr;name=fn;report=fp;error=fe;guide=fg;apkReport=fa;busy=false;elapsedMs=SystemClock.elapsedRealtime()-started;scannedFlags=flags;scannedMin=minLen;settingsDirty=currentFlags()!=flags||minLength()!=minLen;fileLabel.setText(fn.isEmpty()?"Selected file":fn);open.setEnabled(true);rescan.setEnabled(selectedUri!=null);export.setEnabled(result!=null);progress.setIndeterminate(false);progress.setProgress(result!=null?100:0);if(ff.isEmpty())finishedStatus();else status.setText(ff);show();if(pending!=null){Uri next=pending;pending=null;scan(next);}});
   });
  }
  private void copyAssets(String path,File dest)throws IOException{String[] children=getAssets().list(path);if(children!=null&&children.length>0){if(!dest.isDirectory()&&!dest.mkdirs())throw new IOException("Cannot create directory");for(String child:children)copyAssets(path+"/"+child,new File(dest,child));}else{try(InputStream in=getAssets().open(path);OutputStream out=new FileOutputStream(dest)){byte[] b=new byte[32768];int n;while((n=in.read(b))!=-1)out.write(b,0,n);}}}
@@ -104,10 +113,12 @@ public class MainActivity extends Activity {
   switch(page){
    case 0:field("Type",result.type);field("Size",String.format(Locale.ROOT,"%,d bytes (0x%X)",result.size,result.size));field("Entropy",String.format(Locale.ROOT,"%.4f / 8",result.entropy));heading("Detection results");showDetections();break;
    case 1:heading("File information");field("Name",name);field("Type",result.type);field("Size",String.format(Locale.ROOT,"%,d bytes (0x%X)",result.size,result.size));field("Entropy",String.format(Locale.ROOT,"%.4f bits/byte",result.entropy));heading("SHA-256");pane.addView(mono(result.sha256));break;
-   case 2:pane.addView(txt(String.format(Locale.ROOT,"Whole-file entropy: %.3f / 8",result.entropy),17));TextView detail=txt("Touch graph to inspect a block.",14);pane.addView(new Graph(result,detail),new LinearLayout.LayoutParams(-1,dp(230)));pane.addView(detail);pane.addView(txt("High entropy can indicate compression, encryption or randomness; not proof of packing.",14));break;
-   case 3:EditText q=new EditText(this);q.setSingleLine(true);q.setHint("Filter ASCII strings");pane.addView(q);pane.addView(txt("Preview limited to ~200k characters and 4096 characters per run.",12));TextView lines=mono(result.strings);pane.addView(lines);final String source=result.strings;q.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int a,int b,int c){}public void onTextChanged(CharSequence s,int a,int b,int c){StringBuilder o=new StringBuilder();String term=s.toString().toLowerCase(Locale.ROOT);for(String line:source.split("\n"))if(line.toLowerCase(Locale.ROOT).contains(term))o.append(line).append('\n');lines.setText(o.length()==0?"No matches":o.toString());}public void afterTextChanged(android.text.Editable e){}});break;
-   case 4:pane.addView(txt("First 4096 bytes • hex / ASCII",14));HorizontalScrollView hs=new HorizontalScrollView(this);hs.addView(mono(result.hex));pane.addView(hs);break;
-   case 5:heading("Engine log / raw JSON");pane.addView(mono(error.isEmpty()?pretty(report):error+"\n"+pretty(report)));break;
+   case 2:heading("File 101 • explained");pane.addView(txt(guide,14));break;
+   case 3:heading("APK / SDKs • static evidence");pane.addView(mono(apkReport));break;
+   case 4:pane.addView(txt(String.format(Locale.ROOT,"Whole-file entropy: %.3f / 8",result.entropy),17));TextView detail=txt("Touch graph to inspect a block.",14);pane.addView(new Graph(result,detail),new LinearLayout.LayoutParams(-1,dp(230)));pane.addView(detail);pane.addView(txt("High entropy can indicate compression, encryption or randomness; not proof of packing.",14));break;
+   case 5:EditText q=new EditText(this);q.setSingleLine(true);q.setHint("Filter ASCII strings");pane.addView(q);pane.addView(txt("Preview limited to ~200k characters and 4096 characters per run.",12));TextView lines=mono(result.strings);pane.addView(lines);final String source=result.strings;q.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int a,int b,int c){}public void onTextChanged(CharSequence s,int a,int b,int c){StringBuilder o=new StringBuilder();String term=s.toString().toLowerCase(Locale.ROOT);for(String line:source.split("\n"))if(line.toLowerCase(Locale.ROOT).contains(term))o.append(line).append('\n');lines.setText(o.length()==0?"No matches":o.toString());}public void afterTextChanged(android.text.Editable e){}});break;
+   case 6:pane.addView(txt("First 4096 bytes • hex / ASCII",14));HorizontalScrollView hs=new HorizontalScrollView(this);hs.addView(mono(result.hex));pane.addView(hs);break;
+   case 7:heading("Engine log / raw JSON");pane.addView(mono(error.isEmpty()?pretty(report):error+"\n"+pretty(report)));break;
   }
  }
  private void heading(String title){TextView h=txt(title,14);h.setTypeface(null,Typeface.BOLD);h.setTextColor(0xff80cbc4);h.setBackgroundColor(0xff26323a);h.setPadding(dp(8),dp(6),dp(8),dp(6));pane.addView(h,new LinearLayout.LayoutParams(-1,-2));}
@@ -150,7 +161,7 @@ public class MainActivity extends Activity {
    if(budget==0||groups.length()>100)pane.addView(txt("Display capped at 100 groups / 500 records. Full report under Log / JSON.",12));
   }catch(JSONException e){pane.addView(txt("Unexpected engine report format. Inspect Log / JSON for the original result.",13));}
  }
- private void save(Uri u){if(result==null)return;try{JSONObject o=new JSONObject();o.put("name",name);o.put("size",result.size);o.put("type",result.type);o.put("sha256",result.sha256);o.put("entropy",result.entropy);o.put("scanFlags",scannedFlags);o.put("minAsciiStringLength",scannedMin);o.put("elapsedMs",elapsedMs);JSONArray a=new JSONArray();for(double v:result.blocks)a.put(v);o.put("blockEntropy",a);o.put("asciiStringsPreview",result.strings);o.put("hexPreview",result.hex);o.put("cdieRawReport",report);o.put("cdieError",error);try(OutputStream out=getContentResolver().openOutputStream(u,"wt")){if(out==null)throw new IOException("Cannot open destination");out.write(o.toString(2).getBytes(StandardCharsets.UTF_8));}Toast.makeText(this,"Report saved",Toast.LENGTH_SHORT).show();}catch(Exception e){Toast.makeText(this,e.toString(),Toast.LENGTH_LONG).show();}}
+ private void save(Uri u){if(result==null)return;try{JSONObject o=new JSONObject();o.put("name",name);o.put("size",result.size);o.put("type",result.type);o.put("sha256",result.sha256);o.put("entropy",result.entropy);o.put("scanFlags",scannedFlags);o.put("minAsciiStringLength",scannedMin);o.put("elapsedMs",elapsedMs);JSONArray a=new JSONArray();for(double v:result.blocks)a.put(v);o.put("blockEntropy",a);o.put("asciiStringsPreview",result.strings);o.put("hexPreview",result.hex);o.put("file101",guide);o.put("apkAnalysis",apkReport);o.put("cdieRawReport",report);o.put("cdieError",error);try(OutputStream out=getContentResolver().openOutputStream(u,"wt")){if(out==null)throw new IOException("Cannot open destination");out.write(o.toString(2).getBytes(StandardCharsets.UTF_8));}Toast.makeText(this,"Report saved",Toast.LENGTH_SHORT).show();}catch(Exception e){Toast.makeText(this,e.toString(),Toast.LENGTH_LONG).show();}}
  @Override protected void onDestroy(){worker.shutdown();super.onDestroy();}
  private class Graph extends View{
   final Inspector.Result r;final TextView detail;final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);int selected=-1;

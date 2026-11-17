@@ -1,4 +1,4 @@
-# DiE Android (unofficial) — 0.2.0-alpha
+# DiE Android (unofficial) — 0.3.0-alpha
 
 Offline native Android frontend for the open-source Detect It Easy ecosystem. Independent project, not an official Horsicq application.
 
@@ -19,6 +19,7 @@ JDK 17, Gradle 8.11.1, Android platform 35, CMake 3.22.1, NDK 28.2.13676358. API
 ```sh
 bash scripts/test.sh
 bash scripts/fetch-engine.sh
+bash scripts/fetch-knowledge.sh
 gradle :app:assembleDebug
 ```
 
@@ -32,3 +33,6 @@ Inputs capped at 1 GiB; cache copy removed normally, crash recovery and native i
 
 Frontend GPL-3.0-only. Commercial redistribution permitted under GPL conditions. Upstream CDiE is MIT; database and dependencies retain their original licenses. See generated notices and upstream revisions; audit before distributing a linked APK.
 Upstream: https://github.com/horsicq/CDiE and https://github.com/horsicq/Detect-It-Easy
+
+## Analysis workbench (0.3)
+File 101, APK metadata and permission explanations, exported components, signing identity, archive inventory, pinned LibChecker exact-match rules and UAD-NG package knowledge. Optional offline Exodus JSON import with limited literal DEX matching. See [integration scope and limitations](docs/analysis-workbench.md).

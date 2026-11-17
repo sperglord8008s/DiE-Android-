@@ -21,6 +21,7 @@ jobs:
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;28.2.13676358' 'cmake;3.22.1'
       - run: bash scripts/test.sh
       - run: bash scripts/fetch-engine.sh
+      - run: bash scripts/fetch-knowledge.sh
       - run: gradle --no-daemon :app:assembleDebug
       - uses: actions/upload-artifact@v4
         with:
