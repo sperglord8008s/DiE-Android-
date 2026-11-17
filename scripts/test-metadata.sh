@@ -3,6 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 bash scripts/fetch-metadata.sh
+python3 tests/test-metadata-source.py "${METADATA_DEPS_DIR:-$PWD/vendor/metadata-downloads}"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 source scripts/test-dependencies.sh

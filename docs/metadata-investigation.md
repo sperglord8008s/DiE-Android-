@@ -8,6 +8,8 @@ The `metadata-engine` module compiles **metadata-extractor 2.22.0** from its SHA
 
 The patch changes XMP namespace imports, adapts two old iterator return types, removes the newer reader's silent 1,000-item Photoshop ancestry restriction and inserts the app's bounded XML gate. It also retains the gate's diagnostic reason. The app fails explicitly at model budgets instead of silently dropping ancestry items. This source-built combination is not advertised as Adobe XMP 6.1.11 or equivalent feature coverage. See [module build notes](../metadata-engine/README.md).
 
+XMP source checks pin the complete set of 45 Java files and `NOTICE` by payload SHA-256 in `scripts/xmp-source-files.sha256`. This avoids depending on Gitiles archive compression/header bytes, which differ across servers. Missing/extra/duplicate/changed compiled-source or license payloads fail before extraction. The metadata-extractor JAR is verified as a whole artifact.
+
 ## Scope and interpretation
 
 The upstream dispatch includes JPEG, TIFF/DNG and several camera RAW families, PNG, BMP, GIF, ICO, PCX, Photoshop PSD, WebP, AVI, WAV, MP3, QuickTime/MP4, HEIF/AVIF, EPS and related formats. Current generated fixtures verify JPEG/EXIF/GPS/ICC/XMP, PNG text and WAV audio/INFO data; other dispatched readers are integrated but unverified here. Identification-only formats, including PDF/ZIP, have an explicit `identification-only` status/diagnostic. Unknown/invalid inputs retain an unsupported diagnostic and source identity. Reader warnings/errors stay visible and mark partial scope; an empty tag list is not a clean-file verdict.
