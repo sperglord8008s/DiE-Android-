@@ -11,11 +11,11 @@ import java.util.Properties;
 /** Installs the bundled, pinned database atomically; no network access. */
 final class EngineDatabase {
     final File main, custom;
-    final String engineRevision, signatureRevision;
+    final String engineRevision, signatureRevision, customDigest;
 
-    private EngineDatabase(File main, File custom, String engineRevision, String signatureRevision) {
+    private EngineDatabase(File main, File custom, String engineRevision, String signatureRevision, String customDigest) {
         this.main = main; this.custom = custom;
-        this.engineRevision = engineRevision; this.signatureRevision = signatureRevision;
+        this.engineRevision = engineRevision; this.signatureRevision = signatureRevision; this.customDigest = customDigest;
     }
 
     static synchronized EngineDatabase prepare(Context context) throws IOException {
@@ -37,7 +37,9 @@ final class EngineDatabase {
         }
         File custom = new File(context.getFilesDir(), "cdie-custom");
         if (!custom.isDirectory() && !custom.mkdirs()) throw new IOException("Cannot create custom database directory");
-        return new EngineDatabase(main, custom, engine, signatures);
+        CustomRuleStore.Snapshot active = CustomRuleStore.active(new File(context.getFilesDir(), "custom-rule-snapshots"));
+        return new EngineDatabase(main, active == null ? custom : active.database, engine, signatures,
+            active == null ? "" : active.digest);
     }
 
     private static void copyAssets(AssetManager assets, String path, File destination) throws IOException {

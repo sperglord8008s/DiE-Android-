@@ -84,6 +84,12 @@ static void error_report(xx_buf_t *b, const char *message) {
     xx_buf_append_char(b, '}');
 }
 
+static int path_inside(const char *path, const char *directory) {
+    size_t length = strlen(STR(directory));
+    return length && path && !strncmp(path, directory, length) &&
+        (path[length] == '/' || path[length] == '\\');
+}
+
 static int configure(const char *main_db, const char *custom_db,
                      unsigned flags, const char *inc, const char *exc) {
     /* init marks the backend initialized even when default desktop paths
@@ -240,6 +246,17 @@ JNIEXPORT jbyteArray JNICALL Java_org_diemobile_Engine_desktopNative(
         string_field(&out.buf, "tags", tags);
         xx_buf_append_char(&out.buf, '}');
         gui_backend_free(tags);
+        break;
+    }
+    case 7: {
+        int custom_count = 0;
+        int total = gui_backend_signature_count();
+        for (int i = 0; i < total; i++) {
+            const char *path = NULL;
+            if (gui_backend_signature_entry(i, NULL, &path) && path_inside(path, v[2])) custom_count++;
+        }
+        xx_buf_appendf(&out.buf, "{\"ok\":true,\"signatureCount\":%d,\"mainCount\":%d,\"customCount\":%d,\"databaseGeneration\":%llu}",
+            total, total - custom_count, custom_count, U64(gui_backend_database_generation()));
         break;
     }
     default:

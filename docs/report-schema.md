@@ -7,7 +7,7 @@ The primary Scan screen exports an object with `schema: "org.diemobile.scan-repo
 | `createdAt` | Export time in ISO-8601 UTC; not the binary's creation time |
 | `source` | Display name, exact `sizeBytes`, SHA-256 of the private input snapshot, and independent header identification |
 | `options` | Captured desktop flags and enabled names, semicolon-separated include/exclude tags, automatic `typeId: 0`, and minimum preview string length |
-| `provenance` | CDiE revision, Detect-It-Easy database revision, elapsed milliseconds including acquisition/inspection, and `networkUsed: false` |
+| `provenance` | CDiE revision, Detect-It-Easy database revision, custom database enabled state and original ZIP SHA-256, elapsed milliseconds including acquisition/inspection, and `networkUsed: false` |
 | `scan` | Native JSON object with `ok`, full `rows`, parser facts, engine log, flags, loaded signature count, in-process database generation and cumulative cache counters; a failure has `ok: false` and `error` |
 | `facts` | Native format facts, a native unsupported/error response, or null if unavailable; the native flags state which fields are meaningful |
 | `engineError` | Acquisition/binding/configuration or parser error that prevented a complete native scan |
@@ -20,3 +20,5 @@ Each scan tree row preserves its native `text`, `category`, zero-based row posit
 `signature` is a database script source path. It is **not** a byte-match offset. Tree text preserves upstream labels, heuristic markers, versions and group offset domains. Compressed-member offsets may refer to the decoded member and cannot be used to navigate the parent file. `facts.entryOffset` is a physical file offset when nonnegative; `base` and `entry` are hexadecimal virtual-address strings, preserving unsigned 64-bit values. Zero-valued facts are not necessarily available facts: consult the native `flags`, format and error state.
 
 Cache counters are process-wide diagnostics, not proof that a particular rule executed. A cached result remains evidence for matching input bytes and options; it is not a fresh execution profile. SHA-256 identifies the analyzed content; the display name is not a trusted identity. Reports may contain filenames, signatures, strings, package metadata and certificates from the input, so the user controls their destination.
+
+`provenance.customDatabase.archiveSha256` identifies the exact originally imported ZIP, including its helpers, tag metadata and license notices. An empty string means no managed custom snapshot identity is available; it does not prove a legacy custom folder is empty. `enabled` records whether custom rules contributed to the configured scan. The in-process native database generation is useful for diagnosing reloads but is not a persistent database identity.

@@ -6,12 +6,13 @@ import org.json.*;
 
 public final class ScanEvidenceTest {
     public static void main(String[] args) throws Exception {
-        ScanOptions original = new ScanOptions(ScanOptions.DEFAULT_FLAGS | ScanOptions.ARCHIVES | ScanOptions.CACHE,
+        ScanOptions original = new ScanOptions(ScanOptions.DEFAULT_FLAGS | ScanOptions.ARCHIVES | ScanOptions.CACHE | ScanOptions.CUSTOM_DB,
             5, " build;format ", "extra");
         ScanOptions changed = original.withBasicFlags(ScanOptions.AGGRESSIVE, 7);
         require((changed.flags & ScanOptions.ARCHIVES) != 0 && (changed.flags & ScanOptions.CACHE) != 0, "Basic controls lost laboratory settings");
         require((changed.flags & ScanOptions.DEEP) == 0 && (changed.flags & ScanOptions.AGGRESSIVE) != 0, "Basic controls not applied");
         require(changed.includeTags.equals("build;format") && changed.minimumStringLength == 7, "Options snapshot changed");
+        require(!original.sameAs(new ScanOptions(original.flags, original.minimumStringLength, "other", original.excludeTags)), "Tag-only changes were hidden");
         invalid(() -> new ScanOptions(65536, 4, "", ""));
         invalid(() -> new ScanOptions(0, 2, "", ""));
         invalid(() -> new ScanOptions(0, 4, "tag\0hidden", ""));
@@ -41,7 +42,7 @@ public final class ScanEvidenceTest {
             Files.writeString(input, "Evidence fixture");
             Inspector.Result inspection = Inspector.scan(input.toFile(), 4);
             JSONObject report = ScanReport.create("fixture.bin", inspection, original, evidence, null,
-                "engine-revision", "db-revision", 100, "explanation", "APK details", "");
+                "engine-revision", "db-revision", "c".repeat(64), 100, "explanation", "APK details", "");
             // Round-trip through serialization, as an external report consumer would.
             report = new JSONObject(report.toString());
             require(report.getInt("schemaVersion") == 1, "Missing schema version");
@@ -49,6 +50,8 @@ public final class ScanEvidenceTest {
             require(report.getJSONObject("scan").getJSONArray("rows").length() == 123, "Scan JSON was stringified or lost");
             require(report.getJSONObject("options").getInt("flags") == original.flags, "Options not captured");
             require(report.getJSONObject("provenance").getString("signatureRevision").equals("db-revision"), "Provenance missing");
+            JSONObject custom = report.getJSONObject("provenance").getJSONObject("customDatabase");
+            require(custom.getBoolean("enabled") && custom.getString("archiveSha256").equals("c".repeat(64)), "Custom database identity lost");
         } finally { Files.deleteIfExists(input); }
         System.out.println("Options, typed evidence paging, diagnostics and versioned report fixtures passed.");
     }

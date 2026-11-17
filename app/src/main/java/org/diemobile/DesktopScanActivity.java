@@ -100,6 +100,7 @@ public final class DesktopScanActivity extends Activity {
         more.addView(button("Raw report",()->dialog("Raw report",currentReport)));
         more.addView(button("Export",()->exportReport()));
         root.addView(more);
+        root.addView(button("Offline custom databases",()->startActivity(new Intent(this,RuleDatabaseActivity.class))));
         status=text("Initializing bundled desktop database…",12);root.addView(status);
         filter=new EditText(this);filter.setSingleLine();filter.setHint("Filter results or signatures");
         root.addView(filter);
@@ -137,6 +138,8 @@ public final class DesktopScanActivity extends Activity {
                 EngineDatabase database=EngineDatabase.prepare(this);
                 db=database.main.getAbsolutePath();custom=database.custom.getAbsolutePath();
                 result=new JSONObject(Engine.desktop(path,db,custom,verb,f,t,inc,exc,arg,source));
+                result.put("provenance",new JSONObject().put("engineRevision",database.engineRevision)
+                    .put("signatureRevision",database.signatureRevision).put("customArchiveSha256",database.customDigest));
             }
             catch(Exception|LinkageError e){result=new JSONObject();try{result.put("ok",false);result.put("error",e.toString());}catch(JSONException ignored){}}
             final JSONObject response=result;
@@ -246,6 +249,16 @@ public final class DesktopScanActivity extends Activity {
             }catch(Exception e){message="Export failed: "+e.getMessage();}
             final String m=message;runOnUiThread(()->{if(!isDestroyed())status.setText(m);});
         });
+    }
+    @Override protected void onResume(){
+        super.onResume();
+        if(options==null)return;
+        ScanOptions stored=ScanPreferences.load(this);
+        boolean changed=flags()!=stored.flags||!include.getText().toString().equals(stored.includeTags)
+            ||!exclude.getText().toString().equals(stored.excludeTags);
+        for(int i=0;i<options.length;i++)options[i].setChecked((stored.flags&(1<<i))!=0);
+        include.setText(stored.includeTags);exclude.setText(stored.excludeTags);
+        if(changed&&!busy)status.setText("Shared options updated • scan to refresh results and database provenance");
     }
     @Override protected void onPause(){
         if(options!=null)try{

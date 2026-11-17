@@ -197,7 +197,7 @@ public class MainActivity extends Activity {
   worker.execute(()->{
    String message;
    try{
-    JSONObject output=ScanReport.create(inputName,source,options,scan,facts,db==null?"":db.engineRevision,db==null?"":db.signatureRevision,duration,explanation,apk,engineError);
+    JSONObject output=ScanReport.create(inputName,source,options,scan,facts,db==null?"":db.engineRevision,db==null?"":db.signatureRevision,db==null?"":db.customDigest,duration,explanation,apk,engineError);
     try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){
      if(out==null)throw new IOException("Cannot open destination");out.write(output.toString(2).getBytes(StandardCharsets.UTF_8));
     }

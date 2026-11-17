@@ -62,6 +62,27 @@ public final class NativeToolsTest {
    byte[] changed=Files.readAllBytes(copy);changed[changed.length-1]^=1;Files.write(copy,changed);
    String refreshed=Engine.desktop(copy.toString(),db,custom,1,16|8192,0,"","","","");
    require(number(refreshed,"cacheMisses")==number(beforeChange,"cacheMisses")+1,"Changed bytes reused cached scan");
+   Path archive=Path.of(args[3],"imported-rules.zip");
+   try(var zip=new java.util.zip.ZipOutputStream(Files.newOutputStream(archive))){
+    zip.putNextEntry(new java.util.zip.ZipEntry("db_custom/ELF/tool_imported.sg"));
+    zip.write(source.replace("DIE_JNI_KNOWN_DETECTION","DIE_JNI_IMPORTED_DETECTION").getBytes(java.nio.charset.StandardCharsets.UTF_8));zip.closeEntry();
+    zip.putNextEntry(new java.util.zip.ZipEntry("db_custom/_metadata/ELF.txt"));
+    zip.write("tool_imported.sg#fixture\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));zip.closeEntry();
+   }
+   java.io.File store=Path.of(args[3],"rule-store").toFile();
+   CustomRuleStore.Snapshot imported=CustomRuleStore.install(store,archive.toFile(),"native fixture ZIP");
+   String inventory=Engine.desktop("",db,imported.database.toString(),7,16,0,"","","","");
+   contains(inventory,"\"ok\":true");require(number(inventory,"customCount")==1,"Imported rules were not loaded");
+   CustomRuleStore.activate(store,imported.digest);
+   String importedScan=Engine.desktop(p,db,CustomRuleStore.active(store).database.toString(),1,16|2048,0,"","","","");
+   contains(importedScan,"DIE_JNI_IMPORTED_DETECTION");require(!importedScan.contains("DIE_JNI_KNOWN_DETECTION"),"Old custom rules leaked into imported scan");
+   String tagged=Engine.desktop(p,db,imported.database.toString(),1,16|2048,0,"fixture","","","");
+   contains(tagged,"DIE_JNI_IMPORTED_DETECTION");
+   String excluded=Engine.desktop(p,db,imported.database.toString(),1,16|2048,0,"fixture","fixture","","");
+   require(!excluded.contains("DIE_JNI_IMPORTED_DETECTION"),"Exclude tags did not override include tags");
+   String restored=Engine.desktop(p,db,custom,1,16|2048,0,"","","","");
+   contains(restored,"DIE_JNI_KNOWN_DETECTION");require(!restored.contains("DIE_JNI_IMPORTED_DETECTION"),"Database rollback retained new rules");
+   require(number(restored,"databaseGeneration")>number(importedScan,"databaseGeneration"),"Database path change did not invalidate generation");
    System.out.println("Desktop backend database, type, facts and scan checks passed.");
    for(String fixture:new String[]{"pe32.exe","pe64.exe","mach64.bin"}){
     String binary=Path.of(args[3],fixture).toString();

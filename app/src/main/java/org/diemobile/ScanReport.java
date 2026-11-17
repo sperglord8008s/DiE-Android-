@@ -9,7 +9,7 @@ final class ScanReport {
 
     static JSONObject create(String name, Inspector.Result input, ScanOptions options,
                              ScanEvidence evidence, JSONObject facts, String engineRevision,
-                             String signatureRevision, long elapsedMs, String guide, String apk, String engineError) throws JSONException {
+                             String signatureRevision, String customDigest, long elapsedMs, String guide, String apk, String engineError) throws JSONException {
         JSONObject result = new JSONObject();
         result.put("schema", "org.diemobile.scan-report").put("schemaVersion", 1);
         result.put("createdAt", java.time.Instant.now().toString());
@@ -22,6 +22,8 @@ final class ScanReport {
             .put("typeId", 0).put("minimumStringLength", options.minimumStringLength));
         result.put("provenance", new JSONObject().put("engine", "CDiE desktop backend")
             .put("engineRevision", engineRevision).put("signatureRevision", signatureRevision)
+            .put("customDatabase", new JSONObject().put("enabled", (options.flags & ScanOptions.CUSTOM_DB) != 0)
+                .put("archiveSha256", customDigest))
             .put("elapsedMs", elapsedMs).put("networkUsed", false));
         result.put("scan", evidence == null ? new JSONObject().put("ok", false).put("error", "No native evidence collected") : evidence.toJson());
         result.put("engineError", engineError);
