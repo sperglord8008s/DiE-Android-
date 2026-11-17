@@ -13,14 +13,15 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | CRC32, MD5, SHA1, SHA256 | wired |
 | Unicode strings | wired, upstream limits |
 | Full paged read-only hex | wired |
-| Entropy region analysis, zoom, native block statistics | partial |
+| Entropy region analysis, native block statistics | wired; interactive zoom pending |
 | APK metadata, declared permissions/components, signing fingerprint | partial |
 | LibChecker exact lookups, UAD catalog, offline Exodus import | partial |
 | Installed user/system package inventory, base/split APK paths | wired |
 | Read-only permitted filesystem and declared service inventory | wired |
-| OS live services and privileged system files | pending; explicit bridge required |
+| OS Binder service registrations | wired, normal UID visibility only |
+| Live process/service diagnostics and privileged files | pending; explicit bridge required |
 | ZIP/APK nested member selection/extraction | wired; 256 MiB cap, private extraction, CRC check |
-| Native resource payload extraction | pending |
+| Native resource payload extraction | partial; manual validated physical range export |
 | Binary manifest/resource tables and DEX details | partial |
 | apksig independent v1/v2/v3/v4 verification | pending |
 | Signature database browser, custom import, editor, testing, profiling | pending |

@@ -32,7 +32,7 @@ public final class SystemExplorerActivity extends Activity {
   root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(8),dp(8),dp(8),dp(8));root.setBackgroundColor(0xff15191e);
   heading=new TextView(this);heading.setTextSize(18);root.addView(heading);
   detail=new TextView(this);detail.setTextSize(12);root.addView(detail);
-  LinearLayout nav=new LinearLayout(this);for(String label:new String[]{"User apps","System apps","Files","Services"}){final String l=label;nav.addView(btn(l,()->{if(l.equals("Files"))browse(new File("/"));else packages(l.equals("Services")?2:l.equals("System apps")?1:0);}),new LinearLayout.LayoutParams(0,-2,1));}root.addView(nav);
+  LinearLayout nav=new LinearLayout(this);for(String label:new String[]{"User apps","System apps","Files","Services"}){final String l=label;nav.addView(btn(l,()->{if(l.equals("Files"))browse(new File("/"));else if(l.equals("Services"))new AlertDialog.Builder(this).setTitle("Service inventory").setItems(new String[]{"App-declared services","OS Binder service registry"},(d,w)->{if(w==0)packages(2);else binderServices();}).show();else packages(l.equals("System apps")?1:0);}),new LinearLayout.LayoutParams(0,-2,1));}root.addView(nav);
   search=new EditText(this);search.setSingleLine();search.setHint("Filter by name or path");root.addView(search);
   list=new ListView(this);root.addView(list,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
   search.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int a,int b,int c){}public void onTextChanged(CharSequence s,int a,int b,int c){render();}public void afterTextChanged(android.text.Editable e){}});
@@ -64,6 +64,24 @@ public final class SystemExplorerActivity extends Activity {
     }
     finishRows(ticket,entries,entries.size()+" entries • current Android user/profile and package visibility • no live-service claim");
    }catch(Exception e){finishRows(ticket,entries,"Inventory error: "+e);}
+  });
+ }
+ private void binderServices(){
+  final int ticket=begin("OS Binder service registry","Querying /system/bin/service list as this app's normal UID…");
+  worker.execute(()->{
+   List<Entry> result=new ArrayList<>();Process process=null;ExecutorService reader=Executors.newSingleThreadExecutor();
+   try{
+    process=new ProcessBuilder("/system/bin/service","list").redirectErrorStream(true).start();
+    final Process running=process;Future<String> output=reader.submit(()->{try(InputStream in=running.getInputStream()){return KnowledgeReport.read(in,1024*1024);}});
+    if(!process.waitFor(5,TimeUnit.SECONDS))throw new IOException("Service list timed out");
+    String text=output.get(2,TimeUnit.SECONDS);int exit=process.exitValue();
+    for(String line:text.split("\n")){
+     String raw=line.trim();if(raw.isEmpty())continue;int tab=raw.indexOf('\t');String label=tab>=0?raw.substring(tab+1):raw;
+     result.add(new Entry(label,"Raw service list record",()->new AlertDialog.Builder(this).setTitle("Binder registration").setMessage(raw+"\n\nBinder is Android's interprocess call mechanism. A listed service is registered and visible to this caller at query time. This does not prove a particular client is using it, grant permission to invoke it, or identify every service in the system.").setPositiveButton("Close",null).show()));
+    }
+    finishRows(ticket,result,"Exit="+exit+" • "+result.size()+" output lines • service visibility is restricted by UID and SELinux; errors are raw output, not service records");
+   }catch(Exception e){finishRows(ticket,result,"Binder registry unavailable to this app: "+e.getMessage());}
+   finally{if(process!=null)process.destroyForcibly();reader.shutdownNow();}
   });
  }
  private void packageDetails(String pkg){

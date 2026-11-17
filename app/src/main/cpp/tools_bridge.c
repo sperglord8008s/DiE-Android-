@@ -14,6 +14,7 @@
 #include "app/cdie_resources.h"
 #include "app/cdie_disasm.h"
 #include "app/cdie_hash.h"
+#include "app/cdie_entropy.h"
 #include "app/cdie_strings.h"
 #define LIMIT (4U*1024U*1024U)
 #define U(x) ((unsigned long long)(x))
@@ -30,16 +31,19 @@ static void offset(xx_buf_t *b,int64_t off,uint64_t addr){
  if(off<0)xx_buf_append_str(b,"off=unmapped ");else xx_buf_appendf(b,"off=0x%llX ",U(off));
  if(addr==UINT64_MAX)xx_buf_append_str(b,"va=unknown ");else xx_buf_appendf(b,"va=0x%llX ",U(addr));
 }
-JNIEXPORT jbyteArray JNICALL Java_org_diemobile_Engine_toolNative(JNIEnv *env,jclass cls,jstring path,jint tool,jlong at,jint mode,jint min){
+JNIEXPORT jbyteArray JNICALL Java_org_diemobile_Engine_toolNative(JNIEnv *env,jclass cls,jstring path,jint tool,jlong at,jint mode,jint min,jstring filter,jint json,jint syntax){
  (void)cls;
  if(!path)return NULL;
  const char *p=(*env)->GetStringUTFChars(env,path,NULL);if(!p)return NULL;
+ const char *query=filter?(*env)->GetStringUTFChars(env,filter,NULL):NULL;
+ if(filter&&!query){(*env)->ReleaseStringUTFChars(env,path,p);return NULL;}
+ cdie_output_format format=json?CDIE_OUTPUT_JSON:CDIE_OUTPUT_TEXT;
  xx_pd_struct pd=xx_pd_init();
  xx_buf_t b;xx_buf_init(&b);
  char *err=NULL,*text=NULL;int ok=0;size_t i=0,count=0;
  switch(tool){
  case 0:
-  ok=cdie_file_info(p,"Info",0,CDIE_OUTPUT_TEXT,&text,&err);break;
+  ok=cdie_file_info(p,query&&*query?query:"Info",mode==1,format,&text,&err);break;
  case 1:{
   cdie_memory_map_data *d=NULL;
   ok=cdie_memory_map_read_mode(p,NULL,mode==1?"Sections":mode==2?"Segments":NULL,&pd,&d,&err);
@@ -65,16 +69,18 @@ JNIEXPORT jbyteArray JNICALL Java_org_diemobile_Engine_toolNative(JNIEnv *env,jc
   cdie_resources_free(d);break;}
  case 6:{
   cdie_disasm_context *d=NULL;ok=cdie_disasm_open(p,&pd,&d,&err);
-  if(ok&&d){const cdie_disasm_info *info=cdie_disasm_get_info(d);const cdie_disasm_page *page=NULL;uint64_t pos=at<0?info->initial_offset:(uint64_t)at;
+  if(ok&&d){cdie_disasm_set_syntax(d,syntax==1?1:0);const cdie_disasm_info *info=cdie_disasm_get_info(d);const cdie_disasm_page *page=NULL;uint64_t pos=at<0?info->initial_offset:(uint64_t)at;
    size_t m=mode<0?0:(size_t)mode;cdie_disasm_status st=cdie_disasm_load(d,pos,m,&page);
    xx_buf_appendf(&b,"%s | file-size=%llu | mode=%s\n",info->description,U(info->file_size),cdie_disasm_mode_name(m));
    if(st==CDIE_DISASM_OK&&page){xx_buf_appendf(&b,"NEXT=0x%llX\n",U(page->next_offset));count=page->count;for(i=0;i<count&&room(&b);i++){const cdie_disasm_row *r=&page->rows[i];offset(&b,(int64_t)r->offset,r->address);xx_buf_appendf(&b,"%s  %s  %s\n",r->bytes,r->instruction,r->comment);}}
    else xx_buf_appendf(&b,"Disassembly status %d. Select an architecture or a valid file offset.\n",st);
   }cdie_disasm_close(d);break;}
- case 7:ok=cdie_hash_report(p,NULL,CDIE_OUTPUT_TEXT,&text,&err);break;
- case 8:{cdie_strings_options opts=cdie_strings_defaults();opts.minimum_length=(unsigned)(min>=3&&min<=64?min:4);opts.encodings=(unsigned)(mode>=1&&mode<=15?mode:15);ok=cdie_strings_report(p,&opts,CDIE_OUTPUT_TEXT,&text,&err);break;}
+ case 7:ok=cdie_hash_report(p,query&&*query?query:NULL,format,&text,&err);break;
+ case 8:{cdie_strings_options opts=cdie_strings_defaults();opts.minimum_length=(unsigned)(min>=3&&min<=64?min:4);opts.encodings=(unsigned)(mode>=1&&mode<=15?mode:15);ok=cdie_strings_report(p,&opts,format,&text,&err);break;}
+ case 10:ok=cdie_entropy_report(p,format,&text,&err);break;
  default:xx_buf_append_str(&b,"Unknown analysis tool.\n");ok=1;break;
  }
+ if(query)(*env)->ReleaseStringUTFChars(env,filter,query);
  (*env)->ReleaseStringUTFChars(env,path,p);
  jbyteArray out=NULL;
  if(!ok){const char *e=err?err:"Native analysis unavailable for this input";xx_buf_clear(&b);xx_buf_appendf(&b,"ERROR: %s\n",e);}

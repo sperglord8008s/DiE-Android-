@@ -23,6 +23,7 @@ add_library(diemobile SHARED bridge.c tools_bridge.c
   "${ANALYSIS_SRC}/cdie_resources.c"
   "${ANALYSIS_SRC}/cdie_disasm.c"
   "${ANALYSIS_SRC}/cdie_hash.c"
+  "${ANALYSIS_SRC}/cdie_entropy.c"
   "${ANALYSIS_SRC}/cdie_strings.c")
 target_include_directories(diemobile PRIVATE "${CDIE_ROOT}/src")
 target_link_libraries(diemobile PRIVATE die_static)
