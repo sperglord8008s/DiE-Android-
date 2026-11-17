@@ -8,7 +8,12 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 source scripts/test-dependencies.sh
 load_json_test_dependency "$tmp"
-rg --files vendor/metadata-engine metadata-engine/src/main/java -g '*.java' | sort > "$tmp/engine-sources"
+python3 - "$tmp/engine-sources" <<'PY'
+from pathlib import Path
+import sys
+sources = sorted(str(path) for root in ('vendor/metadata-engine', 'metadata-engine/src/main/java') for path in Path(root).rglob('*.java'))
+Path(sys.argv[1]).write_text('\n'.join(sources) + '\n')
+PY
 javac --release 8 -d "$tmp/engine" @"$tmp/engine-sources"
 javac -cp "$tmp/engine:$json_test_jar" -d "$tmp/classes" \
   app/src/main/java/org/diemobile/{Inspector,EvidenceRows,InputSnapshot,FileRange,RangeAnalysis,PreparedExport,InvestigationBackend,MetadataValues,MetadataDocument,MetadataBackend}.java \
