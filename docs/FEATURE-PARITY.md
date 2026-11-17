@@ -24,11 +24,13 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | Native resource payload extraction | partial; manual validated physical range export |
 | Binary manifest/resource tables and DEX details | partial |
 | apksig independent v1/v2/v3/v4 verification | pending |
-| Signature database browser, custom import, editor, testing, profiling | pending |
+| Signature database browser, source, temporary editor, single-rule testing, profiling, tag filters | wired via upstream desktop backend; fixture and device testing pending |
+| Custom database import and persistence | pending |
 | Full original Qt DiE rule compatibility comparison | pending |
 | Searchable typed evidence with source offsets and structured tool exports | partial |
 | Comprehensive per-field documentation and investigative guidance | partial |
-| Batch scanning, diff, profiles, cancellation, native isolation | pending |
+| Desktop scan cooperative cancellation and result cache | wired; runtime validation pending |
+| Batch scanning, diff, profiles, isolated native worker | pending |
 | Device testing, regression fixtures, license audit, reproducible signing | pending |
 
 A functional alpha may have pending items. Do not describe it as a full port until parity is verified.

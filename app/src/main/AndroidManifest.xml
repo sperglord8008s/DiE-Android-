@@ -2,6 +2,7 @@
     <!-- Local package inventory is a core function. No INTERNET permission. -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
     <application android:label="DiE Android" android:theme="@style/AppTheme" android:allowBackup="false" android:supportsRtl="true">
+        <activity android:name=".DesktopScanActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
         <activity android:name=".ArchiveExplorerActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
         <activity android:name=".NativeToolsActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
         <activity android:name=".SystemExplorerActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
