@@ -1,4 +1,6 @@
-# Scan report schema v1
+# Local report schemas v1
+
+## Scan report
 
 The primary Scan screen exports an object with `schema: "org.diemobile.scan-report"` and integer `schemaVersion: 1`. A consumer should check both before interpretation. Export is an explicit, local Storage Access Framework operation; the application does not upload reports.
 
@@ -24,3 +26,40 @@ Cache counters are process-wide diagnostics, not proof that a particular rule ex
 `provenance.customDatabase.archiveSha256` identifies the exact originally imported ZIP, including its helpers, tag metadata and license notices. An empty string means no managed custom snapshot identity is available; it does not prove a legacy custom folder is empty. `enabled` records whether custom rules contributed to the configured scan. The in-process native database generation is useful for diagnosing reloads but is not a persistent database identity.
 
 The primary UI shows loader base/entry virtual addresses for PE, ELF and thin Mach-O pages. Generic Binary, archive and DEX facts can contain default zero address fields; these do not establish a loader address or entry point. Physical entry navigation additionally requires native `GUI_FACTS_ENTRY_OFFSET` (`flags & 16384`) and a nonnegative offset. Segmented DOS addresses and other address domains require their own interpretation.
+
+## Native tool report
+
+Native Tools exports `schema: "org.diemobile.tool-report"`, `schemaVersion: 1`. It stages a private immutable JSON file before opening the local system picker. Changes to filters, controls or the Activity after preparation cannot change that pending export.
+
+| Field | Meaning |
+|---|---|
+| `createdAt` | Report preparation time in ISO-8601 UTC |
+| `input` | Display `name`, exact `sizeBytes`, nullable whole-input `sha256` and `identitySource`; the digest comes from the parent inspection, not a new whole-file hash performed by the tool |
+| `request` | Captured `toolId`, native `mode`, `physicalOffset` (`-1` means automatic), `minimumStringLength`, `selector`, `nativeJson` and `attSyntax`; draft controls cannot relabel these results |
+| `engineRevision` | Bundled CDiE source revision, or empty when not available |
+| `signatureDatabaseUsed` | `false`: native table/byte tools do not run signature rules |
+| `elapsedMs` | Time for that tool request and its provenance lookup |
+| `view` | UI filter and zero-based page at preparation, plus an explicit all-returned-rows export scope |
+| `nativeRecords` | Validated original [native record snapshot](native-records.md), including native failure responses; null for legacy/Java tool output or a binding/cancellation failure |
+| `rawReport` | Legacy text/JSON output or explicit error text when `nativeRecords` is null |
+
+Tool IDs: 0 structures, 1 memory map, 2 imports, 3 exports, 4 symbols, 5 resources, 6 disassembly, 7 hashes, 8 Unicode strings, 9 hex, 10 native entropy regions. Native modes retain their upstream numeric encodings. Fields irrelevant to a particular tool can still be captured and do not imply that tool used them.
+
+Search and row paging never reduce the exported snapshot. Disassembly's `instruction-page` still covers one native decode window, with `metadata.nextOffset` identifying continuation; it is not a complete-file disassembly. Structured failures retain `ok: false` and `error`. A legacy `rawReport` may itself contain JSON; consumers should not treat it as a typed native table.
+
+The parent input is a private snapshot in normal app use. A matching file length alone cannot revalidate a prior SHA-256 after external same-length modification. `identitySource` discloses whether an inherited identity was available; null means uncollected, not a known empty digest. Source/range bytes are never uploaded.
+
+## Physical range report
+
+`schema: "org.diemobile.range-report"`, `schemaVersion: 1` records a newly measured half-open physical interval, independent of any native format interpretation.
+
+| Field | Meaning |
+|---|---|
+| `inputName`, `inputSha256` | Display name and nullable inherited parent-inspection digest |
+| `fileSizeBytes` | Expected source length checked before and after range I/O |
+| `physicalOffset`, `lengthBytes` | Exact stored interval `[offset, offset + length)`; validated against source bounds and the 256 MiB operation budget |
+| `rangeSha256`, `rangeCrc32` | Digests measured from exactly those bytes, as lowercase hex strings |
+| `entropyBitsPerByte` | Shannon entropy of the selected byte histogram; zero for an empty range |
+| `interpretation` | Explicit reminder that entropy is not a behavior/security verdict |
+
+Native resources can also export their exact stored bytes directly as `application/octet-stream`. The export does not decompress content, interpret code pages, synthesize virtual tails or infer an unknown symbol extent. Cancelled/failed destination writes may leave partial provider data and are reported as such.

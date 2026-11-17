@@ -15,6 +15,7 @@ There is no beginner/advanced/expert gating. The default Scan view exposes techn
 - APKEngineer: exact upstream project/repository still to be identified and license audited.
 - AOSP apksig 8.9.2 (Apache-2.0): independent v1/v2/v3 verification and signer certificate/SPKI digests, explicit platform range, signer-local errors and warnings. Host signing fixtures pass; v3.1 is exposed without rotation fixtures, and detached v4 is pending.
 - CDiE native tools now expose ELF/PE/Mach-O structures and supported memory maps, symbols, imports/exports/resources, instruction decoding, Unicode strings, hashes and entropy. ZIP/APK members can be selected for bounded private extraction and analysis; installed package inventory is available. These integrations do not imply full format coverage or device verification.
+- Maps, imports, exports, symbols, resources and instructions have detached typed records, searchable Android pages, raw field details with contextual help, physical/VA navigation and range evidence. Resource exports stage exact stored bytes before the picker; reports preserve complete returned tables and captured parameters. Host JNI and API 28 Robolectric integration checks pass; real document-provider/handset flows remain pending. See [record contracts and UI scope](native-records.md).
 - Future: complete Android binary manifest and resource XML; dexlib2 / smali; JADX; package diff; optional separate privileged actions only by explicit consent.
 
 ## Remaining Android metadata limits

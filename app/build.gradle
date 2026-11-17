@@ -20,7 +20,22 @@ android {
     }
     sourceSets { main { assets.srcDir '../generated-assets' } }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    testOptions {
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            maxHeapSize = '1g'
+            systemProperty 'user.home', file('build/test-runtime-home').absolutePath
+            doFirst { file('build/test-runtime-home').mkdirs() }
+            jvmArgs "-Djava.library.path=${providers.gradleProperty('hostNativeLibraryDir').orElse(file('build/host-native').absolutePath).get()}"
+            systemProperty 'die.fixture.dir', providers.gradleProperty('nativeFixturesDir').orElse(file('build/host-ui-fixtures').absolutePath).get()
+            systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
+        }
+    }
 }
 
 // AOSP's standalone, Apache-2.0 APK signing-scheme verifier.
-dependencies { implementation 'com.android.tools.build:apksig:8.9.2' }
+dependencies {
+    implementation 'com.android.tools.build:apksig:8.9.2'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.14.1'
+}

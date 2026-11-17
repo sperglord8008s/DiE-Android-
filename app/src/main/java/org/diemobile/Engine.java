@@ -11,17 +11,22 @@ final class Engine {
     private static native byte[] toolNative(String path,int tool,long offset,int mode,int minimum,String selector,int json,int syntax);
     private static native byte[] recordsNative(String path,int tool,int mode,long offset,int syntax);
     static synchronized String records(String path,int tool,int mode,long offset,boolean attSyntax) {
+        return records(path,tool,mode,offset,attSyntax,()->false);
+    }
+    static synchronized String records(String path,int tool,int mode,long offset,boolean attSyntax,java.util.function.BooleanSupplier cancelled) {
         if(!AVAILABLE)return "{\"schema\":\"org.diemobile.native-records\",\"schemaVersion\":1,\"ok\":false,\"kind\":\"unknown\",\"error\":\"Native engine unavailable\"}";
+        if(cancelled.getAsBoolean())return "{\"schema\":\"org.diemobile.native-records\",\"schemaVersion\":1,\"ok\":false,\"kind\":\"unknown\",\"error\":\"Table request cancelled\"}";
         byte[] result=recordsNative(path,tool,mode,offset,attSyntax?1:0);
+        if(cancelled.getAsBoolean())return "{\"schema\":\"org.diemobile.native-records\",\"schemaVersion\":1,\"ok\":false,\"kind\":\"unknown\",\"error\":\"Table request cancelled\"}";
         return result==null?"{\"schema\":\"org.diemobile.native-records\",\"schemaVersion\":1,\"ok\":false,\"kind\":\"unknown\",\"error\":\"Native report allocation failed\"}":new String(result,StandardCharsets.UTF_8);
     }
     static synchronized String tool(String path,int tool,long offset,int mode,int minimum) {
         return tool(path,tool,offset,mode,minimum,"",false,false);
     }
     static synchronized String tool(String path,int tool,long offset,int mode,int minimum,String selector,boolean json,boolean attSyntax) {
-        if(!AVAILABLE)return "Native engine unavailable.";
+        if(!AVAILABLE)return "ERROR: Native engine unavailable.";
         byte[] raw=toolNative(path,tool,offset,mode,minimum,selector,json?1:0,attSyntax?1:0);
-        return raw==null?"Native report allocation failed.":new String(raw,StandardCharsets.UTF_8);
+        return raw==null?"ERROR: Native report allocation failed.":new String(raw,StandardCharsets.UTF_8);
     }
     private static native byte[] desktopNative(String path,String db,String custom,int verb,int flags,int typeId,String include,String exclude,String arg,String source);
     private static native void cancelDesktopNative();

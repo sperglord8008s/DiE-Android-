@@ -1,19 +1,19 @@
 # Feature parity / verification checklist
 
-Status labels: wired = integration exists, not validated on hardware; partial = reduced capability; pending = absent. Update on each build and fixture verification.
+Status labels: wired = integration exists, not validated on hardware; partial = reduced capability; pending = absent. Host JNI fixtures and Robolectric Android UI checks are identified separately from handset verification. Update on each build and fixture verification.
 
 | Feature | Current target branch |
 |---|---|
 | CDiE signatures, deep/heuristic/recursive/aggressive/parent formats | desktop backend is primary; host known-rule detection, custom-DB gating and tag-filter fixtures verified; full Qt/heuristic parity and device flow unverified |
 | File selection + rescan | device feedback confirms earlier build; regressions pending |
 | Upstream PE/ELF/Mach-O DataStructs | host fixtures for ELF, PE32, PE64 and thin Mach-O; malformed headers tested; device flow pending |
-| Memory map sections/segments/default | host ELF default/sections, PE sections and Mach-O segments; unsupported modes fail explicitly |
-| Imports, exports, symbols, resources | typed JNI snapshots host verified for ELF/rich PE32/64, named/ordinal imports, forwarders, COFF/UTF-8 symbols and exact resource payload bytes; paginated Android table integration in progress |
-| Native disassembly with offset and architecture | typed instruction pages and continuation/domain labeling host verified; Android paging/navigation integration in progress; control-flow analysis pending |
+| Memory map sections/segments/default | typed host ELF default/sections, PE sections and Mach-O segments; unsupported modes fail explicitly; Android mode capture and unsigned-VA navigation checked with Robolectric/real host JNI; handset flow pending |
+| Imports, exports, symbols, resources | typed complete snapshots with searchable 50-row Android pages and per-field details; host ELF/rich PE32/64, named/ordinal imports, forwarders, COFF/UTF-8 symbols verified; 10,000-row paging/search/back navigation checked with Robolectric/real host JNI; handset flow pending |
+| Native disassembly with offset and architecture | typed instruction pages and continuation/domain labeling host verified; Android row paging, next-block navigation, manual mode and Back checked with Robolectric/real host JNI; handset flow and control-flow analysis pending |
 | CRC32, MD5, SHA1, SHA256 | wired |
 | Unicode strings | wired, upstream limits |
-| Full paged read-only hex | wired |
-| Entropy region analysis, native block statistics | wired; interactive zoom pending |
+| Full paged read-only hex | wired, 4 KiB pages; table/physical-offset/unsigned-VA cross-links checked with Robolectric/real host JNI; handset flow pending |
+| Entropy region analysis, native block statistics | wired; selected physical-range SHA-256/CRC32/entropy verified with host fixtures and Android report flow with Robolectric; interactive zoom and handset flow pending |
 | APK metadata, declared permissions/components, signing fingerprint | partial |
 | LibChecker exact lookups, UAD catalog, offline Exodus import | partial |
 | Installed user/system package inventory, base/split APK paths | wired |
@@ -21,16 +21,16 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | OS Binder service registrations | wired, normal UID visibility only |
 | Live process/service diagnostics and privileged files | pending; explicit bridge required |
 | ZIP/APK nested member selection/extraction | wired; 256 MiB cap, private extraction, CRC check |
-| Native resource payload extraction | partial; manual validated physical range export |
+| Native resource payload extraction | selected resource or manually validated physical range staged for exact SAF byte export; host payload equality and Robolectric picker-delay/recreation/output checks verified; real document-provider flow pending |
 | Binary manifest/resource tables and DEX details | partial |
 | AOSP apksig independent v1/v2/v3 verification and certificate metadata | host fixtures verified: separate v1/v2/v3 and combined signatures, exact certificate, unsigned, tampered and truncated APKs; device flow pending; v3.1 exposed but rotation fixtures pending |
 | v4 detached .idsig handling | pending |
 | Signature database browser, source, temporary editor, single-rule testing, profiling, tag filters | source retrieval, known edited-rule test and include-tag filtering host verified; profiling and device flow pending |
 | Custom database import and persistence | local ZIP snapshots, SHA-256 identity, native load check, activation/rollback and original-ZIP export wired; host import/CRC/path/size/persistence tests and native activation/tag/reload fixtures verified; Android picker/restart flows pending |
 | Full original Qt DiE rule compatibility comparison | pending |
-| Searchable typed evidence with source offsets and structured tool exports | typed desktop detection tree, search and 50-row paging; versioned JSON report, captured shared settings and pinned provenance host verified; entry-offset hex/disassembly links wired; remaining native tables are text |
+| Searchable typed evidence with source offsets and structured tool exports | desktop detection tree plus six native record types; search/50-row pages, field details/help and 64-location Back history implemented; captured parameters, full-table exports, staged range exports and recreation checked with host/Robolectric fixtures; structures/hashes/strings/native entropy remain text/legacy JSON; handset flow pending |
 | Comprehensive per-field documentation and investigative guidance | partial |
-| Desktop scan cooperative cancellation and result cache | cache hit and byte-change invalidation host verified; request-owned cancellation, deterministic queued-cancel/recovery and Java streaming cancellation host verified; active native interrupt latency and handset lifecycle tests pending |
+| Cooperative cancellation and result cache | desktop cache hit and byte-change invalidation host verified; request-owned scan cancellation and Java streaming cancellation host verified; typed table queued-cancel/recovery checked with Robolectric/real JNI, active table calls settle before cancellation is shown; active scan interrupt latency and handset lifecycle tests pending |
 | Batch scanning, diff, profiles, isolated native worker | pending |
 | Device testing, regression fixtures, license audit, reproducible signing | pending |
 | Packaged ARM64 APK signing/identity, offline assets and static 16 KiB alignment | build-time verification script and CI gate; actual 16 KiB Android runtime/device verification pending |
@@ -45,6 +45,8 @@ Linux host JNI fixture job exercises ELF structures, section and default maps, i
 Desktop-backend fixtures validate candidate types, parser facts, loaded signature inventory, known custom-rule detection, exact rule provenance, source retrieval, edited-rule execution, custom-DB gating, include-tag filters and cache identity behavior. `scripts/test-models.sh` checks immutable settings, strict tree parsing, paging/search and structured report round trips. It uses a SHA-256-pinned host-only org.json JAR (`JSON_JAR` supports offline testing); the app uses Android's built-in org.json.
 
 Typed native table and range contracts, limits and additional fixtures are documented in [native-records.md](native-records.md). JNI fixtures additionally check 10,000-record preservation/over-limit errors, high unsigned VAs, IAT offsets versus symbol-record offsets, virtual tails, stored payload extraction and instruction-page continuation.
+
+`scripts/test-workbench-ui.sh` builds Linux JNI and runs eight Robolectric API 28 Android UI/lifecycle cases against it: 10,000-row search/paging/Back; immutable resource export across picker delay and recreation; filtered full-table report export; manual disassembly mode and separate row/block pages; exact resource-range digest export; displayed-versus-edited mode preservation across Back/recreation; unsigned preferred-VA navigation; queued table cancellation/recovery. The native methods are not mocked. The document provider is a test output stream, so this does not verify a real SAF permission grant, picker implementation, ARM64 runtime, handset layout or API 26/35 lifecycle behavior. Android CI runs these checks in addition to ARM64 compilation, lint and APK verification. A separate JVM verifies explicit errors when JNI is unavailable.
 
 ## Desktop upstream gap audit
 

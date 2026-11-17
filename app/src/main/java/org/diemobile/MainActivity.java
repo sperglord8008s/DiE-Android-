@@ -123,8 +123,8 @@ public class MainActivity extends Activity {
  }
  private void openDesktopScan(){if(retainedFile==null||!Engine.AVAILABLE)return;Intent i=new Intent(this,DesktopScanActivity.class);i.putExtra("path",retainedFile.getAbsolutePath());i.putExtra("name",name);startActivity(i);}
  private void openArchive(){if(retainedFile==null)return;Intent i=new Intent(this,ArchiveExplorerActivity.class);i.putExtra("path",retainedFile.getAbsolutePath());i.putExtra("name",name);startActivityForResult(i,5);}
- private void openNativeTools(){if(retainedFile==null)return;Intent i=new Intent(this,NativeToolsActivity.class);i.putExtra("path",retainedFile.getAbsolutePath());i.putExtra("name",name);startActivity(i);}
- private void openNativeToolAt(int tool,long offset){if(retainedFile==null)return;Intent i=new Intent(this,NativeToolsActivity.class);i.putExtra("path",retainedFile.getAbsolutePath());i.putExtra("name",name);i.putExtra("tool",tool);i.putExtra("offset",offset);startActivity(i);}
+ private void openNativeTools(){if(retainedFile==null)return;Intent i=new Intent(this,NativeToolsActivity.class);i.putExtra("path",retainedFile.getAbsolutePath());i.putExtra("name",name);if(result!=null){i.putExtra("sha256",result.sha256);i.putExtra("sourceSize",result.size);}startActivity(i);}
+ private void openNativeToolAt(int tool,long offset){if(retainedFile==null)return;Intent i=new Intent(this,NativeToolsActivity.class);i.putExtra("path",retainedFile.getAbsolutePath());i.putExtra("name",name);i.putExtra("tool",tool);i.putExtra("offset",offset);if(result!=null){i.putExtra("sha256",result.sha256);i.putExtra("sourceSize",result.size);}startActivity(i);}
  private void showNativeFacts(){
   if(evidence==null||!evidence.ok)return;
   String machine=evidence.architecture.isEmpty()?"Unknown":evidence.architecture;

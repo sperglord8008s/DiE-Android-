@@ -2,7 +2,7 @@
 
 Offline native Android frontend for the open-source Detect It Easy ecosystem. Independent project, not an official Horsicq application.
 
-Source prototype, not an audited or device-tested release. Android compilation, native linking and signature results need CI and device validation. Do not treat a signature match or its absence as proof of safety. Use appropriate isolation for hostile samples.
+Development alpha with host JNI, Android UI simulation and CI build checks; handset verification and a complete audit remain pending. Do not treat a signature match or its absence as proof of safety. Use appropriate isolation for hostile samples.
 
 ## Features
 
@@ -12,6 +12,7 @@ Source prototype, not an audited or device-tested release. Android compilation, 
 - Shared persisted settings between Scan and the signature laboratory; captured options are exported with the result. Searchable detection evidence is paged without discarding records.
 - Offline custom-rule ZIP import, native load checks, immutable SHA-256 snapshots, activation/rollback and original archive export; helpers, tag metadata and licensing notices are retained. No automatic network database updates.
 - Versioned structured JSON report export using the system picker, with content identity, engine/database revisions, native evidence and explicit limitations. See [schema](docs/report-schema.md).
+- Searchable, paginated maps/imports/exports/symbols/resources/instructions with every native field, contextual explanations and explicit unsupported/errors. Navigate physical offsets or unsigned preferred VAs to hex/disassembly, retain Back context, measure range entropy/digests and export exact stored resource bytes. See [contracts and limits](docs/native-records.md).
 - Desktop-inspired dark native UI: persistent scan flags, Scan / Rescan, file summary, expandable signature groups with details, raw JSON log, elapsed time and progress indicator. ARM64 native linkage; no Termux. Rescan reopens the selected URI (subject to provider permissions) with current settings.
 
 ## Build
@@ -27,6 +28,7 @@ bash scripts/test-native.sh
 bash scripts/fetch-knowledge.sh
 ./gradlew :app:assembleDebug :app:lintDebug
 bash scripts/verify-apk.sh app/build/outputs/apk/debug/app-debug.apk
+bash scripts/test-workbench-ui.sh
 ```
 
 CDiE and submodules are pinned. The Gradle wrapper pins 8.11.1 with a distribution SHA-256. Build-time downloads only. GitHub Actions uploads the verified debug APK, checksum and source/data/signer build manifest. Debug signing keys and build paths can differ; bit-identical signed APKs are not claimed. Java-only fallback: `./gradlew -PwithCdie=false :app:assembleDebug` (no compiler/packer detection; the native APK verification script intentionally requires the full ARM64 build).
@@ -50,4 +52,6 @@ Technical detail is the default. Contextual help explains the actual data withou
 Native Tools exposes upstream CDiE data structures, memory maps, imports, exports, symbols, resource metadata, disassembly, hashes, Unicode strings and paged hex. Explore exposes local package inventory, declared services and OS-permitted files. QUERY_ALL_PACKAGES is declared for this local inventory; no INTERNET permission. See [design goals](docs/DESIGN-GOALS.md) and [feature parity](docs/FEATURE-PARITY.md). Hardware testing and full parity remain pending.
 
 ### Verification and community development
-Run `scripts/test.sh` for the generic inspector, `scripts/test-models.sh` for evidence/settings/export fixtures, `scripts/test-apk.sh` for real AOSP signing verification, and `scripts/test-native.sh` after `scripts/fetch-engine.sh` for Linux-host JNI fixtures (JDK 17, CMake, C compiler and Python 3). `JSON_JAR` and `APKSIG_JAR` accept cached, checksum-verified host dependencies for offline test runs. `NATIVE_BUILD_DIR` optionally retains a CMake build between native test runs. Android CI cross-compiles the ARM64 APK independently; no connected-device verification is claimed.
+Run `scripts/test.sh` for the generic inspector, `scripts/test-models.sh` for evidence/settings/range/export fixtures, `scripts/test-apk.sh` for real AOSP signing verification, and `scripts/test-native.sh` after `scripts/fetch-engine.sh` for Linux-host JNI fixtures (JDK 17, CMake, C compiler and Python 3). `JSON_JAR` and `APKSIG_JAR` accept cached, checksum-verified host dependencies for offline test runs. `NATIVE_BUILD_DIR` optionally retains a CMake build between native test runs.
+
+`scripts/test-workbench-ui.sh` builds host JNI/fixtures and runs eight Android UI/lifecycle cases with Robolectric API 28 and actual JNI results. The SDK/JDK and fetched engine are required; JUnit 4.13.2, Robolectric 4.14.1 and its Android runtime are build-time test dependencies only. The test JVM keeps its download cache under `app/build/test-runtime-home`; retain it and the Gradle cache for offline reruns. The test provider captures export streams; real SAF permissions and handset behavior need device checks. Android CI runs these tests and independently cross-compiles/lints/verifies the ARM64 APK. No connected-device verification is claimed.
