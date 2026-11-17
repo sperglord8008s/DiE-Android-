@@ -23,7 +23,7 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | ZIP/APK nested member selection/extraction | wired; 256 MiB cap, private extraction, CRC check |
 | Native resource payload extraction | partial; manual validated physical range export |
 | Binary manifest/resource tables and DEX details | partial |
-| AOSP apksig independent v1/v2/v3 verification and certificate metadata | wired; test pending |
+| AOSP apksig independent v1/v2/v3 verification and certificate metadata | host fixtures verified: separate v1/v2/v3 and combined signatures, exact certificate, unsigned, tampered and truncated APKs; device flow pending; v3.1 exposed but rotation fixtures pending |
 | v4 detached .idsig handling | pending |
 | Signature database browser, source, temporary editor, single-rule testing, profiling, tag filters | wired via upstream desktop backend; fixture and device testing pending |
 | Custom database import and persistence | pending |
@@ -40,3 +40,5 @@ A functional alpha may have pending items. Do not describe it as a full port unt
 Linux host JNI fixture job exercises ELF structures, section and default maps, imports, exports, symbols, disassembly, hash comparison and strings, plus an unsupported-format negative case. This complements Android cross-compilation but is not a handset test. Extend fixtures with valid and malformed PE, Mach-O, APK, DEX and ZIP inputs.
 
 Desktop-backend fixture additionally validates candidate types, parser facts, loaded signature inventory and scan result tree against the pinned database. Unsupported cases and mobile UI behavior still require tests.
+
+`scripts/test-apk.sh` creates disposable RSA signing keys and synthetic binary-manifest APKs. It checks actual AOSP apksig 8.9.2 verification, including signer-local digest errors (which are not returned by `Result.getErrors()`). It downloads a SHA-256-pinned build-time JAR, or accepts `APKSIG_JAR` for offline tests. Reports explicitly check the manifest minimum API through API 35; this does not verify Android 16/API 36, detached v4 signatures, or rotation lineage.
