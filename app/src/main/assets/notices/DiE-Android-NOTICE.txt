@@ -32,3 +32,15 @@ dependency license texts are in binary-dependencies.txt. Linked Rust 1.90.0
 standard-library notices are in rust-stdlib-1.90.0.html. The two shared JNI
 workspace license files omitted by jni-sys-macros 0.4.1's crate archive are
 retained at their pinned source commit in binary-engine/licenses.
+MPV media investigation additionally uses unmodified official mpv-android
+2026-09-17 ARM64 runtime libraries, with SHA-256 identities in
+media-engine/runtime-lock.json and exact published engine/dependency/submodule
+sources in media-engine/source-lock.json. libmpv source is
+0b7ed670f7c353dd3dd4f8ae0fc788a181a15aa6. The app-owned read-only descriptor
+probe and isolated-worker integration are GPL-3.0-only. The runtime includes
+GPL/version3 FFmpeg and openly licensed codec/text/graphics support libraries;
+full license and source attribution notices are in mpv-runtime.txt. The build
+publishes a separate component-source bundle containing all pinned MPV source
+archives and original build recipes. Engine property reference excerpts come
+from the same pinned MPV manual under GPL-2.0-or-later. The application does not
+request network permission or download engines while running.

@@ -7,3 +7,5 @@ gradlew text eol=lf
 app/src/main/assets/notices/binary-dependencies.txt -text whitespace=-blank-at-eol,-blank-at-eof
 app/src/main/assets/notices/rust-stdlib-1.90.0.html -text whitespace=-blank-at-eol,-blank-at-eof
 binary-engine/licenses/* -text whitespace=-blank-at-eof
+app/src/main/assets/notices/mpv-runtime.txt -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+media-engine/licenses/* -text whitespace=-blank-at-eol,-blank-at-eof

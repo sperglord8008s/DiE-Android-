@@ -55,7 +55,7 @@ import sys
 import zipfile
 with zipfile.ZipFile(sys.argv[1]) as archive:
     names=[name for name in archive.namelist() if name.startswith('lib/') and name.endswith('.so')]
-    assert {'lib/arm64-v8a/libdiemobile.so','lib/arm64-v8a/libdiebinwalk.so'} <= set(names), 'Required native engine library missing'
+    assert {'lib/arm64-v8a/libdiemobile.so','lib/arm64-v8a/libdiebinwalk.so','lib/arm64-v8a/libdiempv.so'} <= set(names), 'Required native engine library missing'
     for name in names:
         assert name.startswith('lib/arm64-v8a/'), 'Unexpected native ABI: '+name
         data=archive.read(name);header=data[:20]
@@ -70,6 +70,13 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
                 loads.append(alignment)
         assert loads,'No ELF LOAD segments: '+name
         print('Static ARM64 / 16 KiB ELF verification:',name)
+    import hashlib,json
+    lock=json.loads(Path('media-engine/runtime-lock.json').read_text())
+    for name,expected in lock['libraries'].items():
+        assert hashlib.sha256(archive.read('lib/arm64-v8a/'+name)).hexdigest()==expected, 'Packaged official MPV runtime changed: '+name
+    assert 'lib/arm64-v8a/libplayer.so' not in names,'Unneeded upstream player JNI was packaged'
+    assert archive.read('mpv-properties.json')==Path('app/src/main/resources/mpv-properties.json').read_bytes(),'Offline MPV property reference missing/changed'
+    print('Nine packaged official MPV runtime libraries and offline property references match their pinned inputs.')
 PY
 
 unzip -p "$apk" assets/engine-revisions.properties | cmp - generated-assets/engine-revisions.properties
@@ -85,6 +92,7 @@ unzip -p "$apk" assets/notices/metadata-source-headers.txt | cmp - app/src/main/
 unzip -p "$apk" assets/notices/binwalk-3.1.1.txt | cmp - app/src/main/assets/notices/binwalk-3.1.1.txt
 unzip -p "$apk" assets/notices/binary-dependencies.txt | cmp - app/src/main/assets/notices/binary-dependencies.txt
 unzip -p "$apk" assets/notices/rust-stdlib-1.90.0.html | cmp - app/src/main/assets/notices/rust-stdlib-1.90.0.html
+unzip -p "$apk" assets/notices/mpv-runtime.txt | cmp - app/src/main/assets/notices/mpv-runtime.txt
 unzip -p "$apk" assets/db/_init > "$tmp/db-init"
 test -s "$tmp/db-init"
 
@@ -97,6 +105,7 @@ manifest="$(dirname "$apk")/build-manifest.txt"
   echo 'Configuration: debug, org.diemobile, API 26 minimum / API 35 target, ARM64'
   echo 'Pinned toolchain: JDK 17, Rust 1.90.0, Gradle 8.11.1, NDK 28.2.13676358, CMake 3.22.1, build-tools 35.0.0'
   sha256sum binary-engine/Cargo.lock
+  sha256sum media-engine/runtime-lock.json media-engine/source-lock.json
   cat generated-assets/engine-revisions.properties generated-assets/knowledge/revisions.txt
   cat app/src/main/assets/analysis-engines.properties
   echo 'Verification: APK signature, ZIP alignment, ELF 16 KiB alignment, application identity/API levels, no INTERNET permission, bundled revision/license assets'

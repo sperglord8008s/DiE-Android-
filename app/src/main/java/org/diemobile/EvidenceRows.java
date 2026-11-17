@@ -81,17 +81,21 @@ abstract class EvidenceRows {
         int[] found = new int[Math.min(size(), 1024)]; int count = 0;
         for (int i = 0; i < size(); i++) {
             check(cancelled); Row row = row(i, cancelled);
-            if (row.name.toLowerCase(Locale.ROOT).contains(query) || row.description.toLowerCase(Locale.ROOT).contains(query)
-                || row.encoded.toLowerCase(Locale.ROOT).contains(query) || containsDecoded(row.json(),query,0,new int[]{0},cancelled)) {
+            if (matches(row,query,cancelled)) {
                 if (count == found.length) found = Arrays.copyOf(found, Math.min(size(), Math.max(16, found.length * 2)));
                 found[count++] = i;
             }
         }
         return new Selection(this, filter, Arrays.copyOf(found, count), count);
     }
+    /** Providers can keep shared reference manuals out of value/key searches. */
+    boolean matches(Row row, String query, BooleanSupplier cancelled) throws Exception {
+        return row.name.toLowerCase(Locale.ROOT).contains(query) || row.description.toLowerCase(Locale.ROOT).contains(query)
+            || row.encoded.toLowerCase(Locale.ROOT).contains(query) || containsDecoded(row.json(),query,0,new int[]{0},cancelled);
+    }
     // Android's JSON encoder can escape '/' and other characters that a person
     // searches as ordinary text. Search decoded fields as well as serialized JSON.
-    private static boolean containsDecoded(Object value, String query, int depth, int[] visited, BooleanSupplier cancelled) throws Exception {
+    static boolean containsDecoded(Object value, String query, int depth, int[] visited, BooleanSupplier cancelled) throws Exception {
         check(cancelled); if (depth > 64 || ++visited[0] > 200000) throw new IOException("Evidence search exceeds its nesting/node budget");
         if (value instanceof JSONObject) {
             JSONObject object = (JSONObject)value; Iterator<String> keys = object.keys();

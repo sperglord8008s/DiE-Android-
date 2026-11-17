@@ -11,6 +11,8 @@ public final class WorkbenchTestRunner extends RobolectricTestRunner {
     public WorkbenchTestRunner(Class<?> test) throws InitializationError { super(test); }
     @Override protected InstrumentationConfiguration createClassLoaderConfig(FrameworkMethod method) {
         return new InstrumentationConfiguration.Builder(super.createClassLoaderConfig(method))
-            .doNotInstrumentClass("org.diemobile.Engine").build();
+            .doNotInstrumentClass("org.diemobile.Engine")
+            .doNotInstrumentClass("org.diemobile.BinwalkEngine")
+            .doNotInstrumentClass("org.diemobile.MpvEngine").build();
     }
 }

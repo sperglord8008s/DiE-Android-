@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "release": "mpv-android/2026-09-17",
+  "url": "https://github.com/mpv-android/mpv-android/releases/download/2026-09-17/app-default-arm64-v8a-release.apk",
+  "sha256": "0b0e0a534dd6b8d2b117f06952e0600064ad97702e48bff02543e3e32107803d",
+  "mpvSourceRevision": "0b7ed670f7c353dd3dd4f8ae0fc788a181a15aa6",
+  "buildScriptsRevision": "fdf74f6830c47dbaa8a22ac79726e8303f1db5af",
+  "abi": "arm64-v8a",
+  "libraries": {
+    "libavcodec.so": "403df40505a0d43ec6fb160e08ec21785f0da3ce5bb802b536ce790038598a57",
+    "libavdevice.so": "4f4593ea81ae39ee71d71ed08d1e76c8c5961eb93f05fa21f7c625116da6b68b",
+    "libavfilter.so": "38aa94839ed4183b24165174d1de4ee2cda607973e25466e923170395b35b9b8",
+    "libavformat.so": "28812d328fcf7d1833c4df18bd46a67517ccb74d0dd8369f45d4b2aab2959d88",
+    "libavutil.so": "7089c47b942828b58d76ed88366eef87a8a4b0956821e4a4d6eb176198921771",
+    "libc++_shared.so": "b5d97c38a728afe28d341cda3369f512d35eaf9c680c1b0563cd6a63e395230f",
+    "libmpv.so": "03d2d02db0451cebf4da2648188df7b2502005c6409fad1841b1d2b91ca8a814",
+    "libswresample.so": "31c8d864c63d8f50632b654bffe8cb570100bfb98b2af6d0012faab2a1914759",
+    "libswscale.so": "702b612f848bbc58a7f60071778e6a2ca32b73e5d51b4c7885529e9ca7f3704d"
+  },
+  "headers": {
+    "include/mpv/stream_cb.h": "188e58b6d14383e15a5dffdc4ecebbdfbf2e412b9c099ff21b571f747a8ce32d",
+    "include/mpv/client.h": "1acf99ee77c8c2a6f1d1993bd81bbc8a91d27fb5924e80171670e6139a4bd353"
+  }
+}

@@ -20,8 +20,10 @@ android {
     }
     sourceSets { main { assets.srcDir '../generated-assets' } }
     sourceSets { main { jniLibs.srcDir layout.buildDirectory.dir('generated-binwalk-jni') } }
+    sourceSets { main { jniLibs.srcDir layout.buildDirectory.dir('generated-mpv-jni') } }
     sourceSets { test { java.srcDirs '../tests/fixtures/dex', '../tests/fixtures/metadata' } }
     packaging { resources { merges += ['LICENSE'] } }
+    packaging { jniLibs { keepDebugSymbols += ['**/libmpv.so', '**/libav*.so', '**/libsw*.so', '**/libc++_shared.so'] } }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     testOptions {
         unitTests.includeAndroidResources = true
@@ -29,16 +31,18 @@ android {
             def hostLibraryDirectory = file(providers.gradleProperty('hostNativeLibraryDir').orElse(file('build/host-native').absolutePath).get())
             def fixtureDirectory = file(providers.gradleProperty('nativeFixturesDir').orElse(file('build/host-ui-fixtures').absolutePath).get())
             def binaryLibraryDirectory = file(providers.gradleProperty('hostBinaryLibraryDir').orElse(file('build/host-binwalk').absolutePath).get())
+            def mediaLibraryDirectory = file(providers.gradleProperty('hostMediaLibraryDir').orElse(file('build/host-mpv').absolutePath).get())
             maxHeapSize = '1g'
             systemProperty 'user.home', file('build/test-runtime-home').absolutePath
             doFirst { file('build/test-runtime-home').mkdirs() }
-            jvmArgs "-Djava.library.path=${hostLibraryDirectory.absolutePath}${File.pathSeparator}${binaryLibraryDirectory.absolutePath}"
+            jvmArgs "-Djava.library.path=${hostLibraryDirectory.absolutePath}${File.pathSeparator}${binaryLibraryDirectory.absolutePath}${File.pathSeparator}${mediaLibraryDirectory.absolutePath}", '--add-opens=java.base/java.io=ALL-UNNAMED'
             systemProperty 'die.fixture.dir', fixtureDirectory.absolutePath
             // Native/fixture changes must invalidate a previous passing Test task,
             // even when none of the Java sources or test parameters changed.
             inputs.file(new File(hostLibraryDirectory, 'libdiemobile.so')).withPropertyName('hostNativeLibrary')
             inputs.dir(fixtureDirectory).withPropertyName('nativeFixtures')
             inputs.file(new File(binaryLibraryDirectory, 'libdiebinwalk.so')).withPropertyName('hostBinwalkLibrary')
+            inputs.file(new File(mediaLibraryDirectory, 'libdiempv.so')).withPropertyName('hostMpvLibrary')
             systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
         }
     }
@@ -55,6 +59,17 @@ def buildBinwalkAndroid = tasks.register('buildBinwalkAndroid', Exec) {
     outputs.file(layout.buildDirectory.file('generated-binwalk-jni/arm64-v8a/libdiebinwalk.so'))
 }
 tasks.named('preBuild').configure { dependsOn buildBinwalkAndroid }
+
+def buildMpvAndroid = tasks.register('buildMpvAndroid', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'bash', rootProject.file('scripts/build-mpv.sh').absolutePath, 'android'
+    environment 'ANDROID_HOME', android.sdkDirectory.absolutePath
+    if (gradle.startParameter.offline) environment 'DIE_OFFLINE', 'true'
+    inputs.files(rootProject.fileTree('media-engine') { include '**/*.c', '**/*.h', '*-lock.json' })
+    inputs.files(rootProject.files('scripts/build-mpv.sh', 'scripts/fetch-mpv.py'))
+    outputs.dir(layout.buildDirectory.dir('generated-mpv-jni/arm64-v8a'))
+}
+tasks.named('preBuild').configure { dependsOn buildMpvAndroid }
 
 // AOSP's standalone, Apache-2.0 APK signing-scheme verifier.
 dependencies {

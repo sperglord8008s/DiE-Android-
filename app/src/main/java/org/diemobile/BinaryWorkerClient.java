@@ -15,9 +15,14 @@ import org.json.*;
 final class BinaryWorkerClient implements BinaryRunner {
     private static final long TIMEOUT_MS=45000;
     private final Context context;
+    private final String engine;
     private final Handler main=new Handler(Looper.getMainLooper());
     private final AtomicBoolean closed=new AtomicBoolean();
-    BinaryWorkerClient(Context context){this.context=context.getApplicationContext();}
+    BinaryWorkerClient(Context context){this(context,"binwalk");}
+    BinaryWorkerClient(Context context,String engine){
+        if(!engine.equals("binwalk")&&!engine.equals("mpv"))throw new IllegalArgumentException("Unknown binary worker engine");
+        this.context=context.getApplicationContext();this.engine=engine;
+    }
     @Override public String scan(File input,BooleanSupplier stop)throws Exception {
         if(Looper.myLooper()==Looper.getMainLooper())throw new IOException("Binary worker client must run off the UI thread");
         EvidenceRows.check(stop);if(closed.get())throw new IOException("Binary worker client closed");
@@ -46,7 +51,7 @@ final class BinaryWorkerClient implements BinaryRunner {
             if(failure.get()!=null)throw failure.get();if(remote.get()==null)throw new IOException("Isolated worker unavailable");
             pipe=ParcelFileDescriptor.createPipe();
             try(ParcelFileDescriptor source=ParcelFileDescriptor.open(input,ParcelFileDescriptor.MODE_READ_ONLY)){
-                Message request=Message.obtain(null,BinaryWorkerService.RUN);Bundle arguments=request.getData();arguments.putString("token",token);arguments.putParcelable("input",source);arguments.putParcelable("output",pipe[1]);remote.get().send(request);
+                Message request=Message.obtain(null,BinaryWorkerService.RUN);Bundle arguments=request.getData();arguments.putString("token",token);arguments.putString("engine",engine);arguments.putParcelable("input",source);arguments.putParcelable("output",pipe[1]);remote.get().send(request);
             }
             pipe[1].close();pipe[1]=null;ByteArrayOutputStream bytes=new ByteArrayOutputStream();
             try(InputStream reader=new ParcelFileDescriptor.AutoCloseInputStream(pipe[0])){pipe[0]=null;byte[] block=new byte[65536];int count;while((count=reader.read(block))>=0){if(failure.get()!=null)throw failure.get();EvidenceRows.check(stop);if(count>32*1024*1024-bytes.size())throw new IOException("Binary worker report exceeds 32 MiB");bytes.write(block,0,count);}}
@@ -54,6 +59,7 @@ final class BinaryWorkerClient implements BinaryRunner {
             JSONObject envelope;
             try{envelope=new JSONObject(bytes.toString(StandardCharsets.UTF_8.name()));}catch(JSONException error){throw new IOException("Isolated worker exited or returned an incomplete report",error);}
             if(!envelope.getBoolean("isolatedUid"))throw new IOException("Worker did not confirm UID isolation");
+            if(!engine.equals(envelope.getString("engine")))throw new IOException("Worker response belongs to a different engine");
             JSONObject report=envelope.getJSONObject("report");envelope.remove("report");report.put("worker",envelope.put("requestDeadlineMs",TIMEOUT_MS));return report.toString();
         }finally{
             finished.set(true);watchdog.shutdownNow();if(pipe!=null)for(ParcelFileDescriptor descriptor:pipe)if(descriptor!=null)try{descriptor.close();}catch(IOException ignored){}main.post(unbind);

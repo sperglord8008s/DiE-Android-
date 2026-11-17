@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-only
+set -euo pipefail
+cd "$(dirname "$0")/.."
+bash scripts/build-mpv.sh host
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+source scripts/test-dependencies.sh
+load_json_test_dependency "$tmp"
+library="${MPV_HOST_LIBRARY:-$(pkg-config --variable=libdir mpv)/libmpv.so}"
+"${CC:-cc}" -std=c11 -O2 -Wall -Wextra -Werror -pthread \
+  -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" -Imedia-engine/include \
+  tests/mpv-boundaries.c "$library" -Wl,-rpath,"$(dirname "$library")" -lm -o "$tmp/mpv-boundaries"
+"$tmp/mpv-boundaries"
+command -v ffmpeg >/dev/null || { echo 'Install ffmpeg to generate the real media fixtures.' >&2; exit 1; }
+javac -cp "$json_test_jar" -d "$tmp/classes" \
+  app/src/main/java/org/diemobile/{Inspector,EvidenceRows,EvidenceJson,InputSnapshot,InvestigationBackend,FileRange,RangeAnalysis,PreparedExport,BinaryRunner,MpvEngine,MpvReference,MpvDocument,MpvTables,MpvBackend}.java \
+  tests/fixtures/metadata/MetadataFixtureFactory.java tests/MpvInvestigationTest.java
+java --add-opens=java.base/java.io=ALL-UNNAMED -Djava.library.path="$PWD/app/build/host-mpv" \
+  -cp "$tmp/classes:$json_test_jar:$PWD/app/src/main/resources" org.diemobile.MpvInvestigationTest "$tmp"
