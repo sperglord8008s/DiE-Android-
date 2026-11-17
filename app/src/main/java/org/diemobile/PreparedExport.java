@@ -3,6 +3,7 @@ package org.diemobile;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.charset.CodingErrorAction;
 import java.util.function.BooleanSupplier;
 
 /** Private, immutable export staging decouples the document picker from live UI state. */
@@ -18,7 +19,7 @@ final class PreparedExport {
         if (text.length() > 32 * 1024 * 1024) throw new IOException("Report staging limit: 32 million characters");
         File staged = create(directory); boolean success = false;
         try {
-            try (Writer out = new OutputStreamWriter(new FileOutputStream(staged), StandardCharsets.UTF_8)) { out.write(text); }
+            try (Writer out = new OutputStreamWriter(new FileOutputStream(staged), StandardCharsets.UTF_8.newEncoder().onMalformedInput(CodingErrorAction.REPORT))) { out.write(text); }
             if (staged.length() > FileRange.MAX_OPERATION_BYTES) throw new IOException("Encoded report exceeds staging budget");
             success = true; return new PreparedExport(staged, name, "application/json", staged.length());
         } finally { if (!success) staged.delete(); }
@@ -42,7 +43,7 @@ final class PreparedExport {
                     if (length > FileRange.MAX_OPERATION_BYTES - written) throw new IOException("Encoded export exceeds the 256 MiB staging budget");
                     out.write(data, offset, length); written += length;
                 }
-            }; Writer out = new OutputStreamWriter(bounded, StandardCharsets.UTF_8)) {
+            }; Writer out = new OutputStreamWriter(bounded, StandardCharsets.UTF_8.newEncoder().onMalformedInput(CodingErrorAction.REPORT))) {
                 producer.write(out); if (cancelled.getAsBoolean()) throw new InterruptedIOException("Export cancelled");
             }
             success = true; return new PreparedExport(staged, name, mime, staged.length());

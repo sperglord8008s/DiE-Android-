@@ -1,4 +1,7 @@
 <resources>
+    <item name="investigation_filter" type="id"/>
+    <item name="investigation_records" type="id"/>
+    <item name="investigation_status" type="id"/>
     <item name="native_tool" type="id"/>
     <item name="native_mode" type="id"/>
     <item name="native_offset" type="id"/>

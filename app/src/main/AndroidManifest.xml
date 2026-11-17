@@ -7,6 +7,7 @@
         <activity android:name=".DesktopScanActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
         <activity android:name=".ArchiveExplorerActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
         <activity android:name=".NativeToolsActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
+        <activity android:name=".InvestigationActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
         <activity android:name=".SystemExplorerActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>

@@ -1,5 +1,11 @@
 # Local report schemas v1
 
+## Lazy investigation tables
+
+`org.diemobile.evidence-table`, `schemaVersion: 1`, is the streaming table schema used by the DEX viewer. It preserves `kind`, `title`, `rowCount`, `scope`, `createdAt`, provider `metadata`, engine/input `provenance`, and every `rows` record in the selected table. `view.filter`, zero-based `view.page`, and `view.pageSize` describe the captured display; they never restrict the exported rows. A single-record export identifies its original index in `metadata.recordSelection`. Physical offsets refer to the selected input snapshot; provider fields distinguish identifier records, encoded content and associated locations. DEX containers and compressed archive members have explicit separate address domains/provenance. See [DEX contracts](dex-investigation.md).
+
+Reports are staged before the document picker with a 256 MiB encoded UTF-8 budget. Unpaired UTF-16 units are escaped in JSON, and malformed unescaped text fails instead of silently substituting bytes. Failure/cancellation does not return a successful partial report.
+
 ## Scan report
 
 The primary Scan screen exports an object with `schema: "org.diemobile.scan-report"` and integer `schemaVersion: 1`. A consumer should check both before interpretation. Export is an explicit, local Storage Access Framework operation; the application does not upload reports.

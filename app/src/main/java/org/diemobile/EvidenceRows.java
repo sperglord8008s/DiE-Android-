@@ -86,11 +86,15 @@ abstract class EvidenceRows {
         return new Selection(this, filter, Arrays.copyOf(found, count), count);
     }
     void writeReport(Writer out, JSONObject provenance, String filter, int page, BooleanSupplier cancelled) throws Exception {
+        writeReport(out, provenance, filter, page, PAGE_SIZE, cancelled);
+    }
+    void writeReport(Writer out, JSONObject provenance, String filter, int page, int pageSize, BooleanSupplier cancelled) throws Exception {
+        if (pageSize < 1 || pageSize > PAGE_SIZE) throw new IOException("Rows per page must be 1–50");
         JSONObject header = new JSONObject().put("schema", "org.diemobile.evidence-table").put("schemaVersion", 1)
             .put("createdAt", java.time.Instant.now().toString()).put("kind", kind).put("title", title)
             .put("rowCount", size()).put("scope", "complete selected table")
             .put("provenance", provenance).put("metadata", metadata())
-            .put("view", new JSONObject().put("filter", filter).put("page", page).put("exportScope", "all rows, independent of the UI filter/page"));
+            .put("view", new JSONObject().put("filter", filter).put("page", page).put("pageSize", pageSize).put("exportScope", "all rows, independent of the UI filter/page"));
         String encoded = preserveSurrogates(header.toString()); out.write(encoded, 0, encoded.length() - 1); out.write(",\"rows\":[");
         for (int i = 0; i < size(); i++) { check(cancelled); if (i > 0) out.write(','); out.write(row(i, cancelled).encoded); }
         check(cancelled); out.write("]}");
