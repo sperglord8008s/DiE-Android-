@@ -10,7 +10,6 @@ import android.text.*;
 import android.view.*;
 import android.widget.*;
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -98,18 +97,24 @@ public final class NativeToolsActivity extends Activity {
         }
         TextView title = text("Native analysis • " + inputName, 18); title.setMaxLines(2);
         title.setEllipsize(TextUtils.TruncateAt.END); root.addView(title);
+        // Bound configuration space by weight so small windows retain usable
+        // results. Analyze/cancel/paging and search stay outside this scroll area.
+        ScrollView parameters = new ScrollView(this); parameters.setScrollbarFadingEnabled(false);
+        parameters.setContentDescription("Tool parameters and actions; scroll for more");
+        LinearLayout controls = vertical(); parameters.addView(controls);
+        root.addView(parameters, new LinearLayout.LayoutParams(-1, 0, 1));
         tools = new Spinner(this); tools.setId(R.id.native_tool);
-        tools.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, ToolReference.TITLES)); root.addView(tools);
-        help = text("", 13); help.setTextIsSelectable(true); root.addView(help);
-        mode = new Spinner(this); mode.setId(R.id.native_mode); root.addView(mode);
+        tools.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, ToolReference.TITLES)); controls.addView(tools);
+        help = text("", 13); help.setTextIsSelectable(true); controls.addView(help);
+        mode = new Spinner(this); mode.setId(R.id.native_mode); controls.addView(mode);
         LinearLayout inputs = new LinearLayout(this);
         offset = new EditText(this); offset.setId(R.id.native_offset); offset.setSingleLine(); offset.setHint("Physical offset: auto / 0x…");
         minimum = new EditText(this); minimum.setSingleLine(); minimum.setInputType(2); minimum.setHint("Minimum length");
-        inputs.addView(offset, new LinearLayout.LayoutParams(0, -2, 2)); inputs.addView(minimum, new LinearLayout.LayoutParams(0, -2, 1)); root.addView(inputs);
-        selector = new EditText(this); selector.setSingleLine(); root.addView(selector);
+        inputs.addView(offset, new LinearLayout.LayoutParams(0, -2, 2)); inputs.addView(minimum, new LinearLayout.LayoutParams(0, -2, 1)); controls.addView(inputs);
+        selector = new EditText(this); selector.setSingleLine(); controls.addView(selector);
         LinearLayout switches = new LinearLayout(this);
         json = new CheckBox(this); json.setText("Native JSON"); att = new CheckBox(this); att.setText("AT&T syntax");
-        switches.addView(json); switches.addView(att); root.addView(switches);
+        switches.addView(json); switches.addView(att); controls.addView(switches);
         LinearLayout analysis = new LinearLayout(this);
         reload = button("Analyze / reload", this::analyze); reload.setId(R.id.native_reload); addButton(analysis, reload);
         cancel = button("Cancel", () -> { if (busy) { cancellation.set(true); status.setText("Cancellation requested • waiting for current native/provider operation"); } }); addButton(analysis, cancel);
@@ -120,10 +125,10 @@ public final class NativeToolsActivity extends Activity {
         addButton(navigation, button("Go to offset / VA", this::goToDialog));
         nextBlock = button("Next block", () -> {
             if (produced != null && nextOffset >= 0) navigate(new ToolRequest(6, produced.mode, nextOffset, produced.minimum, "", true, produced.attSyntax));
-        }); nextBlock.setId(R.id.native_next_block); addButton(navigation, nextBlock); root.addView(navigation);
+        }); nextBlock.setId(R.id.native_next_block); addButton(navigation, nextBlock); controls.addView(navigation);
         LinearLayout more = new LinearLayout(this);
         export = button("Export report", this::exportReport); addButton(more, export);
-        addButton(more, button("Physical range…", this::rangeDialog)); root.addView(more);
+        addButton(more, button("Physical range…", this::rangeDialog)); controls.addView(more);
         filter = new EditText(this); filter.setId(R.id.native_filter); filter.setSingleLine(); filter.setHint("Search all record fields / offsets"); root.addView(filter);
         metadata = text("", 12); metadata.setTextIsSelectable(true); metadata.setOnClickListener(v -> showMetadata()); root.addView(metadata);
         status = text("Ready", 12); status.setId(R.id.native_status); root.addView(status);
@@ -132,7 +137,7 @@ public final class NativeToolsActivity extends Activity {
         textScroll = new ScrollView(this); HorizontalScrollView horizontal = new HorizontalScrollView(this);
         output = text("", 12); output.setId(R.id.native_output); output.setTypeface(Typeface.MONOSPACE); output.setTextIsSelectable(true);
         horizontal.addView(output); textScroll.addView(horizontal); results.addView(textScroll, new FrameLayout.LayoutParams(-1, -1));
-        root.addView(results, new LinearLayout.LayoutParams(-1, 0, 1)); setContentView(root);
+        root.addView(results, new LinearLayout.LayoutParams(-1, 0, 2)); setContentView(root);
         tools.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             public void onNothingSelected(AdapterView<?> parent) {}
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {

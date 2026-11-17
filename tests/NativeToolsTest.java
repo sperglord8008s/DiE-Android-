@@ -45,6 +45,14 @@ public final class NativeToolsTest {
    String scan=Engine.desktop(p,db,custom,1,1|2|16|64,0,"","","","");
    contains(scan,"\"ok\":true");contains(scan,"\"rows\":");
    require(!scan.contains("DIE_JNI_KNOWN_DETECTION"),"Disabled custom database contributed a match");
+   // Verify an unmodified bundled library rule, not only the synthetic custom
+   // rule below. This dynamically linked Linux fixture declares GLIBC imports.
+   org.json.JSONArray builtinRows=new org.json.JSONObject(scan).getJSONArray("rows");boolean glibc=false;
+   for(int i=0;i<builtinRows.length();i++){
+    org.json.JSONObject row=builtinRows.getJSONObject(i);
+    if(row.optString("signature").endsWith("ELF/library_GLIBC.3.sg")&&row.optString("text").contains("GLIBC"))glibc=true;
+   }
+   require(glibc,"Bundled GLIBC library detection or its exact rule provenance is missing");
    String enabled=Engine.desktop(p,db,custom,1,1|2|16|64|2048|8192,0,"","","","");
    contains(enabled,"DIE_JNI_KNOWN_DETECTION");contains(enabled,rule.toString());
    contains(enabled,"\"cacheHits\":0");

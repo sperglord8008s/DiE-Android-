@@ -210,6 +210,15 @@ public final class NativeWorkbenchTest {
         activity.findViewById(R.id.native_reload).performClick(); settle();
         assertTrue(list().getAdapter().getCount() > 1); assertFalse(status(), status().contains("cancelled"));
     }
+    @Test @Config(qualifiers = "w360dp-h640dp-mdpi")
+    public void recordsKeepUsableSpaceOnAPhoneSizedWindow() throws Exception {
+        open("pe32-rich.exe", 1);
+        assertTrue("Record pane has only " + list().getHeight() + " px on a 360x640 phone", list().getHeight() >= 160);
+        ((Spinner)activity.findViewById(R.id.native_tool)).setSelection(6);
+        Shadows.shadowOf(Looper.getMainLooper()).idle(); settle();
+        assertEquals(View.VISIBLE, list().getVisibility());
+        assertTrue("Disassembly pane has only " + list().getHeight() + " px", list().getHeight() >= 160);
+    }
     private static <T extends View> T findView(View view, Class<T> type) {
         if (type.isInstance(view)) return type.cast(view);
         if (view instanceof ViewGroup) for (int i = 0; i < ((ViewGroup)view).getChildCount(); i++) {
