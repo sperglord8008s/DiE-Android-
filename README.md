@@ -1,4 +1,4 @@
-# DiE Android (unofficial) — 0.3.0-alpha
+# DiE Android (unofficial) — 0.4.0-alpha
 
 Offline native Android frontend for the open-source Detect It Easy ecosystem. Independent project, not an official Horsicq application.
 
@@ -39,3 +39,6 @@ File 101, APK metadata and permission explanations, exported components, signing
 
 ### Expert-first interface
 Technical detail is the default. Contextual help explains the actual data without replacing it with a simplified view. Raw evidence remains accessible.
+
+## Core workbench expansion
+Native Tools exposes upstream CDiE data structures, memory maps, imports, exports, symbols, resource metadata, disassembly, hashes, Unicode strings and paged hex. Explore exposes local package inventory, declared services and OS-permitted files. QUERY_ALL_PACKAGES is declared for this local inventory; no INTERNET permission. See [design goals](docs/DESIGN-GOALS.md) and [feature parity](docs/FEATURE-PARITY.md). Hardware testing and full parity remain pending.
