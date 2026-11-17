@@ -15,3 +15,10 @@ checksums are recorded in scripts/dex-dependencies.sha256 and dex-sources.sha256
 in the corresponding source. analysis-engines.properties records the versions.
 
 This is an independent project, not an official Horsicq application.
+
+Metadata readers: metadata-extractor 2.22.0 (Apache-2.0) and Adobe XMP Core
+5.1.0-jc003 from AOSP c60127d527f8438b89f9e292200639ec14d1c3cf (BSD-3-Clause),
+built from pinned source archives with the documented compatibility/XML gate
+patch. Full terms and source notices: metadata-extractor-2.22.0.txt,
+xmp-aosp-BSD.txt and metadata-source-headers.txt. Corresponding source/build
+instructions are included in the repository's metadata-engine module.

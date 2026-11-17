@@ -22,6 +22,7 @@ jobs:
       - run: bash scripts/test.sh
       - run: bash scripts/fetch-engine.sh
       - run: bash scripts/fetch-knowledge.sh
+      - run: bash scripts/fetch-metadata.sh
       - run: ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
       - run: bash scripts/verify-apk.sh app/build/outputs/apk/debug/app-debug.apk
       - run: bash scripts/test-workbench-ui.sh
@@ -57,3 +58,4 @@ jobs:
       - run: bash scripts/test-models.sh
       - run: bash scripts/test-dex.sh
       - run: bash scripts/test-strings.sh
+      - run: bash scripts/test-metadata.sh

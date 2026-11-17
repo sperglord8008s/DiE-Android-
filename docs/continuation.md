@@ -6,7 +6,8 @@ Work is on `codex/workbench-parity`, proposed in [draft PR #1](https://github.co
 
 - DEX: pinned Google smali/dexlib2 + baksmali 3.0.10 and Android Guava, complete licensing/source notices and standalone dependency checksums. The main report uses Unicode/MUTF-8 indexing, table counts, Adler32/SHA-1 consistency and DEX SHA-256; ZIP duplicate-name/size/CRC/budget failures are explicit. APK / SDKs opens lazy typed metadata/bytecode/debug/exception/payload/reference tables, real method smali and physical byte actions. Complete scoped exports, 64-location Back/recreation, captured versus draft filters, classic versions and 041 shared containers have host fixtures. Four report and six viewer Robolectric cases join the previous fourteen UI cases. See [DEX investigation](dex-investigation.md).
 - String investigation: 43 built-in rules, 16 overlapping groups and full rule catalog/context/identity. Whole-input UTF-8/anchored UTF-16 scanning and exact DEX MUTF-8 classification preserve physical match/range evidence; private byte/text snapshots keep exports and hex independent of source expiry. All-rule host fixtures, six string viewer cases and one added DEX viewer case pass (31 Android checks total). See [string contracts](string-investigation.md).
-- Remaining additional user scope: MPV/media codec inspection, Binwalk, whole-blob media/resource carving (JPEG/PhotoRec-like recovery), EXIF/all collected metadata. These engine integrations are pending; do not substitute a feature label for a working engine or claim string/signature matches prove behavior. Next work is pinned metadata-extractor/XMP integration, then broad carving and actual media/Binwalk engines as feasible.
+- Collected metadata: source-built metadata-extractor 2.22.0 (Apache-2.0) plus Adobe XMP Core 5.1.0-jc003 from pinned AOSP BSD source, with a complete compatibility/XML gate patch. Directory/tag/error/XMP views retain raw types/relationships and stream complete values to JSON; exact binary/text values are exportable. Host JPEG/EXIF/GPS/ICC/XMP/PNG/WAV fixtures and six metadata Android cases pass (37 Android checks total). See [metadata contracts](metadata-investigation.md).
+- Remaining additional user scope: actual MPV/media codec probing, Binwalk and whole-blob media/resource carving (JPEG/PhotoRec-like recovery). These engines remain pending; metadata readers are not substitutes. Continue with broad validated carving and actual media/Binwalk engines, then Android binary XML/resources and the desktop gap list. Never claim strings/signature candidates prove behavior.
 
 - The main Scan workflow uses the pinned desktop CDiE backend. Scan/laboratory settings share one migrated preferences store. Results retain exact source paths, hierarchy, parser facts and diagnostics; 50-row searchable pages retain the full model. Physical entry offsets open hex/disassembly. Export schema v1 captures the original input SHA-256, scan options, engine/database identities and native JSON.
 - Bundled databases install into revision-specific private snapshots. Custom ZIP imports enforce path, duplicate, CRC, compressed/expanded size, member size and count limits. Original ZIPs, helpers, tags and license notices are retained. Native load checks precede atomic active-pointer changes; immutable paths invalidate native caches when switching/rolling back. Archive SHA-256 and enabled state are exported.
@@ -29,8 +30,10 @@ bash scripts/test-apk.sh
 bash scripts/test-models.sh
 bash scripts/test-dex.sh
 bash scripts/test-strings.sh
+bash scripts/test-metadata.sh
 bash scripts/fetch-engine.sh
 bash scripts/fetch-knowledge.sh
+bash scripts/fetch-metadata.sh
 bash scripts/test-native.sh
 ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
 bash scripts/verify-apk.sh app/build/outputs/apk/debug/app-debug.apk

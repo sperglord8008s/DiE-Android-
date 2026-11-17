@@ -28,7 +28,7 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | MPV/media codec and container inspection | requested; engine/platform/license integration pending; Android codec inventory alone is not equivalent to media probing |
 | Binwalk firmware/embedded signature analysis | requested; integration and fixture verification pending |
 | Whole-blob media/resource carving (JPEG recovery / PhotoRec-style coverage) | requested; scanner, validators, candidate/range evidence and bounded extraction pending |
-| EXIF and comprehensive collected file metadata | requested; tag-preserving offline engine integration pending; current native/Android metadata remains partial |
+| EXIF and comprehensive collected file metadata | source-built metadata-extractor 2.22.0 + AOSP BSD XMP 5.1.0, complete directory/tag/diagnostic/XMP-node views, typed values/relationships, full streamed JSON and exact binary/text exports; JPEG/EXIF/GPS/ICC/XMP, PNG and WAV host fixtures and six Android metadata cases verified; other dispatched readers integrated/unverified; unsupported/identification-only states explicit; broader formats, packet byte locations, isolation and handset flow pending |
 | AOSP apksig independent v1/v2/v3 verification and certificate metadata | host fixtures verified: separate v1/v2/v3 and combined signatures, exact certificate, unsigned, tampered and truncated APKs; device flow pending; v3.1 exposed but rotation fixtures pending |
 | v4 detached .idsig handling | pending |
 | Signature database browser, source, temporary editor, single-rule testing, profiling, tag filters | source retrieval, known edited-rule test and include-tag filtering host verified; profiling and device flow pending |
@@ -57,6 +57,8 @@ Typed native table and range contracts, limits and additional fixtures are docum
 The same UI command also runs five archive cases with real ZIP streams: parent folder/filter/page restoration; nested recreation and leaf ownership; invalid nested ZIP recovery; queued cancellation/reload; and the 16-level limit. Host acquisition fixtures run in `scripts/test.sh`. See [archive-acquisition.md](archive-acquisition.md) for exact budgets, supported methods, ownership and remaining ZIP/provenance gaps. These checks are separate from the native DEX/ZIP identification-only fixtures.
 
 Four DEX report cases, seven DEX viewer cases and six string viewer cases bring the suite to 31 API 28 Robolectric checks. They exercise actual smali output, string rules/streams, relationships, staged complete exports, owned input/hex lifetimes, cancellation and Back/recreation. See [DEX contracts](dex-investigation.md) and [string contracts](string-investigation.md). This does not verify handset behavior or real document-provider grants.
+
+Six metadata cases extend the suite to 37, exercising source-built EXIF/XMP/ICC data, raw rational/parent facts, XMP members/qualifiers/search/Back, complete selected-record and binary exports, input expiry/recreation, XML DTD rejection and cancellation/ownership. Host metadata fixtures additionally check PNG/WAV, 1,005 ancestry items, full binary chunks/typed values and XML boundaries. See [metadata contracts](metadata-investigation.md).
 
 ## Desktop upstream gap audit
 

@@ -14,6 +14,9 @@ abstract class EvidenceRows {
     abstract int size();
     abstract Row row(int index, BooleanSupplier cancelled) throws Exception;
     abstract JSONObject metadata() throws Exception;
+    /** Providers may stream full values that would exceed an interactive row budget. */
+    void writeSelectedRow(Writer out, Row row, BooleanSupplier cancelled) throws Exception { out.write(row.encoded); }
+    void writeRow(Writer out, int index, BooleanSupplier cancelled) throws Exception { writeSelectedRow(out,row(index,cancelled),cancelled); }
 
     static final class Row {
         final int index;
@@ -78,12 +81,25 @@ abstract class EvidenceRows {
         int[] found = new int[Math.min(size(), 1024)]; int count = 0;
         for (int i = 0; i < size(); i++) {
             check(cancelled); Row row = row(i, cancelled);
-            if (row.encoded.toLowerCase(Locale.ROOT).contains(query) || row.description.toLowerCase(Locale.ROOT).contains(query)) {
+            if (row.name.toLowerCase(Locale.ROOT).contains(query) || row.description.toLowerCase(Locale.ROOT).contains(query)
+                || row.encoded.toLowerCase(Locale.ROOT).contains(query) || containsDecoded(row.json(),query,0,new int[]{0},cancelled)) {
                 if (count == found.length) found = Arrays.copyOf(found, Math.min(size(), Math.max(16, found.length * 2)));
                 found[count++] = i;
             }
         }
         return new Selection(this, filter, Arrays.copyOf(found, count), count);
+    }
+    // Android's JSON encoder can escape '/' and other characters that a person
+    // searches as ordinary text. Search decoded fields as well as serialized JSON.
+    private static boolean containsDecoded(Object value, String query, int depth, int[] visited, BooleanSupplier cancelled) throws Exception {
+        check(cancelled); if (depth > 64 || ++visited[0] > 200000) throw new IOException("Evidence search exceeds its nesting/node budget");
+        if (value instanceof JSONObject) {
+            JSONObject object = (JSONObject)value; Iterator<String> keys = object.keys();
+            while (keys.hasNext()) { String key = keys.next(); if (key.toLowerCase(Locale.ROOT).contains(query) || containsDecoded(object.get(key),query,depth+1,visited,cancelled)) return true; }
+            return false;
+        }
+        if (value instanceof JSONArray) { JSONArray array = (JSONArray)value; for (int i = 0; i < array.length(); i++) if (containsDecoded(array.get(i),query,depth+1,visited,cancelled)) return true; return false; }
+        return String.valueOf(value).toLowerCase(Locale.ROOT).contains(query);
     }
     void writeReport(Writer out, JSONObject provenance, String filter, int page, BooleanSupplier cancelled) throws Exception {
         writeReport(out, provenance, filter, page, PAGE_SIZE, cancelled);
@@ -96,7 +112,7 @@ abstract class EvidenceRows {
             .put("provenance", provenance).put("metadata", metadata())
             .put("view", new JSONObject().put("filter", filter).put("page", page).put("pageSize", pageSize).put("exportScope", "all rows, independent of the UI filter/page"));
         String encoded = preserveSurrogates(header.toString()); out.write(encoded, 0, encoded.length() - 1); out.write(",\"rows\":[");
-        for (int i = 0; i < size(); i++) { check(cancelled); if (i > 0) out.write(','); out.write(row(i, cancelled).encoded); }
+        for (int i = 0; i < size(); i++) { check(cancelled); if (i > 0) out.write(','); writeRow(out,i,cancelled); }
         check(cancelled); out.write("]}");
     }
     static void check(BooleanSupplier cancelled) throws InterruptedIOException {

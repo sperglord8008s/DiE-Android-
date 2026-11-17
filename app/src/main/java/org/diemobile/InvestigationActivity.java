@@ -65,7 +65,8 @@ public final class InvestigationActivity extends Activity {
         String path = getIntent().getStringExtra("path"); if (path == null) { finish(); return; }
         File root = new File(path); inputName = getIntent().getStringExtra("name"); if (inputName == null) inputName = root.getName();
         exportDirectory = new File(getCacheDir(), "tool-exports");
-        if ("strings".equals(getIntent().getStringExtra("provider"))) backend = new StringBackend(root,new File(getCacheDir(),"string-snapshots"),inputName,ScanPreferences.load(this).minimumStringLength);
+        if ("metadata".equals(getIntent().getStringExtra("provider"))) backend = new MetadataBackend(root,new File(getCacheDir(),"metadata-snapshots"),inputName);
+        else if ("strings".equals(getIntent().getStringExtra("provider"))) backend = new StringBackend(root,new File(getCacheDir(),"string-snapshots"),inputName,ScanPreferences.load(this).minimumStringLength);
         else backend = new DexBackend(root, new File(getCacheDir(), "investigation-inputs"), inputName,
             getIntent().getStringExtra("sha256"), getIntent().getLongExtra("sourceSize", root.length()));
         createViews(); location = new Location(null, "", "", 0, 50);
@@ -100,7 +101,7 @@ public final class InvestigationActivity extends Activity {
         back = button("Back", this::goBack); add(navigation, back); views = button("Root views", this::rootViews); add(navigation, views);
         reload = button("Reload view", () -> load(capture(), false)); add(navigation, reload);
         cancel = button("Cancel", () -> { cancellation.set(true); status.setText("Cancellation requested • waiting for current engine/I/O operation"); }); add(navigation, cancel); root.addView(navigation);
-        LinearLayout filtering = new LinearLayout(this); filter = new EditText(this); filter.setSingleLine(); filter.setHint("Search all fields (press Search)");
+        LinearLayout filtering = new LinearLayout(this); filter = new EditText(this); filter.setSingleLine(); filter.setHint("Search current evidence (press Search)");
         filter.setFilters(new InputFilter[]{new InputFilter.LengthFilter(1024)}); filtering.addView(filter, new LinearLayout.LayoutParams(0, -2, 3));
         search = button("Search", () -> { Location current = capture(); load(new Location(current.request, current.draft, current.draft, 0, current.pageSize), true); }); add(filtering, search); root.addView(filtering);
         LinearLayout paging = new LinearLayout(this);
@@ -233,7 +234,10 @@ public final class InvestigationActivity extends Activity {
     }
     private void actionDialog(EvidenceRows.Row row, List<InvestigationBackend.Link> links) {
         List<String> labels = new ArrayList<>(); List<Runnable> actions = new ArrayList<>();
-        for (InvestigationBackend.Link link : links) { labels.add(link.label); actions.add(() -> { if (link.textName == null) navigate(link); else renderText(link); }); }
+        for (InvestigationBackend.Link link : links) { labels.add(link.label); actions.add(() -> {
+            if (link.binary) prepare(stop -> PreparedExport.bytes(exportDirectory,link.textName,backend.binaryValue(link.request,stop::get),stop::get));
+            else if (link.textName == null) navigate(link); else renderText(link);
+        }); }
         if (row.physicalOffset != null && row.physicalOffset < byteSize) {
             labels.add("Hex at associated physical offset"); actions.add(() -> {
                 if (!bytes.isFile() || bytes.length() != byteSize) { status.setText("Input snapshot expired or changed; reopen it from Scan"); return; }
@@ -248,10 +252,11 @@ public final class InvestigationActivity extends Activity {
             }
         } catch (IllegalArgumentException ignored) { /* Invalid/associated ranges remain metadata, not extractable bytes. */ }
         labels.add("Export complete selected record JSON"); actions.add(() -> {
-            final String origin = provenance, meta = metadata;
+            final String origin = provenance, meta = metadata; final EvidenceRows captured = source;
             EvidenceRows one = new EvidenceRows(capturedKind(), "Selected original record " + row.index) {
                 int size() { return 1; } Row row(int ignored, java.util.function.BooleanSupplier stop) throws Exception { EvidenceRows.check(stop); return row; }
                 JSONObject metadata() throws Exception { return new JSONObject(meta).put("recordSelection", row.index); }
+                @Override void writeSelectedRow(Writer out, Row selected, java.util.function.BooleanSupplier stop) throws Exception { captured.writeSelectedRow(out,selected,stop); }
             };
             prepare(stop -> PreparedExport.stream(exportDirectory, "evidence-record.json", "application/json", out -> one.writeReport(out, new JSONObject(origin), "", 0, stop::get), stop::get));
         });
@@ -309,7 +314,7 @@ public final class InvestigationActivity extends Activity {
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(staged.mime).putExtra(Intent.EXTRA_TITLE, staged.name); startActivityForResult(intent, 1);
     }
     private void renderText(InvestigationBackend.Link link) {
-        int ticket = begin("Rendering complete method smali…"); AtomicBoolean stop = cancellation;
+        int ticket = begin("Rendering complete text…"); AtomicBoolean stop = cancellation;
         worker.execute(() -> {
             PreparedExport staged = null;
             try {
@@ -321,11 +326,11 @@ public final class InvestigationActivity extends Activity {
                     if (isDestroyed() || ticket != generation) { ready.discard(); return; }
                     busy = false; controls(); if (preview != null) preview.discard(); preview = ready;
                     ScrollView scroll = new ScrollView(this); HorizontalScrollView horizontal = new HorizontalScrollView(this); TextView body = text(text + (truncated ? "\n\nDISPLAY PREVIEW • export retains the complete rendered method." : ""),12); body.setTypeface(Typeface.MONOSPACE); body.setTextIsSelectable(true); horizontal.addView(body); scroll.addView(horizontal);
-                    AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Method smali • " + ready.size + " UTF-8 bytes").setView(scroll).setNegativeButton("Close", null)
+                    AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Rendered text • " + ready.size + " UTF-8 bytes").setView(scroll).setNegativeButton("Close", null)
                         .setPositiveButton("Export complete text", (d,w) -> { preview = null; launchExport(ready); }).create();
                     dialog.setOnDismissListener(d -> { if (preview == ready) { preview.discard(); preview = null; } }); dialog.show();
                 });
-            } catch (Exception | StackOverflowError e) { if (staged != null) staged.discard(); failed(ticket, "Smali rendering failed: " + e.getMessage()); }
+            } catch (Exception | StackOverflowError e) { if (staged != null) staged.discard(); failed(ticket, "Text rendering failed: " + e.getMessage()); }
         });
     }
     @Override protected void onActivityResult(int request, int result, Intent intent) {

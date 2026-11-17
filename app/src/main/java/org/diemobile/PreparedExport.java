@@ -31,6 +31,17 @@ final class PreparedExport {
             success = true; return new PreparedExport(staged, name, "application/octet-stream", staged.length());
         } finally { if (!success) staged.delete(); }
     }
+    static PreparedExport bytes(File directory, String name, byte[] value, BooleanSupplier cancelled) throws IOException {
+        if (value.length > FileRange.MAX_OPERATION_BYTES) throw new IOException("Binary value exceeds the 256 MiB export budget");
+        File staged = create(directory); boolean success = false;
+        try {
+            try (OutputStream out = new FileOutputStream(staged)) {
+                for (int i = 0; i < value.length; i += 65536) { if (cancelled.getAsBoolean()) throw new InterruptedIOException("Export cancelled"); out.write(value,i,Math.min(65536,value.length-i)); }
+                if (cancelled.getAsBoolean()) throw new InterruptedIOException("Export cancelled");
+            }
+            success = true; return new PreparedExport(staged,name,"application/octet-stream",staged.length());
+        } finally { if (!success) staged.delete(); }
+    }
     /** Stream large structured/smali reports without materializing another full string/DOM. */
     static PreparedExport stream(File directory, String name, String mime, TextProducer producer, BooleanSupplier cancelled) throws Exception {
         File staged = create(directory); boolean success = false;

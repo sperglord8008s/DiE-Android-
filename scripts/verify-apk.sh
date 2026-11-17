@@ -55,6 +55,9 @@ unzip -p "$apk" assets/notices/DiE-Android-LICENSE.txt | cmp - LICENSE
 unzip -p "$apk" assets/analysis-engines.properties | cmp - app/src/main/assets/analysis-engines.properties
 unzip -p "$apk" assets/notices/smali-3.0.10.txt | cmp - app/src/main/assets/notices/smali-3.0.10.txt
 unzip -p "$apk" assets/notices/dex-dependencies.txt | cmp - app/src/main/assets/notices/dex-dependencies.txt
+unzip -p "$apk" assets/notices/metadata-extractor-2.22.0.txt | cmp - app/src/main/assets/notices/metadata-extractor-2.22.0.txt
+unzip -p "$apk" assets/notices/xmp-aosp-BSD.txt | cmp - app/src/main/assets/notices/xmp-aosp-BSD.txt
+unzip -p "$apk" assets/notices/metadata-source-headers.txt | cmp - app/src/main/assets/notices/metadata-source-headers.txt
 unzip -p "$apk" assets/db/_init > "$tmp/db-init"
 test -s "$tmp/db-init"
 

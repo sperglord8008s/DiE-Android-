@@ -64,7 +64,7 @@ public final class StringWorkbenchTest {
     }
     @Test public void groupsSearchFullScopeAndBackSurviveRecreation() throws Exception {
         root("URLs / URIs"); assertEquals(50,records().getAdapter().getCount()); button("next").performClick(); settle(); assertTrue(status(),status().contains("page 2/"));
-        filter().setText("fixture-070"); button("search").performClick(); settle(); assertEquals(1,records().getAdapter().getCount()); filter().setText("unapplied draft");
+        filter().setText("https://fixture-070.invalid/api/v1"); button("search").performClick(); settle(); assertEquals(1,records().getAdapter().getCount()); filter().setText("unapplied draft");
         action(0,"Group: Service / API endpoints"); controller.recreate(); activity = controller.get(); settle(); button("back").performClick(); settle();
         assertEquals("unapplied draft",filter().getText().toString()); assertEquals(1,records().getAdapter().getCount()); assertTrue(row(0).name.contains("fixture-070"));
     }

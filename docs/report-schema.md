@@ -6,6 +6,8 @@
 
 Reports are staged before the document picker with a 256 MiB encoded UTF-8 budget. Unpaired UTF-16 units are escaped in JSON, and malformed unescaped text fails instead of silently substituting bytes. Failure/cancellation does not return a successful partial report.
 
+Metadata providers add complete streamed values alongside explicitly bounded interactive fields: `fullRawValue` for tag/value records, `fullEngineDescription` for tags, and `fullPropertyValue` for XMP nodes. Selected-record exports invoke the same provider writer. This permits full binary Base64/array/text data without a second complete JSON DOM. Physical tag offsets remain null when unknown; `valueByteOffset`/`valueUtf16Offset` identify positions inside a returned value. See [metadata contracts](metadata-investigation.md). String/DEX tables retain exact original values and classification spans; group selection defines the export scope.
+
 ## Scan report
 
 The primary Scan screen exports an object with `schema: "org.diemobile.scan-report"` and integer `schemaVersion: 1`. A consumer should check both before interpretation. Export is an explicit, local Storage Access Framework operation; the application does not upload reports.
