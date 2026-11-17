@@ -22,9 +22,9 @@ public class MainActivity extends Activity {
  private Button open,rescan,export;
  private ProgressBar progress;
  private Uri selectedUri;
- private File retainedFile;
+ private File retainedFile,ownedMember;
  private String selectedDisplayName;
- private Button nativeTools;
+ private Button nativeTools,archiveTools;
  private long elapsedMs;
  private boolean settingsDirty;
  private int scannedFlags,scannedMin;
@@ -58,7 +58,7 @@ public class MainActivity extends Activity {
   open=btn("…",()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);startActivityForResult(i,1);});open.setContentDescription("Browse for a file");fileRow.addView(open);root.addView(fileRow);
   LinearLayout actions=new LinearLayout(this);rescan=btn("Scan / Rescan",()->{if(selectedUri!=null)scan(selectedUri);});rescan.setEnabled(false);
   export=btn("Save report",()->{Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/json");i.putExtra(Intent.EXTRA_TITLE,"die-android-report.json");startActivityForResult(i,2);});
-  export.setEnabled(false);actions.addView(rescan,new LinearLayout.LayoutParams(0,-2,1));actions.addView(export,new LinearLayout.LayoutParams(0,-2,1));nativeTools=btn("Tools",()->openNativeTools());nativeTools.setEnabled(false);actions.addView(nativeTools,new LinearLayout.LayoutParams(0,-2,1));root.addView(actions);
+  export.setEnabled(false);actions.addView(rescan,new LinearLayout.LayoutParams(0,-2,1));actions.addView(export,new LinearLayout.LayoutParams(0,-2,1));nativeTools=btn("Tools",()->openNativeTools());nativeTools.setEnabled(false);actions.addView(nativeTools,new LinearLayout.LayoutParams(0,-2,1));archiveTools=btn("Archive",()->openArchive());archiveTools.setEnabled(false);actions.addView(archiveTools,new LinearLayout.LayoutParams(0,-2,1));root.addView(actions);
   android.content.SharedPreferences prefs=getSharedPreferences("scan_options",MODE_PRIVATE);
   optionPanel=vertical();
   LinearLayout r1=new LinearLayout(this),r2=new LinearLayout(this);
@@ -80,7 +80,7 @@ public class MainActivity extends Activity {
  private void optionsDialog(){LinearLayout form=vertical();form.setPadding(dp(18),dp(8),dp(18),dp(8));TextView desc=txt("Deep: additional signature rules.\nHeuristic: infer probable matches.\nRecursive: inspect embedded files.\nAggressive: additional speculative checks.\nAll types: also scan compatible parent formats.\n\nMinimum ASCII string length (3–64)",14);form.addView(desc);EditText entry=new EditText(this);entry.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);entry.setText(min.getText());form.addView(entry);form.addView(btn("Import Exodus database (JSON)",()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");startActivityForResult(i,3);}));new AlertDialog.Builder(this).setTitle("Scan options").setView(form).setNegativeButton("Cancel",null).setPositiveButton("Apply",(d,w)->{min.setText(entry.getText());min.setText(""+minLength());settingsChanged();}).show();}
  private void finishedStatus(){status.setText(String.format(Locale.ROOT,"%s • %d ms%s",error.isEmpty()?"Scan complete":"Local scan / engine error",elapsedMs,settingsDirty?" • settings changed":""));}
  private void receive(Intent i){if(i==null)return;Uri u=null;if(Intent.ACTION_VIEW.equals(i.getAction()))u=i.getData();else if(Intent.ACTION_SEND.equals(i.getAction()))u=i.getParcelableExtra(Intent.EXTRA_STREAM);if(u!=null&&"content".equals(u.getScheme()))scan(u);}
- @Override protected void onActivityResult(int req,int code,Intent data){super.onActivityResult(req,code,data);if(req==4&&code==RESULT_OK&&data!=null){String p=data.getStringExtra("path");if(p!=null)scan(Uri.fromFile(new File(p)));return;}if(code==RESULT_OK&&data!=null&&data.getData()!=null){if(req==1){try{getContentResolver().takePersistableUriPermission(data.getData(),data.getFlags()&Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException ignored){}scan(data.getData());}if(req==2)save(data.getData());if(req==3)importExodus(data.getData());}}
+ @Override protected void onActivityResult(int req,int code,Intent data){super.onActivityResult(req,code,data);if((req==4||req==5)&&code==RESULT_OK&&data!=null){String p=data.getStringExtra("path");if(p!=null){if(req==5){if(ownedMember!=null)ownedMember.delete();ownedMember=new File(p);selectedDisplayName=data.getStringExtra("display");}scan(Uri.fromFile(new File(p)));}return;}if(code==RESULT_OK&&data!=null&&data.getData()!=null){if(req==1){try{getContentResolver().takePersistableUriPermission(data.getData(),data.getFlags()&Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException ignored){}scan(data.getData());}if(req==2)save(data.getData());if(req==3)importExodus(data.getData());}}
  private void importExodus(Uri u){
   worker.execute(()->{String msg;File temp=new File(getFilesDir(),"exodus-trackers.tmp");try(InputStream in=getContentResolver().openInputStream(u)){
    if(in==null)throw new IOException("No input");byte[] data=KnowledgeReport.bytes(in,8*1024*1024);JSONObject obj=new JSONObject(new String(data,StandardCharsets.UTF_8));obj.getJSONObject("trackers");
@@ -89,9 +89,9 @@ public class MainActivity extends Activity {
    msg="Exodus snapshot imported. Rescan to apply.";
   }catch(Exception e){temp.delete();msg="Import failed: "+e.getMessage();}final String text=msg;runOnUiThread(()->{if(!isDestroyed())Toast.makeText(this,text,Toast.LENGTH_LONG).show();});});
  }
- private String fileName(Uri u){if("file".equals(u.getScheme()))return new File(u.getPath()).getName();try(Cursor c=getContentResolver().query(u,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){if(c!=null&&c.moveToFirst()&&!c.isNull(0))return c.getString(0);}catch(Exception ignored){}return "input.bin";}
+ private String fileName(Uri u){if("file".equals(u.getScheme())){File f=new File(u.getPath());return ownedMember!=null&&f.equals(ownedMember)&&selectedDisplayName!=null?selectedDisplayName:f.getName();}try(Cursor c=getContentResolver().query(u,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){if(c!=null&&c.moveToFirst()&&!c.isNull(0))return c.getString(0);}catch(Exception ignored){}return "input.bin";}
  private void scan(Uri u){
-  if(busy){pending=u;return;}if(retainedFile!=null){retainedFile.delete();retainedFile=null;}selectedUri=u;busy=true;result=null;report="";error="";guide="";apkReport="";status.setText("Scanning locally…");fileLabel.setText(u.getLastPathSegment()==null?"Selected file":u.getLastPathSegment());open.setEnabled(false);rescan.setEnabled(false);export.setEnabled(false);nativeTools.setEnabled(false);progress.setIndeterminate(true);show();
+  if(busy){pending=u;return;}if(ownedMember!=null&&!("file".equals(u.getScheme())&&ownedMember.equals(new File(u.getPath())))){ownedMember.delete();ownedMember=null;selectedDisplayName=null;}if(retainedFile!=null){retainedFile.delete();retainedFile=null;}selectedUri=u;busy=true;result=null;report="";error="";guide="";apkReport="";status.setText("Scanning locally…");fileLabel.setText(u.getLastPathSegment()==null?"Selected file":u.getLastPathSegment());open.setEnabled(false);rescan.setEnabled(false);export.setEnabled(false);nativeTools.setEnabled(false);archiveTools.setEnabled(false);progress.setIndeterminate(true);show();
   int flags=currentFlags();final int minLen=minLength();final long started=SystemClock.elapsedRealtime();
   worker.execute(()->{
    File f=null;Inspector.Result r=null;String n="",rep="",err="",fail="",g="",a="";
@@ -105,9 +105,10 @@ public class MainActivity extends Activity {
     else err="CDiE not bundled; compiler/packer detection unavailable.";
    }catch(Exception e){fail=e.toString();}finally{if(r==null&&f!=null){f.delete();f=null;}}
    final File inputCopy=f;final Inspector.Result fr=r;final String fn=n,fp=rep,fe=err,ff=fail,fg=g,fa=a;
-   runOnUiThread(()->{if(isDestroyed()){if(inputCopy!=null)inputCopy.delete();return;}retainedFile=inputCopy;nativeTools.setEnabled(retainedFile!=null);result=fr;name=fn;report=fp;error=fe;guide=fg;apkReport=fa;busy=false;elapsedMs=SystemClock.elapsedRealtime()-started;scannedFlags=flags;scannedMin=minLen;settingsDirty=currentFlags()!=flags||minLength()!=minLen;fileLabel.setText(fn.isEmpty()?"Selected file":fn);open.setEnabled(true);rescan.setEnabled(selectedUri!=null);export.setEnabled(result!=null);progress.setIndeterminate(false);progress.setProgress(result!=null?100:0);if(ff.isEmpty())finishedStatus();else status.setText(ff);show();if(pending!=null){Uri next=pending;pending=null;scan(next);}});
+   runOnUiThread(()->{if(isDestroyed()){if(inputCopy!=null)inputCopy.delete();return;}retainedFile=inputCopy;nativeTools.setEnabled(retainedFile!=null);archiveTools.setEnabled(retainedFile!=null&&fr!=null&&fr.type.contains("ZIP"));result=fr;name=fn;report=fp;error=fe;guide=fg;apkReport=fa;busy=false;elapsedMs=SystemClock.elapsedRealtime()-started;scannedFlags=flags;scannedMin=minLen;settingsDirty=currentFlags()!=flags||minLength()!=minLen;fileLabel.setText(fn.isEmpty()?"Selected file":fn);open.setEnabled(true);rescan.setEnabled(selectedUri!=null);export.setEnabled(result!=null);progress.setIndeterminate(false);progress.setProgress(result!=null?100:0);if(ff.isEmpty())finishedStatus();else status.setText(ff);show();if(pending!=null){Uri next=pending;pending=null;scan(next);}});
   });
  }
+ private void openArchive(){if(retainedFile==null)return;Intent i=new Intent(this,ArchiveExplorerActivity.class);i.putExtra("path",retainedFile.getAbsolutePath());i.putExtra("name",name);startActivityForResult(i,5);}
  private void openNativeTools(){if(retainedFile==null)return;Intent i=new Intent(this,NativeToolsActivity.class);i.putExtra("path",retainedFile.getAbsolutePath());i.putExtra("name",name);startActivity(i);}
  private void copyAssets(String path,File dest)throws IOException{String[] children=getAssets().list(path);if(children!=null&&children.length>0){if(!dest.isDirectory()&&!dest.mkdirs())throw new IOException("Cannot create directory");for(String child:children)copyAssets(path+"/"+child,new File(dest,child));}else{try(InputStream in=getAssets().open(path);OutputStream out=new FileOutputStream(dest)){byte[] b=new byte[32768];int n;while((n=in.read(b))!=-1)out.write(b,0,n);}}}
  private String pretty(String s){try{return new JSONObject(s).toString(2);}catch(JSONException e){try{return new JSONArray(s).toString(2);}catch(JSONException ignored){return s;}}}
@@ -172,7 +173,7 @@ public class MainActivity extends Activity {
   }catch(JSONException e){pane.addView(txt("Unexpected engine report format. Inspect Log / JSON for the original result.",13));}
  }
  private void save(Uri u){if(result==null)return;try{JSONObject o=new JSONObject();o.put("name",name);o.put("size",result.size);o.put("type",result.type);o.put("sha256",result.sha256);o.put("entropy",result.entropy);o.put("scanFlags",scannedFlags);o.put("minAsciiStringLength",scannedMin);o.put("elapsedMs",elapsedMs);JSONArray a=new JSONArray();for(double v:result.blocks)a.put(v);o.put("blockEntropy",a);o.put("asciiStringsPreview",result.strings);o.put("hexPreview",result.hex);o.put("file101",guide);o.put("apkAnalysis",apkReport);o.put("cdieRawReport",report);o.put("cdieError",error);try(OutputStream out=getContentResolver().openOutputStream(u,"wt")){if(out==null)throw new IOException("Cannot open destination");out.write(o.toString(2).getBytes(StandardCharsets.UTF_8));}Toast.makeText(this,"Report saved",Toast.LENGTH_SHORT).show();}catch(Exception e){Toast.makeText(this,e.toString(),Toast.LENGTH_LONG).show();}}
- @Override protected void onDestroy(){worker.shutdown();if(retainedFile!=null)retainedFile.delete();super.onDestroy();}
+ @Override protected void onDestroy(){worker.shutdown();if(retainedFile!=null)retainedFile.delete();if(ownedMember!=null)ownedMember.delete();super.onDestroy();}
  private class Graph extends View{
   final Inspector.Result r;final TextView detail;final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);int selected=-1;
   Graph(Inspector.Result data,TextView t){super(MainActivity.this);r=data;detail=t;setContentDescription("Entropy graph, 0 to 8 bits per byte");}

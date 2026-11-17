@@ -19,7 +19,7 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | Installed user/system package inventory, base/split APK paths | wired |
 | Read-only permitted filesystem and declared service inventory | wired |
 | OS live services and privileged system files | pending; explicit bridge required |
-| Archive nested member selection/extraction | pending |
+| ZIP/APK nested member selection/extraction | wired; 256 MiB cap, private extraction, CRC check |
 | Native resource payload extraction | pending |
 | Binary manifest/resource tables and DEX details | partial |
 | apksig independent v1/v2/v3/v4 verification | pending |
