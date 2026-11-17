@@ -170,7 +170,7 @@ public final class DesktopScanActivity extends Activity {
                 if(r==null){depths.add(0);continue;}
                 int parent=r.optInt("parent",-1),depth=parent>=0&&parent<depths.size()?depths.get(parent)+1:0;
                 depths.add(depth);
-                String indent="  ".repeat(Math.min(depth,6));
+                StringBuilder indentBuilder=new StringBuilder();for(int d=0;d<Math.min(depth,6);d++)indentBuilder.append("  ");String indent=indentBuilder.toString();
                 String title=indent+r.optString("text");
                 String sig=r.optString("signature");
                 if(!sig.isEmpty())title+="\n"+indent+sig;

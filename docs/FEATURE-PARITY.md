@@ -23,7 +23,8 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | ZIP/APK nested member selection/extraction | wired; 256 MiB cap, private extraction, CRC check |
 | Native resource payload extraction | partial; manual validated physical range export |
 | Binary manifest/resource tables and DEX details | partial |
-| apksig independent v1/v2/v3/v4 verification | pending |
+| AOSP apksig independent v1/v2/v3 verification and certificate metadata | wired; test pending |
+| v4 detached .idsig handling | pending |
 | Signature database browser, source, temporary editor, single-rule testing, profiling, tag filters | wired via upstream desktop backend; fixture and device testing pending |
 | Custom database import and persistence | pending |
 | Full original Qt DiE rule compatibility comparison | pending |
@@ -37,3 +38,5 @@ A functional alpha may have pending items. Do not describe it as a full port unt
 
 ## Automated verification
 Linux host JNI fixture job exercises ELF structures, section and default maps, imports, exports, symbols, disassembly, hash comparison and strings, plus an unsupported-format negative case. This complements Android cross-compilation but is not a handset test. Extend fixtures with valid and malformed PE, Mach-O, APK, DEX and ZIP inputs.
+
+Desktop-backend fixture additionally validates candidate types, parser facts, loaded signature inventory and scan result tree against the pinned database. Unsupported cases and mobile UI behavior still require tests.

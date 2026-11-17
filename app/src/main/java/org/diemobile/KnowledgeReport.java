@@ -113,7 +113,7 @@ final class KnowledgeReport {
   o.section("Native libraries — machine-code modules loaded by applications");
   for(String n:nativeNames){o.item(n);match(o,rules,"native-libs",n);}
   if(nativeNames.isEmpty())o.item("No conventional lib/<ABI>/*.so entries seen; code could be stored elsewhere.");
-  if(manifest){o.guide.append("\nAPK FOUND\nThis archive contains AndroidManifest.xml. See APK / SDKs for package identity, permissions, exposed components, library evidence and community package guidance. The report describes requested capabilities, not actions observed in use.\n");pkg(c,file,o,rules);}
+  if(manifest){o.guide.append("\nAPK FOUND\nThis archive contains AndroidManifest.xml. See APK / SDKs for package identity, permissions, exposed components, library evidence and community package guidance. The report describes requested capabilities, not actions observed in use.\n");o.apk.append(ApkSigningReport.analyze(file));pkg(c,file,o,rules);}
   if(dexCount>0)trackers(c,classes,o);
   o.section("Archive inventory (first 1,000 entries; no extraction)");for(String n:entries)o.item(n);
   if(count>entries.size())o.item("Inventory truncated.");

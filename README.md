@@ -42,3 +42,6 @@ Technical detail is the default. Contextual help explains the actual data withou
 
 ## Core workbench expansion
 Native Tools exposes upstream CDiE data structures, memory maps, imports, exports, symbols, resource metadata, disassembly, hashes, Unicode strings and paged hex. Explore exposes local package inventory, declared services and OS-permitted files. QUERY_ALL_PACKAGES is declared for this local inventory; no INTERNET permission. See [design goals](docs/DESIGN-GOALS.md) and [feature parity](docs/FEATURE-PARITY.md). Hardware testing and full parity remain pending.
+
+### Verification and community development
+Run `scripts/test.sh` for local Java fixtures and `scripts/test-native.sh` after `scripts/fetch-engine.sh` for Linux-host JNI fixtures (JDK 17, CMake, C compiler). Android CI cross-compiles the ARM64 APK independently. Desktop scan laboratory reuses upstream signature provenance, tag filters, format selection and signature testing. APK signature checks use AOSP apksig; inspect limitations in the feature checklist.

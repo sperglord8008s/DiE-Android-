@@ -21,3 +21,6 @@ android {
     sourceSets { main { assets.srcDir '../generated-assets' } }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
+
+// AOSP's standalone, Apache-2.0 APK signing-scheme verifier.
+dependencies { implementation 'com.android.tools.build:apksig:8.9.2' }

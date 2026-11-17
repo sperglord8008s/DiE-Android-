@@ -29,6 +29,19 @@ public final class NativeToolsTest {
   Path raw=Files.createTempFile("die-test-raw",".bin");
   try{Files.write(raw,new byte[]{1,2,3,4,5,6});String error=Engine.tool(raw.toString(),0,-1,0,4);require(error.startsWith("ERROR:"),"Raw structural result unexpected: "+error);}
   finally{Files.deleteIfExists(raw);}
+  if(args.length>1){
+   String db=args[1],custom=args[2];
+   String types=Engine.desktop(p,db,custom,0,1|2|16|64|4096,0,"","","","");
+   contains(types,"\"ok\":true");contains(types,"ELF");
+   String facts=Engine.desktop(p,db,custom,5,1|2|16,0,"","","","");
+   contains(facts,"\"ok\":true");contains(facts,"\"entryOffset\":");
+   String signatures=Engine.desktop(p,db,custom,2,1|2|16,0,"","","","");
+   contains(signatures,"\"ok\":true");contains(signatures,".sg");
+   String scan=Engine.desktop(p,db,custom,1,1|2|16|64,0,"","","","");
+   contains(scan,"\"ok\":true");contains(scan,"\"rows\":");
+   System.out.println("Desktop backend database, type, facts and scan checks passed.");
+  }
+  String entropy=call(p,10,-1,0);require(!entropy.isEmpty(),"Entropy report empty");
   System.out.println("Native JNI fixture checks passed.");
  }
 }
