@@ -5,6 +5,12 @@ final class Engine {
     static final boolean AVAILABLE;
     static { boolean ok; try { System.loadLibrary("diemobile"); ok=true; } catch(UnsatisfiedLinkError e){ok=false;} AVAILABLE=ok; }
     private static native byte[] scanNative(String path,String db,int flags);
+    private static native byte[] toolNative(String path,int tool,long offset,int mode,int minimum);
+    static synchronized String tool(String path,int tool,long offset,int mode,int minimum) {
+        if(!AVAILABLE)return "Native engine unavailable.";
+        byte[] raw=toolNative(path,tool,offset,mode,minimum);
+        return raw==null?"Native report allocation failed.":new String(raw,StandardCharsets.UTF_8);
+    }
     static synchronized String scan(String path,String db,int flags) {
         if(!AVAILABLE) return null;
         byte[] raw=scanNative(path,db,flags);
