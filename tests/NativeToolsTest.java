@@ -83,6 +83,23 @@ public final class NativeToolsTest {
    String restored=Engine.desktop(p,db,custom,1,16|2048,0,"","","","");
    contains(restored,"DIE_JNI_KNOWN_DETECTION");require(!restored.contains("DIE_JNI_IMPORTED_DETECTION"),"Database rollback retained new rules");
    require(number(restored,"databaseGeneration")>number(importedScan,"databaseGeneration"),"Database path change did not invalidate generation");
+   // Reproduce a cancel while the scanner waits behind another serialized tool.
+   // Holding the monitor makes the scheduling deterministic, without sleeps.
+   Engine.Cancellation queued=new Engine.Cancellation();
+   java.util.concurrent.CountDownLatch ready=new java.util.concurrent.CountDownLatch(1);
+   java.util.concurrent.atomic.AtomicReference<String> cancelledResult=new java.util.concurrent.atomic.AtomicReference<>();
+   Thread waiting=new Thread(()->{ready.countDown();cancelledResult.set(Engine.desktop(p,db,custom,1,16|2048,0,"","","","",queued));});
+   waiting.setDaemon(true);
+   synchronized(Engine.class){
+    waiting.start();require(ready.await(5,java.util.concurrent.TimeUnit.SECONDS),"Cancellation test did not start");queued.cancel();
+   }
+   waiting.join(5000);require(!waiting.isAlive(),"Queued cancellation waited for native scan");
+   contains(cancelledResult.get(),"\"ok\":false");contains(cancelledResult.get(),"Scan cancelled");
+   Engine.Cancellation completed=new Engine.Cancellation();
+   contains(Engine.desktop(p,db,custom,1,16|2048,0,"","","","",completed),"DIE_JNI_KNOWN_DETECTION");
+   completed.cancel();
+   contains(Engine.desktop(p,db,custom,1,16|2048,0,"","","",""),"DIE_JNI_KNOWN_DETECTION");
+   System.out.println("Queued cancellation and subsequent scan recovery passed.");
    System.out.println("Desktop backend database, type, facts and scan checks passed.");
    for(String fixture:new String[]{"pe32.exe","pe64.exe","mach64.bin"}){
     String binary=Path.of(args[3],fixture).toString();

@@ -30,7 +30,7 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | Full original Qt DiE rule compatibility comparison | pending |
 | Searchable typed evidence with source offsets and structured tool exports | typed desktop detection tree, search and 50-row paging; versioned JSON report, captured shared settings and pinned provenance host verified; entry-offset hex/disassembly links wired; remaining native tables are text |
 | Comprehensive per-field documentation and investigative guidance | partial |
-| Desktop scan cooperative cancellation and result cache | cache hit and byte-change invalidation host verified; cooperative cancellation wired, race/runtime testing pending |
+| Desktop scan cooperative cancellation and result cache | cache hit and byte-change invalidation host verified; request-owned cancellation, deterministic queued-cancel/recovery and Java streaming cancellation host verified; active native interrupt latency and handset lifecycle tests pending |
 | Batch scanning, diff, profiles, isolated native worker | pending |
 | Device testing, regression fixtures, license audit, reproducible signing | pending |
 

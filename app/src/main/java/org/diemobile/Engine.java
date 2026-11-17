@@ -2,6 +2,9 @@
 package org.diemobile;
 import java.nio.charset.StandardCharsets;
 final class Engine {
+    private static final Object CANCELLATION_LOCK = new Object();
+    private static Cancellation activeCancellation;
+    private static final String CANCELLED = "{\"ok\":false,\"error\":\"Scan cancelled\"}";
     static final boolean AVAILABLE;
     static { boolean ok; try { System.loadLibrary("diemobile"); ok=true; } catch(UnsatisfiedLinkError e){ok=false;} AVAILABLE=ok; }
     private static native byte[] scanNative(String path,String db,int flags);
@@ -16,10 +19,52 @@ final class Engine {
     }
     private static native byte[] desktopNative(String path,String db,String custom,int verb,int flags,int typeId,String include,String exclude,String arg,String source);
     private static native void cancelDesktopNative();
-    static void cancelDesktop(){if(AVAILABLE)cancelDesktopNative();}
-    static synchronized String desktop(String path,String db,String custom,int verb,int flags,int typeId,String include,String exclude,String arg,String source) {
+    private static native void resetDesktopCancellationNative();
+
+    /** Owned by one request, including time spent waiting for the serialized engine. */
+    static final class Cancellation {
+        private boolean requested, finished;
+
+        void cancel() {
+            synchronized (CANCELLATION_LOCK) {
+                if (finished || requested) return;
+                requested = true;
+                if (activeCancellation == this && AVAILABLE) cancelDesktopNative();
+            }
+        }
+
+        boolean isRequested() {
+            synchronized (CANCELLATION_LOCK) { return requested; }
+        }
+    }
+
+    static String desktop(String path,String db,String custom,int verb,int flags,int typeId,String include,String exclude,String arg,String source) {
+        return desktop(path,db,custom,verb,flags,typeId,include,exclude,arg,source,
+            verb==1 ? new Cancellation() : null);
+    }
+
+    static synchronized String desktop(String path,String db,String custom,int verb,int flags,int typeId,String include,String exclude,String arg,String source,Cancellation cancellation) {
         if(!AVAILABLE)return "{\"ok\":false,\"error\":\"Native engine unavailable\"}";
-        byte[] result=desktopNative(path,db,custom,verb,flags,typeId,include,exclude,arg,source);
+        if(verb==1 && cancellation==null)throw new IllegalArgumentException("Scan requires a cancellation scope");
+        if(verb!=1 && cancellation!=null)throw new IllegalArgumentException("Cancellation scopes apply to scans");
+        if(cancellation!=null)synchronized(CANCELLATION_LOCK){
+            if(cancellation.finished)throw new IllegalStateException("Scan cancellation scope cannot be reused");
+            if(cancellation.requested){cancellation.finished=true;return CANCELLED;}
+            // Reset before publishing the active scope. A later cancel can no longer
+            // be lost to the JNI entry point resetting its global progress flag.
+            resetDesktopCancellationNative();
+            activeCancellation=cancellation;
+        }
+        byte[] result;
+        boolean cancelled=false;
+        try {result=desktopNative(path,db,custom,verb,flags,typeId,include,exclude,arg,source);}
+        finally {
+            if(cancellation!=null)synchronized(CANCELLATION_LOCK){
+                cancelled=cancellation.requested;
+                activeCancellation=null;cancellation.finished=true;
+            }
+        }
+        if(cancelled)return CANCELLED;
         return result==null?"{\"ok\":false,\"error\":\"Native report allocation failed\"}":new String(result,StandardCharsets.UTF_8);
     }
     static synchronized String scan(String path,String db,int flags) {

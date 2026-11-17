@@ -19,7 +19,8 @@ public class MainActivity extends Activity {
  private final ExecutorService worker=Executors.newSingleThreadExecutor();
  private LinearLayout root,pane,tabs;
  private TextView status,fileLabel;
- private Button open,rescan,export;
+ private Button open,rescan,export,cancel;
+ private Engine.Cancellation scanCancellation;
  private ProgressBar progress;
  private Uri selectedUri;
  private File retainedFile,ownedMember;
@@ -62,7 +63,7 @@ public class MainActivity extends Activity {
   open=btn("…",()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);startActivityForResult(i,1);});open.setContentDescription("Browse for a file");fileRow.addView(open);root.addView(fileRow);
   LinearLayout actions=new LinearLayout(this);rescan=btn("Scan / Rescan",()->{if(selectedUri!=null)scan(selectedUri);});rescan.setEnabled(false);
   export=btn("Save report",()->{Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/json");i.putExtra(Intent.EXTRA_TITLE,"die-android-report.json");startActivityForResult(i,2);});
-  export.setEnabled(false);actions.addView(rescan,new LinearLayout.LayoutParams(0,-2,1));actions.addView(export,new LinearLayout.LayoutParams(0,-2,1));nativeTools=btn("Tools",()->openNativeTools());nativeTools.setEnabled(false);actions.addView(nativeTools,new LinearLayout.LayoutParams(0,-2,1));archiveTools=btn("Archive",()->openArchive());archiveTools.setEnabled(false);actions.addView(archiveTools,new LinearLayout.LayoutParams(0,-2,1));root.addView(actions);
+  export.setEnabled(false);actions.addView(rescan,new LinearLayout.LayoutParams(0,-2,1));cancel=btn("Cancel",()->{if(busy&&scanCancellation!=null){scanCancellation.cancel();status.setText("Cancellation requested • waiting for analysis to stop");}});cancel.setEnabled(false);actions.addView(cancel,new LinearLayout.LayoutParams(0,-2,1));actions.addView(export,new LinearLayout.LayoutParams(0,-2,1));nativeTools=btn("Tools",()->openNativeTools());nativeTools.setEnabled(false);actions.addView(nativeTools,new LinearLayout.LayoutParams(0,-2,1));archiveTools=btn("Archive",()->openArchive());archiveTools.setEnabled(false);actions.addView(archiveTools,new LinearLayout.LayoutParams(0,-2,1));root.addView(actions);
   ScanOptions prefs=ScanPreferences.load(this);
   optionPanel=vertical();
   LinearLayout r1=new LinearLayout(this),r2=new LinearLayout(this);
@@ -97,27 +98,27 @@ public class MainActivity extends Activity {
  }
  private String fileName(Uri u){if("file".equals(u.getScheme())){File f=new File(u.getPath());return ownedMember!=null&&f.equals(ownedMember)&&selectedDisplayName!=null?selectedDisplayName:f.getName();}try(Cursor c=getContentResolver().query(u,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){if(c!=null&&c.moveToFirst()&&!c.isNull(0))return c.getString(0);}catch(Exception ignored){}return "input.bin";}
  private void scan(Uri u){
-  if(busy){pending=u;return;}if(ownedMember!=null&&!("file".equals(u.getScheme())&&ownedMember.equals(new File(u.getPath())))){ownedMember.delete();ownedMember=null;selectedDisplayName=null;}if(retainedFile!=null){retainedFile.delete();retainedFile=null;}selectedUri=u;busy=true;result=null;evidence=null;nativeFacts=null;database=null;report="";error="";guide="";apkReport="";status.setText("Scanning locally…");fileLabel.setText(u.getLastPathSegment()==null?"Selected file":u.getLastPathSegment());open.setEnabled(false);rescan.setEnabled(false);export.setEnabled(false);nativeTools.setEnabled(false);archiveTools.setEnabled(false);progress.setIndeterminate(true);show();
+  if(busy){pending=u;return;}if(ownedMember!=null&&!("file".equals(u.getScheme())&&ownedMember.equals(new File(u.getPath())))){ownedMember.delete();ownedMember=null;selectedDisplayName=null;}if(retainedFile!=null){retainedFile.delete();retainedFile=null;}selectedUri=u;busy=true;scanCancellation=new Engine.Cancellation();final Engine.Cancellation cancellation=scanCancellation;cancel.setEnabled(true);result=null;evidence=null;nativeFacts=null;database=null;report="";error="";guide="";apkReport="";status.setText("Scanning locally…");fileLabel.setText(u.getLastPathSegment()==null?"Selected file":u.getLastPathSegment());open.setEnabled(false);rescan.setEnabled(false);export.setEnabled(false);nativeTools.setEnabled(false);archiveTools.setEnabled(false);progress.setIndeterminate(true);show();
   final ScanOptions options=currentOptions();int flags=options.flags;final int minLen=options.minimumStringLength;final long started=SystemClock.elapsedRealtime();
   worker.execute(()->{
    File f=null;Inspector.Result r=null;String n="",rep="",err="",fail="",g="",a="";ScanEvidence ev=null;JSONObject facts=null;EngineDatabase databases=null;
    try{
     n=fileName(u);String ext=".bin";int dot=n.lastIndexOf('.');if(dot>=0&&n.substring(dot).matches("\\.[a-zA-Z0-9]{1,12}"))ext=n.substring(dot);
     f=File.createTempFile("scan-",ext,getCacheDir());
-    try(InputStream in=getContentResolver().openInputStream(u);OutputStream out=new FileOutputStream(f)){if(in==null)throw new IOException("No input data");byte[] b=new byte[65536];int count;long total=0;while((count=in.read(b))!=-1){total+=count;if(total>1024L*1024*1024)throw new IOException("Alpha limit: 1 GiB");out.write(b,0,count);}}
-    r=Inspector.scan(f,minLen);
-    try{KnowledgeReport.Output k=KnowledgeReport.analyze(this,f,r,n);g=k.guide.toString();a=k.apk.toString();}catch(Exception e){g="Explanatory report unavailable: "+e.getMessage();}
+    try(InputStream in=getContentResolver().openInputStream(u);OutputStream out=new FileOutputStream(f)){if(in==null)throw new IOException("No input data");byte[] b=new byte[65536];int count;long total=0;while((count=in.read(b))!=-1){if(cancellation.isRequested())throw new InterruptedIOException("Scan cancelled during input acquisition");total+=count;if(total>1024L*1024*1024)throw new IOException("Alpha limit: 1 GiB");out.write(b,0,count);}}
+    r=Inspector.scan(f,minLen,cancellation::isRequested);
+    try{if(cancellation.isRequested())throw new InterruptedIOException("Scan cancelled");KnowledgeReport.Output k=KnowledgeReport.analyze(this,f,r,n);g=k.guide.toString();a=k.apk.toString();}catch(Exception e){g="Explanatory report unavailable: "+e.getMessage();}
     if(Engine.AVAILABLE){try{
      databases=EngineDatabase.prepare(this);
-     rep=Engine.desktop(f.getAbsolutePath(),databases.main.getAbsolutePath(),databases.custom.getAbsolutePath(),1,flags,0,options.includeTags,options.excludeTags,"","");
+     if(!cancellation.isRequested())facts=new JSONObject(Engine.desktop(f.getAbsolutePath(),databases.main.getAbsolutePath(),databases.custom.getAbsolutePath(),5,flags,0,options.includeTags,options.excludeTags,"",""));
+     rep=Engine.desktop(f.getAbsolutePath(),databases.main.getAbsolutePath(),databases.custom.getAbsolutePath(),1,flags,0,options.includeTags,options.excludeTags,"","",cancellation);
      ev=ScanEvidence.parse(rep);if(!ev.ok)err=ev.error;
-     facts=new JSONObject(Engine.desktop(f.getAbsolutePath(),databases.main.getAbsolutePath(),databases.custom.getAbsolutePath(),5,flags,0,options.includeTags,options.excludeTags,"",""));
     }catch(Exception|LinkageError e){err=e.toString();}}
     else err="CDiE not bundled; compiler/packer detection unavailable.";
    }catch(Exception e){fail=e.toString();}finally{if(r==null&&f!=null){f.delete();f=null;}}
    final ScanEvidence finalEvidence=ev;final JSONObject finalFacts=facts;final EngineDatabase finalDatabases=databases;
    final File inputCopy=f;final Inspector.Result fr=r;final String fn=n,fp=rep,fe=err,ff=fail,fg=g,fa=a;
-   runOnUiThread(()->{if(isDestroyed()){if(inputCopy!=null)inputCopy.delete();return;}retainedFile=inputCopy;nativeTools.setEnabled(retainedFile!=null);archiveTools.setEnabled(retainedFile!=null&&fr!=null&&fr.type.contains("ZIP"));result=fr;evidence=finalEvidence;nativeFacts=finalFacts;database=finalDatabases;scannedOptions=options;name=fn;report=fp;error=fe;guide=fg;apkReport=fa;busy=false;elapsedMs=SystemClock.elapsedRealtime()-started;scannedFlags=flags;scannedMin=minLen;settingsDirty=!currentOptions().sameAs(options);fileLabel.setText(fn.isEmpty()?"Selected file":fn);open.setEnabled(true);rescan.setEnabled(selectedUri!=null);export.setEnabled(result!=null);progress.setIndeterminate(false);progress.setProgress(result!=null?100:0);if(ff.isEmpty())finishedStatus();else status.setText(ff);show();if(pending!=null){Uri next=pending;pending=null;scan(next);}});
+   runOnUiThread(()->{if(isDestroyed()){if(inputCopy!=null)inputCopy.delete();return;}retainedFile=inputCopy;nativeTools.setEnabled(retainedFile!=null);archiveTools.setEnabled(retainedFile!=null&&fr!=null&&fr.type.contains("ZIP"));result=fr;evidence=finalEvidence;nativeFacts=finalFacts;database=finalDatabases;scannedOptions=options;name=fn;report=fp;error=fe;guide=fg;apkReport=fa;busy=false;cancel.setEnabled(false);elapsedMs=SystemClock.elapsedRealtime()-started;scannedFlags=flags;scannedMin=minLen;settingsDirty=!currentOptions().sameAs(options);fileLabel.setText(fn.isEmpty()?"Selected file":fn);open.setEnabled(true);rescan.setEnabled(selectedUri!=null);export.setEnabled(result!=null);progress.setIndeterminate(false);progress.setProgress(result!=null?100:0);if(ff.isEmpty())finishedStatus();else status.setText(ff);show();if(pending!=null){Uri next=pending;pending=null;scan(next);}});
   });
  }
  private void openDesktopScan(){if(retainedFile==null||!Engine.AVAILABLE)return;Intent i=new Intent(this,DesktopScanActivity.class);i.putExtra("path",retainedFile.getAbsolutePath());i.putExtra("name",name);startActivity(i);}
@@ -206,7 +207,7 @@ public class MainActivity extends Activity {
    final String text=message;runOnUiThread(()->{if(!isDestroyed())Toast.makeText(this,text,Toast.LENGTH_LONG).show();});
   });
  }
- @Override protected void onDestroy(){if(busy)Engine.cancelDesktop();worker.shutdown();if(retainedFile!=null)retainedFile.delete();if(ownedMember!=null)ownedMember.delete();super.onDestroy();}
+ @Override protected void onDestroy(){if(busy&&scanCancellation!=null)scanCancellation.cancel();worker.shutdown();if(retainedFile!=null)retainedFile.delete();if(ownedMember!=null)ownedMember.delete();super.onDestroy();}
  private class Graph extends View{
   final Inspector.Result r;final TextView detail;final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);int selected=-1;
   Graph(Inspector.Result data,TextView t){super(MainActivity.this);r=data;detail=t;setContentDescription("Entropy graph, 0 to 8 bits per byte");}

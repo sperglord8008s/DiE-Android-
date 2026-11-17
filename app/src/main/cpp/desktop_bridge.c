@@ -50,6 +50,11 @@ JNIEXPORT void JNICALL Java_org_diemobile_Engine_cancelDesktopNative(JNIEnv *env
     atomic_store_explicit(&cancel_requested, true, memory_order_relaxed);
 }
 
+JNIEXPORT void JNICALL Java_org_diemobile_Engine_resetDesktopCancellationNative(JNIEnv *env, jclass cls) {
+    (void)env; (void)cls;
+    atomic_store_explicit(&cancel_requested, false, memory_order_relaxed);
+}
+
 static int append_tree(size_t parent, const char *text, const char *category,
                        const gui_backend_detection *d, void *user) {
     desktop_output *out = user;
@@ -147,7 +152,6 @@ JNIEXPORT jbyteArray JNICALL Java_org_diemobile_Engine_desktopNative(
         xx_pd_struct pd = xx_pd_init();
         gui_backend_scan_info info = {0};
         char *report = NULL, *type = NULL;
-        atomic_store_explicit(&cancel_requested, false, memory_order_relaxed);
         xx_pd_observer previous = xx_pd_set_observer(&pd, observe, NULL);
         xx_buf_append_str(&out.buf, "{\"ok\":true,\"rows\":[");
         int ok = gui_backend_scan_tree(STR(v[0]), type_id, append_tree, &out,

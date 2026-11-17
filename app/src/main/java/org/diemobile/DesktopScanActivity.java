@@ -31,6 +31,7 @@ public final class DesktopScanActivity extends Activity {
     private ListView list;
     private Button scan, cancel;
     private boolean busy, scanning;
+    private Engine.Cancellation scanCancellation;
 
     private static final class Choice {
         final int id;
@@ -87,7 +88,7 @@ public final class DesktopScanActivity extends Activity {
 
         LinearLayout controls=new LinearLayout(this);
         scan=button("Scan",()->runScan());cancel=button("Cancel",()->{
-            if(scanning){Engine.cancelDesktop();status.setText("Cancellation requested");}
+            if(scanning&&scanCancellation!=null){scanCancellation.cancel();status.setText("Cancellation requested");}
         });
         cancel.setEnabled(false);
         controls.addView(scan);controls.addView(cancel);
@@ -131,13 +132,15 @@ public final class DesktopScanActivity extends Activity {
         try {ScanPreferences.save(this,new ScanOptions(f,ScanPreferences.load(this).minimumStringLength,inc,exc));}
         catch(IllegalArgumentException e){status.setText(e.getMessage());return;}
         busy=true;scanning=verb==1;scan.setEnabled(false);cancel.setEnabled(scanning);
+        final Engine.Cancellation cancellation=scanning?new Engine.Cancellation():null;
+        if(scanning)scanCancellation=cancellation;
         status.setText(verb==1?"Scanning with desktop backend…":"Reading native backend…");
         worker.execute(()->{
             JSONObject result;
             try {
                 EngineDatabase database=EngineDatabase.prepare(this);
                 db=database.main.getAbsolutePath();custom=database.custom.getAbsolutePath();
-                result=new JSONObject(Engine.desktop(path,db,custom,verb,f,t,inc,exc,arg,source));
+                result=new JSONObject(Engine.desktop(path,db,custom,verb,f,t,inc,exc,arg,source,cancellation));
                 result.put("provenance",new JSONObject().put("engineRevision",database.engineRevision)
                     .put("signatureRevision",database.signatureRevision).put("customArchiveSha256",database.customDigest));
             }
@@ -267,5 +270,5 @@ public final class DesktopScanActivity extends Activity {
         }catch(IllegalArgumentException e){Toast.makeText(this,"Options not saved: "+e.getMessage(),Toast.LENGTH_LONG).show();}
         super.onPause();
     }
-    @Override protected void onDestroy(){if(scanning)Engine.cancelDesktop();worker.shutdown();super.onDestroy();}
+    @Override protected void onDestroy(){if(scanning&&scanCancellation!=null)scanCancellation.cancel();worker.shutdown();super.onDestroy();}
 }
