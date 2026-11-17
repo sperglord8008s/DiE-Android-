@@ -9,6 +9,12 @@ final class Engine {
     static { boolean ok; try { System.loadLibrary("diemobile"); ok=true; } catch(UnsatisfiedLinkError e){ok=false;} AVAILABLE=ok; }
     private static native byte[] scanNative(String path,String db,int flags);
     private static native byte[] toolNative(String path,int tool,long offset,int mode,int minimum,String selector,int json,int syntax);
+    private static native byte[] recordsNative(String path,int tool,int mode,long offset,int syntax);
+    static synchronized String records(String path,int tool,int mode,long offset,boolean attSyntax) {
+        if(!AVAILABLE)return "{\"schema\":\"org.diemobile.native-records\",\"schemaVersion\":1,\"ok\":false,\"kind\":\"unknown\",\"error\":\"Native engine unavailable\"}";
+        byte[] result=recordsNative(path,tool,mode,offset,attSyntax?1:0);
+        return result==null?"{\"schema\":\"org.diemobile.native-records\",\"schemaVersion\":1,\"ok\":false,\"kind\":\"unknown\",\"error\":\"Native report allocation failed\"}":new String(result,StandardCharsets.UTF_8);
+    }
     static synchronized String tool(String path,int tool,long offset,int mode,int minimum) {
         return tool(path,tool,offset,mode,minimum,"",false,false);
     }

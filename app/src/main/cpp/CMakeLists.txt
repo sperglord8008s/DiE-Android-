@@ -14,7 +14,7 @@ if(NOT EXISTS "${CDIE_ROOT}/CMakeLists.txt")
 endif()
 add_subdirectory("${CDIE_ROOT}" cdie EXCLUDE_FROM_ALL)
 set(ANALYSIS_SRC "${CDIE_ROOT}/src/app")
-add_library(diemobile SHARED bridge.c tools_bridge.c desktop_bridge.c
+add_library(diemobile SHARED bridge.c tools_bridge.c desktop_bridge.c records_bridge.c
   "${CDIE_ROOT}/src/gui/gui_backend.c"
   "${CDIE_ROOT}/src/gui/gui_result_tree.c"
   "${ANALYSIS_SRC}/cdie_file_info.c"

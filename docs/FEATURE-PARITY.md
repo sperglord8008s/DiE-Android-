@@ -8,8 +8,8 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | File selection + rescan | device feedback confirms earlier build; regressions pending |
 | Upstream PE/ELF/Mach-O DataStructs | host fixtures for ELF, PE32, PE64 and thin Mach-O; malformed headers tested; device flow pending |
 | Memory map sections/segments/default | host ELF default/sections, PE sections and Mach-O segments; unsupported modes fail explicitly |
-| Imports, exports, symbols, resources | wired |
-| Native disassembly with offset and architecture | wired; control flow/paging improvements pending |
+| Imports, exports, symbols, resources | typed JNI snapshots host verified for ELF/rich PE32/64, named/ordinal imports, forwarders, COFF/UTF-8 symbols and exact resource payload bytes; paginated Android table integration in progress |
+| Native disassembly with offset and architecture | typed instruction pages and continuation/domain labeling host verified; Android paging/navigation integration in progress; control-flow analysis pending |
 | CRC32, MD5, SHA1, SHA256 | wired |
 | Unicode strings | wired, upstream limits |
 | Full paged read-only hex | wired |
@@ -43,6 +43,8 @@ See [continuation instructions](continuation.md) for the build/check commands, i
 Linux host JNI fixture job exercises ELF structures, section and default maps, imports, exports, symbols, disassembly, hash comparison and strings. Deterministic PE32, PE64 and thin Mach-O fixtures check structures, supported maps, entry-point mapping and decoding. Truncated ELF/PE/Mach-O headers must return explicit errors. Minimal DEX and ZIP fixtures check recognition only, not full format validity. This complements Android ARM64 cross-compilation and does not verify handset behavior.
 
 Desktop-backend fixtures validate candidate types, parser facts, loaded signature inventory, known custom-rule detection, exact rule provenance, source retrieval, edited-rule execution, custom-DB gating, include-tag filters and cache identity behavior. `scripts/test-models.sh` checks immutable settings, strict tree parsing, paging/search and structured report round trips. It uses a SHA-256-pinned host-only org.json JAR (`JSON_JAR` supports offline testing); the app uses Android's built-in org.json.
+
+Typed native table and range contracts, limits and additional fixtures are documented in [native-records.md](native-records.md). JNI fixtures additionally check 10,000-record preservation/over-limit errors, high unsigned VAs, IAT offsets versus symbol-record offsets, virtual tails, stored payload extraction and instruction-page continuation.
 
 ## Desktop upstream gap audit
 
