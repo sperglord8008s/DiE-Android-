@@ -31,3 +31,6 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | Device testing, regression fixtures, license audit, reproducible signing | pending |
 
 A functional alpha may have pending items. Do not describe it as a full port until parity is verified.
+
+## Automated verification
+Linux host JNI fixture job exercises ELF structures, section and default maps, imports, exports, symbols, disassembly, hash comparison and strings, plus an unsupported-format negative case. This complements Android cross-compilation but is not a handset test. Extend fixtures with valid and malformed PE, Mach-O, APK, DEX and ZIP inputs.

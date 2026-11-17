@@ -26,3 +26,9 @@ add_library(diemobile SHARED bridge.c tools_bridge.c
   "${ANALYSIS_SRC}/cdie_strings.c")
 target_include_directories(diemobile PRIVATE "${CDIE_ROOT}/src")
 target_link_libraries(diemobile PRIVATE die_static)
+
+# The same JNI adapter is exercised on Linux CI using known fixture binaries.
+if(NOT ANDROID)
+  find_package(JNI REQUIRED)
+  target_include_directories(diemobile PRIVATE ${JNI_INCLUDE_DIRS})
+endif()
