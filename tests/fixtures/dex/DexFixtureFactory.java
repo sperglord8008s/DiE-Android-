@@ -96,6 +96,13 @@ public final class DexFixtureFactory {
         return write(Collections.singletonList(new ImmutableClassDef(OWNER, PUBLIC, "Ljava/lang/Object;", Collections.emptyList(), null, Collections.emptySet(),
             Collections.emptyList(), Collections.singletonList(method("longBody", nops(count))))));
     }
+    public static byte[] literal(String value) throws Exception {
+        MethodImplementationBuilder body = new MethodImplementationBuilder(1);
+        body.addInstruction(new BuilderInstruction21c(Opcode.CONST_STRING,0,new ImmutableStringReference(value)));
+        body.addInstruction(new BuilderInstruction10x(Opcode.RETURN_VOID));
+        return write(Collections.singletonList(new ImmutableClassDef(OWNER,PUBLIC,"Ljava/lang/Object;",Collections.emptyList(),null,Collections.emptySet(),
+            Collections.emptyList(),Collections.singletonList(method("literal",body.getMethodImplementation())))));
+    }
     public static byte[] simpleVersion(int api) throws Exception {
         DexPool pool = new DexPool(Opcodes.forApi(api));
         pool.internClass(new ImmutableClassDef(OWNER, PUBLIC, "Ljava/lang/Object;", Collections.emptyList(), null, Collections.emptySet(),

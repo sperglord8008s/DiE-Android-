@@ -116,6 +116,13 @@ public final class DexWorkbenchTest {
         String smali = new String(finishExport(),java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(smali.contains("baksmali")); for (String token : Arrays.asList(".method", ".array-data", ".packed-switch", ".catchall", "invoke-static")) assertTrue(token,smali.contains(token));
     }
+    @Test public void classifiedDexStringsRetainPoolValuesAndEncodedCallerLinks() throws Exception {
+        root("Strings: URLs"); int index = position(DexFixtureFactory.ENDPOINT); JSONObject value = row(index).json();
+        assertEquals(DexFixtureFactory.ENDPOINT,value.getString("value")); assertTrue(value.getJSONArray("classificationMatches").length() > 0);
+        assertTrue(value.getLong("physicalTextOffset") > row(index).physicalOffset);
+        action(DexFixtureFactory.ENDPOINT,"encoded uses"); assertEquals(1,records().getAdapter().getCount());
+        action("inspect()V","Method bytecode"); assertEquals("dex-code",ReflectionHelpers.<EvidenceRows>getField(activity,"source").kind);
+    }
 
     @Test public void apkMemberRecreationRetainsInputViewsAndCleansPrivateSnapshot() throws Exception {
         controller.pause().stop().destroy(); File apk = temporary.resolve("app.apk").toFile();

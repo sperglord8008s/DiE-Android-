@@ -53,10 +53,11 @@ final class DexTables {
             });
             case "strings": return table(entry, query, "DEX MUTF-8 string pool", entry.dex.getStringSection().size(), (i, stop) -> {
                 int idOffset = entry.dex.getStringSection().getOffset(i), dataOffset = entry.dex.getBuffer().readSmallUint(idOffset);
-                DexReader<?> reader = entry.dex.getDataBuffer().readerAt(dataOffset); int declared = reader.readSmallUleb128(); String value = reader.readString(declared);
+                DexReader<?> reader = entry.dex.getDataBuffer().readerAt(dataOffset); int declared = reader.readSmallUleb128(); int textStart = reader.getOffset(); String value = reader.readString(declared);
                 long size = reader.getOffset() - dataOffset + 1L; entry.requireRange(dataOffset, size);
                 JSONObject fields = new JSONObject().put("stringIndex", i).put("stringIdOffset", idOffset).put("stringDataOffset", dataOffset)
                     .put("value", value).put("utf16Units", value.length()).put("declaredUtf16Units", declared).put("encoding", "DEX modified UTF-8; lengths count UTF-16 code units")
+                    .put("physicalTextOffset", (long)textStart + entry.dex.getDataBuffer().getBaseOffset()).put("textByteLength", reader.getOffset()-textStart)
                     .put("locationMeaning", "string_data item, including its length prefix and encoded bytes; a pool entry does not prove use");
                 return new EvidenceRows.Row(i, value, "MUTF-8 • " + declared + " UTF-16 units • ID @" + DexValues.hex(idOffset), (long)dataOffset, size, fields);
             });

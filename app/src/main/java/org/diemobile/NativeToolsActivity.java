@@ -530,7 +530,14 @@ public final class NativeToolsActivity extends Activity {
         }
     }
     @Override protected void onDestroy() {
-        generation++; cancellation.set(true); worker.shutdown();
+        generation++; cancellation.set(true);
+        if (file != null && isFinishing() && getIntent().getBooleanExtra("ownedSnapshot",false)) worker.execute(() -> {
+            try {
+                File owned = file.getCanonicalFile(), directory = new File(getCacheDir(),"shared-analysis-inputs").getCanonicalFile();
+                if (directory.equals(owned.getParentFile()) && owned.getName().startsWith("analysis-input-")) owned.delete();
+            } catch (IOException ignored) { /* Expired private cache ownership; never delete an arbitrary caller path. */ }
+        });
+        worker.shutdown();
         if (!pickerOpen && prepared != null) prepared.discard(); super.onDestroy();
     }
 }

@@ -18,6 +18,7 @@ final class DexBackend extends InvestigationBackend {
     private File selected;
     private int selectedMember = -2;
     private String selectedName;
+    private final Map<Integer,DexStringIndex> classifiedStrings = new HashMap<>();
 
     DexBackend(File root, File directory, String name, String inheritedSha, long inheritedSize) {
         this.root = root; this.directory = directory; this.name = name; this.inheritedSha = inheritedSha; this.inheritedSize = inheritedSize;
@@ -32,7 +33,7 @@ final class DexBackend extends InvestigationBackend {
     private void inventory(BooleanSupplier cancelled) throws Exception { if (archive == null) archive = ArchiveStore.read(root, cancelled); }
     private void select(int member, BooleanSupplier cancelled) throws Exception {
         if (document != null && member == selectedMember) return;
-        File input = root; ArchiveStore.Extracted extraction = null;
+        File input = root; ArchiveStore.Extracted extraction = null; InputSnapshot snapshot = null;
         try {
             String display = name;
             if (member >= 0) {
@@ -41,12 +42,13 @@ final class DexBackend extends InvestigationBackend {
                 ArchiveStore.Member value = archive.members.get(member);
                 if (value.size > DexDocument.MAX_BYTES) throw new IOException("Selected DEX exceeds 32 MiB");
                 extraction = ArchiveStore.extract(archive, value, directory, cancelled); input = extraction.file; display += "!/" + value.name;
-            }
+            } else { snapshot = InputSnapshot.acquire(root,directory,DexDocument.MAX_BYTES,cancelled); input = snapshot.file; }
             DexDocument parsed = DexDocument.read(input, cancelled); EvidenceRows.check(cancelled);
             if (extraction != null && !extraction.sha256.equals(parsed.sha256)) throw new IOException("Extracted DEX content changed before inspection");
-            if (selected != null && selectedMember >= 0) selected.delete();
-            document = parsed; selected = input; selectedMember = member; selectedName = display;
-        } catch (Exception | StackOverflowError error) { if (extraction != null) extraction.file.delete(); throw error; }
+            if (snapshot != null && !snapshot.sha256.equals(parsed.sha256)) throw new IOException("Private DEX content changed before inspection");
+            if (selected != null) selected.delete();
+            document = parsed; selected = input; selectedMember = member; selectedName = display; classifiedStrings.clear();
+        } catch (Exception | StackOverflowError error) { if (extraction != null) extraction.file.delete(); if (snapshot != null) snapshot.close(); throw error; }
     }
     @Override EvidenceRows open(String encoded, BooleanSupplier cancelled) throws Exception {
         JSONObject value = new JSONObject(encoded);
@@ -71,6 +73,12 @@ final class DexBackend extends InvestigationBackend {
         if (member >= 0) zip = true;
         select(member, cancelled); listing = false; DexQuery query = DexQuery.parse(value.getJSONObject("dex").toString());
         if (query.entry >= document.entries.size()) throw new IOException("DEX container entry unavailable");
+        if (query.kind.equals("classifier-rules")) return StringClassifier.catalog();
+        if (query.kind.equals("classified-strings")) {
+            DexStringIndex index = classifiedStrings.get(query.entry);
+            if (index == null) { index = new DexStringIndex(document.entries.get(query.entry),cancelled); classifiedStrings.put(query.entry,index); }
+            return index.rows(query.referenceType,cancelled);
+        }
         return document.entries.get(query.entry).rows(query, cancelled);
     }
     @Override List<Link> roots(String encoded, BooleanSupplier cancelled) throws Exception {
@@ -79,9 +87,12 @@ final class DexBackend extends InvestigationBackend {
         JSONObject value = new JSONObject(encoded);
         if (!value.optBoolean("inputs")) {
             select(value.getInt("member"), cancelled);
-            for (int entry = 0; entry < document.entries.size(); entry++) for (int i = 0; i < DexQuery.ROOT_KINDS.length; i++) {
-                result.add(Link.view("Entry " + entry + " • " + DexQuery.ROOT_TITLES[i], request(selectedMember, DexQuery.root(entry, DexQuery.ROOT_KINDS[i]))));
+            for (int entry = 0; entry < document.entries.size(); entry++) {
+                for (int i = 0; i < DexQuery.ROOT_KINDS.length; i++) result.add(Link.view("Entry " + entry + " • " + DexQuery.ROOT_TITLES[i], request(selectedMember, DexQuery.root(entry, DexQuery.ROOT_KINDS[i]))));
+                result.add(Link.view("Entry " + entry + " • All classified strings",request(selectedMember,DexQuery.root(entry,"classified-strings"))));
+                for (StringClassifier.Group group : StringClassifier.Group.values()) result.add(Link.view("Entry " + entry + " • Strings: " + group.label,request(selectedMember,new DexQuery(entry,"classified-strings",-1,-1,group.ordinal(),-1))));
             }
+            result.add(Link.view("String classifier rule catalog",request(selectedMember,DexQuery.root(0,"classifier-rules"))));
         }
         return result;
     }
@@ -127,6 +138,11 @@ final class DexBackend extends InvestigationBackend {
         if (query.kind.equals("methods")) referenceLinks(links, member, query, ReferenceType.METHOD, fields.getInt("methodIndex"), "Method identifier");
         if (query.kind.equals("fields")) referenceLinks(links, member, query, ReferenceType.FIELD, fields.getInt("fieldIndex"), "Field identifier");
         if (query.kind.equals("strings")) referenceLinks(links, member, query, ReferenceType.STRING, fields.getInt("stringIndex"), "String identifier");
+        if (query.kind.equals("classified-strings")) {
+            referenceLinks(links,member,query,ReferenceType.STRING,fields.getInt("stringIndex"),"String identifier");
+            JSONArray groups = fields.getJSONArray("groups");
+            for (int i = 0; i < groups.length(); i++) { StringClassifier.Group group = StringClassifier.Group.valueOf(groups.getString(i)); links.add(Link.view("String group: " + group.label,request(member,new DexQuery(query.entry,"classified-strings",-1,-1,group.ordinal(),-1)))); }
+        }
         if (query.kind.equals("types")) referenceLinks(links, member, query, ReferenceType.TYPE, fields.getInt("typeIndex"), "Type identifier");
         return links;
     }
@@ -166,5 +182,5 @@ final class DexBackend extends InvestigationBackend {
     @Override String help(String request) {
         return "Static DEX evidence • code-unit addresses count 16-bit units relative to a method; physical offsets locate the selected DEX snapshot/container. Identifier tables can reference external definitions. Tap a record for raw fields, relationships and byte actions. Root views select every pool/container entry.";
     }
-    @Override public void close() { if (selected != null && selectedMember >= 0) selected.delete(); }
+    @Override public void close() { if (selected != null) selected.delete(); }
 }

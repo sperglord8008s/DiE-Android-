@@ -5,7 +5,8 @@ Work is on `codex/workbench-parity`, proposed in [draft PR #1](https://github.co
 ## Implemented and fixture-verified in this work
 
 - DEX: pinned Google smali/dexlib2 + baksmali 3.0.10 and Android Guava, complete licensing/source notices and standalone dependency checksums. The main report uses Unicode/MUTF-8 indexing, table counts, Adler32/SHA-1 consistency and DEX SHA-256; ZIP duplicate-name/size/CRC/budget failures are explicit. APK / SDKs opens lazy typed metadata/bytecode/debug/exception/payload/reference tables, real method smali and physical byte actions. Complete scoped exports, 64-location Back/recreation, captured versus draft filters, classic versions and 041 shared containers have host fixtures. Four report and six viewer Robolectric cases join the previous fourteen UI cases. See [DEX investigation](dex-investigation.md).
-- Additional user scope is preserved in DESIGN-GOALS.md / FEATURE-PARITY.md: MPV/media codec inspection, Binwalk, whole-blob media/resource carving (JPEG/PhotoRec-like recovery), EXIF/all collected metadata, and grouped string classification with original offsets/encodings, rule provenance and risk context. These integrations are still pending; do not substitute a feature label for a working engine or claim string/signature matches prove behavior.
+- String investigation: 43 built-in rules, 16 overlapping groups and full rule catalog/context/identity. Whole-input UTF-8/anchored UTF-16 scanning and exact DEX MUTF-8 classification preserve physical match/range evidence; private byte/text snapshots keep exports and hex independent of source expiry. All-rule host fixtures, six string viewer cases and one added DEX viewer case pass (31 Android checks total). See [string contracts](string-investigation.md).
+- Remaining additional user scope: MPV/media codec inspection, Binwalk, whole-blob media/resource carving (JPEG/PhotoRec-like recovery), EXIF/all collected metadata. These engine integrations are pending; do not substitute a feature label for a working engine or claim string/signature matches prove behavior. Next work is pinned metadata-extractor/XMP integration, then broad carving and actual media/Binwalk engines as feasible.
 
 - The main Scan workflow uses the pinned desktop CDiE backend. Scan/laboratory settings share one migrated preferences store. Results retain exact source paths, hierarchy, parser facts and diagnostics; 50-row searchable pages retain the full model. Physical entry offsets open hex/disassembly. Export schema v1 captures the original input SHA-256, scan options, engine/database identities and native JSON.
 - Bundled databases install into revision-specific private snapshots. Custom ZIP imports enforce path, duplicate, CRC, compressed/expanded size, member size and count limits. Original ZIPs, helpers, tags and license notices are retained. Native load checks precede atomic active-pointer changes; immutable paths invalidate native caches when switching/rolling back. Archive SHA-256 and enabled state are exported.
@@ -27,6 +28,7 @@ bash scripts/test.sh
 bash scripts/test-apk.sh
 bash scripts/test-models.sh
 bash scripts/test-dex.sh
+bash scripts/test-strings.sh
 bash scripts/fetch-engine.sh
 bash scripts/fetch-knowledge.sh
 bash scripts/test-native.sh

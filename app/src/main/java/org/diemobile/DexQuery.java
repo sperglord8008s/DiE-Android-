@@ -12,7 +12,7 @@ final class DexQuery {
     final String kind;
     DexQuery(int entry, String kind, int owner, int member, int referenceType, int referenceIndex) {
         if (entry < 0 || entry >= DexDocument.MAX_ENTRIES || owner < -1 || member < -1 || referenceType < -1 || referenceIndex < -1
-            || !(Arrays.asList(ROOT_KINDS).contains(kind) || Arrays.asList("fields", "methods", "code", "debug", "tries", "array", "switch", "xrefs").contains(kind))) {
+            || !(Arrays.asList(ROOT_KINDS).contains(kind) || Arrays.asList("fields", "methods", "code", "debug", "tries", "array", "switch", "xrefs", "classified-strings", "classifier-rules").contains(kind))) {
             throw new IllegalArgumentException("Invalid DEX query");
         }
         this.entry = entry; this.kind = kind; this.owner = owner; this.member = member;

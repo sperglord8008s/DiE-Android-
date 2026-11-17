@@ -65,7 +65,8 @@ public final class InvestigationActivity extends Activity {
         String path = getIntent().getStringExtra("path"); if (path == null) { finish(); return; }
         File root = new File(path); inputName = getIntent().getStringExtra("name"); if (inputName == null) inputName = root.getName();
         exportDirectory = new File(getCacheDir(), "tool-exports");
-        backend = new DexBackend(root, new File(getCacheDir(), "investigation-inputs"), inputName,
+        if ("strings".equals(getIntent().getStringExtra("provider"))) backend = new StringBackend(root,new File(getCacheDir(),"string-snapshots"),inputName,ScanPreferences.load(this).minimumStringLength);
+        else backend = new DexBackend(root, new File(getCacheDir(), "investigation-inputs"), inputName,
             getIntent().getStringExtra("sha256"), getIntent().getLongExtra("sourceSize", root.length()));
         createViews(); location = new Location(null, "", "", 0, 50);
         if (state != null) {
@@ -175,7 +176,7 @@ public final class InvestigationActivity extends Activity {
                 TextView view = old instanceof TextView ? (TextView)old : text("", 12); view.setTypeface(Typeface.MONOSPACE); view.setPadding(dp(6), dp(8), dp(6), dp(8));
                 EvidenceRows.Row row = shown.rows.get(i); String name = row.name.length() > 180 ? row.name.substring(0,180) + "… [full record on tap]" : row.name;
                 String description = row.description.length() > 300 ? row.description.substring(0,300) + "…" : row.description;
-                view.setText("#" + row.index + " " + name + "\n" + description + "\nphysical=" + NativeTable.hexOffset(row.physicalOffset) + " • bytes=" + (row.sizeBytes == null ? "unknown/associated location" : row.sizeBytes)); return view;
+                view.setText("#" + row.index + " " + visible(name) + "\n" + visible(description) + "\nphysical=" + NativeTable.hexOffset(row.physicalOffset) + " • bytes=" + (row.sizeBytes == null ? "unknown/associated location" : row.sizeBytes)); return view;
             }
         });
         status.setText(shown.matches + " matches of " + source.size() + " records • page " + (shown.number + 1) + "/" + shown.pageCount
@@ -200,14 +201,24 @@ public final class InvestigationActivity extends Activity {
     private void showText(String caption, String value) {
         ScrollView scroll = new ScrollView(this); String displayed = value.length() > 128 * 1024 ? value.substring(0,128 * 1024) + "\n\nDISPLAY PREVIEW: full scoped JSON remains available through export." : value;
         TextView body = text(displayed, 13); body.setTextIsSelectable(true); body.setPadding(dp(12),dp(8),dp(12),dp(8)); scroll.addView(body);
-        new AlertDialog.Builder(this).setTitle(caption).setView(scroll).setPositiveButton("Close", null).show();
+        body.setText(visible(displayed)); new AlertDialog.Builder(this).setTitle(caption).setView(scroll).setPositiveButton("Close", null).show();
     }
     private static String pretty(String value) { try { return new JSONObject(value).toString(2); } catch (JSONException e) { return value; } }
+    /** Keep invisible direction/control characters legible; exported values remain exact. */
+    private static String visible(String value) {
+        StringBuilder result = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (Character.getType(c) == Character.FORMAT || Character.isISOControl(c) && c != '\n' && c != '\t') result.append(String.format(Locale.ROOT,"\\u%04X",(int)c));
+            else result.append(c);
+        }
+        return result.toString();
+    }
     private void details(EvidenceRows.Row row) {
         ScrollView scroll = new ScrollView(this); String value = pretty(row.encoded);
         TextView body = text((value.length() > 128 * 1024 ? value.substring(0,128 * 1024) + "\nDISPLAY PREVIEW • export the complete record/table for all values." : value)
             + "\n\n" + backend.help(produced.request), 13); body.setTypeface(Typeface.MONOSPACE); body.setTextIsSelectable(true); body.setPadding(dp(12),dp(8),dp(12),dp(8)); scroll.addView(body);
-        new AlertDialog.Builder(this).setTitle("Record " + row.index + " • " + source.kind).setView(scroll).setNegativeButton("Close", null)
+        body.setText(visible(body.getText().toString())); new AlertDialog.Builder(this).setTitle("Record " + row.index + " • " + source.kind).setView(scroll).setNegativeButton("Close", null)
             .setPositiveButton("Actions", (dialog, which) -> rowActions(row)).show();
     }
     private void rowActions(EvidenceRows.Row row) {
@@ -226,7 +237,7 @@ public final class InvestigationActivity extends Activity {
         if (row.physicalOffset != null && row.physicalOffset < byteSize) {
             labels.add("Hex at associated physical offset"); actions.add(() -> {
                 if (!bytes.isFile() || bytes.length() != byteSize) { status.setText("Input snapshot expired or changed; reopen it from Scan"); return; }
-                startActivity(new Intent(this, NativeToolsActivity.class).putExtra("path", bytes.getAbsolutePath()).putExtra("name", inputName).putExtra("tool", 9).putExtra("offset", row.physicalOffset));
+                openHex(row.physicalOffset);
             });
         }
         if (row.physicalOffset != null && row.sizeBytes != null) try {
@@ -247,6 +258,23 @@ public final class InvestigationActivity extends Activity {
         new AlertDialog.Builder(this).setTitle("Record actions").setItems(labels.toArray(new String[0]), (dialog, which) -> actions.get(which).run()).setNegativeButton("Cancel", null).show();
     }
     private String capturedKind() { return source == null ? "selected-record" : source.kind + "-record"; }
+    private void openHex(long offset) {
+        File input = bytes; String name = inputName; int ticket = begin("Preparing independent byte view…"); AtomicBoolean stop = cancellation;
+        worker.execute(() -> {
+            InputSnapshot snapshot = null;
+            try {
+                snapshot = InputSnapshot.acquire(input,new File(getCacheDir(),"shared-analysis-inputs"),FileRange.MAX_OPERATION_BYTES,stop::get);
+                EvidenceRows.check(stop::get); final InputSnapshot owned = snapshot;
+                runOnUiThread(() -> {
+                    if (isDestroyed() || ticket != generation) { owned.close(); return; }
+                    busy = false; controls(); status.setText("Independent byte snapshot prepared");
+                    try { startActivity(new Intent(this,NativeToolsActivity.class).putExtra("path",owned.file.getAbsolutePath()).putExtra("name",name).putExtra("tool",9).putExtra("offset",offset)
+                        .putExtra("sha256",owned.sha256).putExtra("sourceSize",owned.size).putExtra("ownedSnapshot",true)); }
+                    catch (RuntimeException error) { owned.close(); status.setText("Cannot open byte viewer: " + error.getMessage()); }
+                });
+            } catch (Exception error) { if (snapshot != null) snapshot.close(); failed(ticket,"Byte view preparation failed: " + error.getMessage()); }
+        });
+    }
     private void rangeAnalysis(FileRange range) {
         File input = bytes; int ticket = begin("Measuring stored physical range…"); AtomicBoolean stop = cancellation;
         worker.execute(() -> {

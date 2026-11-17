@@ -22,6 +22,11 @@ public final class DexBackendTest {
         Path directory = Path.of(args[0]); File input = directory.resolve("provider.dex").toFile(); Files.write(input.toPath(), DexFixtureFactory.rich());
         DexBackend backend = new DexBackend(input, directory.resolve("members").toFile(), "provider.dex", "", input.length());
         String root = backend.initialRequest(() -> false); EvidenceRows classes = backend.open(root, () -> false);
+        String urlsRequest = link(backend.roots(root,() -> false),"Strings: URLs").request;
+        EvidenceRows urls = backend.open(urlsRequest,() -> false); EvidenceRows.Row endpoint = row(urls,DexFixtureFactory.ENDPOINT);
+        require(endpoint.json().getJSONArray("classificationMatches").length() > 0 && urls.metadata().getJSONObject("classifier").getString("rulesSha256").length() == 64,"DEX classifications/provenance missing");
+        InvestigationBackend.Link stringUses = link(backend.related(urlsRequest,urls,endpoint,() -> false),"encoded uses");
+        require(backend.open(stringUses.request,() -> false).size() == 1,"Classified string did not retain encoded bytecode use");
         InvestigationBackend.Link methods = link(backend.related(root, classes, row(classes, "研究"), () -> false), "Declared methods");
         EvidenceRows methodRows = backend.open(methods.request, () -> false);
         InvestigationBackend.Link code = link(backend.related(methods.request, methodRows, row(methodRows, "->inspect()V"), () -> false), "Method bytecode");
@@ -36,6 +41,18 @@ public final class DexBackendTest {
         require(link(backend.related(uses.request, callers, callers.row(0, () -> false), () -> false), "Method bytecode").row > 0, "Caller does not retain instruction index");
         StringWriter smali = new StringWriter(); backend.writeText(code.request, smali, () -> false); require(smali.toString().contains(".catchall"), "Upstream method smali lost handlers");
         backend.close(); require(input.isFile(), "Closing a raw input deleted borrowed bytes");
+
+        String unicodePrefix = "\0é😀\uD800 "; File mutf = directory.resolve("classified-mutf.dex").toFile(); Files.write(mutf.toPath(),DexFixtureFactory.literal(unicodePrefix+DexFixtureFactory.ENDPOINT));
+        backend = new DexBackend(mutf,directory.resolve("members").toFile(),"classified-mutf.dex","",mutf.length());
+        String mutfRoot = backend.initialRequest(() -> false); backend.open(mutfRoot,() -> false);
+        EvidenceRows classified = backend.open(link(backend.roots(mutfRoot,() -> false),"Strings: URLs").request,() -> false);
+        JSONObject exact = row(classified,DexFixtureFactory.ENDPOINT).json(); boolean uri = false;
+        for (int i = 0; i < exact.getJSONArray("classificationMatches").length(); i++) {
+            JSONObject match = exact.getJSONArray("classificationMatches").getJSONObject(i); if (!match.getString("ruleId").equals("net.uri")) continue;
+            uri = true; require(match.getLong("physicalMatchOffset") == exact.getLong("physicalTextOffset")+14,"MUTF-8 NUL/surrogate byte mapping mistaken for ordinary UTF-8");
+            require(match.getLong("physicalMatchLengthBytes") == DexFixtureFactory.ENDPOINT.length(),"MUTF-8 URL byte extent changed");
+        }
+        require(uri && exact.getString("value").equals(unicodePrefix+DexFixtureFactory.ENDPOINT),"Exact classified MUTF-8 string changed"); backend.close();
 
         File apk = directory.resolve("provider.apk").toFile();
         try (ZipOutputStream out = new ZipOutputStream(new FileOutputStream(apk))) {
