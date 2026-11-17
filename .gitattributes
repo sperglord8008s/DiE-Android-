@@ -2,3 +2,8 @@
 gradlew text eol=lf
 *.sh text eol=lf
 *.bat text eol=crlf
+# These are retained upstream license payloads; preserve their exact bytes and
+# existing whitespace so notice verification is stable on every Git platform.
+app/src/main/assets/notices/binary-dependencies.txt -text whitespace=-blank-at-eol,-blank-at-eof
+app/src/main/assets/notices/rust-stdlib-1.90.0.html -text whitespace=-blank-at-eol,-blank-at-eof
+binary-engine/licenses/* -text whitespace=-blank-at-eof
