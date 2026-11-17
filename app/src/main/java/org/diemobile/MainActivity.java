@@ -65,7 +65,7 @@ public class MainActivity extends Activity {
   min=new EditText(this);min.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);min.setText(""+prefs.getInt("min",4));
   for(CheckBox c:new CheckBox[]{deep,heuristic,recursive,aggressive,all})c.setOnCheckedChangeListener((b,v)->settingsChanged());
   tabs=new LinearLayout(this);HorizontalScrollView hs=new HorizontalScrollView(this);hs.setHorizontalScrollBarEnabled(false);hs.addView(tabs);root.addView(hs);
-  String[] labels={"Scan","File info","File 101","APK / SDKs","Entropy","Strings","Hex","Log / JSON"};for(int i=0;i<labels.length;i++){final int p=i;tabs.addView(btn(labels[i],()->{page=p;show();}));}
+  String[] labels={"Scan","File info","Reference","APK / SDKs","Entropy","Strings","Hex","Log / JSON"};for(int i=0;i<labels.length;i++){final int p=i;tabs.addView(btn(labels[i],()->{page=p;show();}));}
   View line=new View(this);line.setBackgroundColor(0xff44525e);root.addView(line,new LinearLayout.LayoutParams(-1,dp(1)));
   ScrollView sc=new ScrollView(this);pane=vertical();sc.addView(pane);root.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
   progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setMax(100);progress.setProgress(0);root.addView(progress,new LinearLayout.LayoutParams(-1,dp(5)));
@@ -111,10 +111,10 @@ public class MainActivity extends Activity {
   pane.removeAllViews();for(int i=0;i<tabs.getChildCount();i++){Button b=(Button)tabs.getChildAt(i);b.setEnabled(i!=page);b.setTextColor(i==page?0xff80cbc4:0xffe5eaf0);}
   if(result==null){pane.addView(txt(busy?"Scan running on worker thread.":"Open or share a file to inspect it. No root or internet access required.",16));return;}
   switch(page){
-   case 0:field("Type",result.type);field("Size",String.format(Locale.ROOT,"%,d bytes (0x%X)",result.size,result.size));field("Entropy",String.format(Locale.ROOT,"%.4f / 8",result.entropy));heading("Detection results");showDetections();break;
-   case 1:heading("File information");field("Name",name);field("Type",result.type);field("Size",String.format(Locale.ROOT,"%,d bytes (0x%X)",result.size,result.size));field("Entropy",String.format(Locale.ROOT,"%.4f bits/byte",result.entropy));heading("SHA-256");pane.addView(mono(result.sha256));break;
-   case 2:heading("File 101 • explained");pane.addView(txt(guide,14));break;
-   case 3:heading("APK / SDKs • static evidence");pane.addView(mono(apkReport));break;
+   case 0:field("Type",result.type,"Header-based format identification. A recognized magic value is a candidate, not validation of the complete file. Consult the signature groups below.");field("Size",String.format(Locale.ROOT,"%,d bytes (0x%X)",result.size,result.size),"Exact input length in decimal and hexadecimal. Offsets refer to byte positions within that length.");field("Entropy",String.format(Locale.ROOT,"%.4f / 8",result.entropy),"Shannon entropy of the observed byte histogram, from 0 to 8 bits per byte. Compression, encryption and ordinary media can all produce high entropy; this is not a packing or malware verdict.");heading("Detection results • CDiE");showDetections();heading("Content identity");field("SHA-256",result.sha256,"A 256-bit digest of the exact bytes analyzed. Compare against a trusted digest to identify matching content; it is not a publisher signature.");field("Flags",String.format(Locale.ROOT,"0x%02X",scannedFlags),"Actual engine flags captured when this scan began, not necessarily the settings now selected.");field("Time",elapsedMs+" ms","Elapsed wall-clock time including local copying, file inspection, knowledge lookup and signature scanning.");heading("Technical interpretation");pane.addView(btn("File structure and interpretation",()->{page=1;show();}));if(result.type.contains("ZIP")||result.type.contains("DEX"))pane.addView(btn("APK / DEX evidence and SDK details",()->{page=3;show();}));break;
+   case 1:heading("File information");field("Name",name);field("Type",result.type);field("Size",String.format(Locale.ROOT,"%,d bytes (0x%X)",result.size,result.size));field("Entropy",String.format(Locale.ROOT,"%.4f bits/byte",result.entropy));heading("SHA-256");pane.addView(mono(result.sha256));heading("Structure and interpretation");readableReport(guide);break;
+   case 2:heading("Technical reference");readableReport(guide);break;
+   case 3:heading("APK / SDKs • static evidence");readableReport(apkReport);break;
    case 4:pane.addView(txt(String.format(Locale.ROOT,"Whole-file entropy: %.3f / 8",result.entropy),17));TextView detail=txt("Touch graph to inspect a block.",14);pane.addView(new Graph(result,detail),new LinearLayout.LayoutParams(-1,dp(230)));pane.addView(detail);pane.addView(txt("High entropy can indicate compression, encryption or randomness; not proof of packing.",14));break;
    case 5:EditText q=new EditText(this);q.setSingleLine(true);q.setHint("Filter ASCII strings");pane.addView(q);pane.addView(txt("Preview limited to ~200k characters and 4096 characters per run.",12));TextView lines=mono(result.strings);pane.addView(lines);final String source=result.strings;q.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int a,int b,int c){}public void onTextChanged(CharSequence s,int a,int b,int c){StringBuilder o=new StringBuilder();String term=s.toString().toLowerCase(Locale.ROOT);for(String line:source.split("\n"))if(line.toLowerCase(Locale.ROOT).contains(term))o.append(line).append('\n');lines.setText(o.length()==0?"No matches":o.toString());}public void afterTextChanged(android.text.Editable e){}});break;
    case 6:pane.addView(txt("First 4096 bytes • hex / ASCII",14));HorizontalScrollView hs=new HorizontalScrollView(this);hs.addView(mono(result.hex));pane.addView(hs);break;
@@ -122,7 +122,13 @@ public class MainActivity extends Activity {
   }
  }
  private void heading(String title){TextView h=txt(title,14);h.setTypeface(null,Typeface.BOLD);h.setTextColor(0xff80cbc4);h.setBackgroundColor(0xff26323a);h.setPadding(dp(8),dp(6),dp(8),dp(6));pane.addView(h,new LinearLayout.LayoutParams(-1,-2));}
- private void field(String key,String value){LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.TOP);row.setPadding(dp(6),dp(5),dp(6),dp(5));TextView k=txt(key,13);k.setTextColor(0xffaab8c4);row.addView(k,new LinearLayout.LayoutParams(dp(78),-2));TextView v=txt(value,13);v.setTextIsSelectable(true);row.addView(v,new LinearLayout.LayoutParams(0,-2,1));pane.addView(row);rule(pane);}
+ private void field(String key,String value){field(key,value,null);}
+ private void field(String key,String value,String explanation){LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.TOP);row.setPadding(dp(6),dp(5),dp(6),dp(5));TextView k=txt(key,13);k.setTextColor(0xffaab8c4);row.addView(k,new LinearLayout.LayoutParams(dp(78),-2));TextView v=txt(value,13);v.setTextIsSelectable(true);row.addView(v,new LinearLayout.LayoutParams(0,-2,1));if(explanation!=null){Button help=btn("?",()->explain(key,value,explanation));help.setContentDescription("Explain "+key);row.addView(help,new LinearLayout.LayoutParams(dp(40),dp(40)));}pane.addView(row);rule(pane);}
+ private void explain(String title,String value,String explanation){LinearLayout body=vertical();body.setPadding(dp(18),dp(12),dp(18),dp(12));body.addView(mono(value));TextView e=txt(explanation,14);e.setTextIsSelectable(true);e.setPadding(0,dp(12),0,0);body.addView(e);ScrollView sc=new ScrollView(this);sc.addView(body);new AlertDialog.Builder(this).setTitle(title).setView(sc).setPositiveButton("Close",null).show();}
+ private void readableReport(String content){
+  // Preserve every line of the report; paragraphs use proportional text rather than one giant monospace block.
+  String[] blocks=content.split("\\n\\s*\\n");for(String block:blocks){String trimmed=block.trim();if(trimmed.isEmpty())continue;TextView t=txt(trimmed,13);t.setTextIsSelectable(true);t.setPadding(dp(6),dp(5),dp(6),dp(5));pane.addView(t);}
+ }
  private void rule(LinearLayout l){View rule=new View(this);rule.setBackgroundColor(0xff35414b);l.addView(rule,new LinearLayout.LayoutParams(-1,dp(1)));}
  private void showDetections(){
   if(!error.isEmpty()){pane.addView(txt(error,13));return;}
@@ -155,7 +161,7 @@ public class MainActivity extends Activity {
      LinearLayout top=new LinearLayout(this);TextView cat=txt(type.isEmpty()?"Detection":type,12);cat.setTextColor(0xff9fc6dc);top.addView(cat,new LinearLayout.LayoutParams(dp(100),-2));
      TextView val=txt(n.isEmpty()?display:n+(version.isEmpty()?"":" ("+version+")"),13);top.addView(val,new LinearLayout.LayoutParams(0,-2,1));row.addView(top);
      if(!info.isEmpty()){TextView sub=txt(info,11);sub.setTextColor(0xffaab8c4);row.addView(sub);}
-     row.setOnClickListener(v->new AlertDialog.Builder(this).setTitle(type.isEmpty()?"Detection":type).setMessage(display+"\n\n"+pretty(d.toString())).setPositiveButton("OK",null).show());children.addView(row);rule(children);
+     Button help=btn("?",()->explain(type.isEmpty()?"Detection":type,display+"\n\n"+pretty(d.toString()),DetectionReference.describe(type)));help.setContentDescription("Explain "+type+" "+n);top.addView(help,new LinearLayout.LayoutParams(dp(40),dp(40)));row.setOnClickListener(v->help.performClick());children.addView(row);rule(children);
     }
    }
    if(budget==0||groups.length()>100)pane.addView(txt("Display capped at 100 groups / 500 records. Full report under Log / JSON.",12));

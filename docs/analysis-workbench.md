@@ -2,6 +2,10 @@
 
 Design: every result should include observation, interpretation, evidence, source/revision, limitations, and practical consequences. Never equate a requested permission, signature match, high entropy, or package label with proven malicious behavior.
 
+## Interface principle: expert-first, explanatory by design
+
+There is no beginner/advanced/expert gating. The default Scan view exposes technical facts and signature results, exact byte lengths, hashes, flags, and scan provenance. Preserve original names, units, offsets and raw records. Contextual help explains what a term means, mechanism, interpretation, corroboration and limitations beside the evidence. Reference material is supplemental, not a substitute for technical facts. Use readable proportional text for explanations and monospace for actual bytes/code. No artificial security score. Never imply evidence was collected when an engine has not exposed it.
+
 ## Integration map
 
 - CDiE: existing native signature engine.
