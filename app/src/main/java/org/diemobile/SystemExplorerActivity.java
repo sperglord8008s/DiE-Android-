@@ -69,10 +69,10 @@ public final class SystemExplorerActivity extends Activity {
  private void binderServices(){
   final int ticket=begin("OS Binder service registry","Querying /system/bin/service list as this app's normal UID…");
   worker.execute(()->{
-   List<Entry> result=new ArrayList<>();Process process=null;ExecutorService reader=Executors.newSingleThreadExecutor();
+   List<Entry> result=new ArrayList<>();java.lang.Process process=null;ExecutorService reader=Executors.newSingleThreadExecutor();
    try{
     process=new ProcessBuilder("/system/bin/service","list").redirectErrorStream(true).start();
-    final Process running=process;Future<String> output=reader.submit(()->{try(InputStream in=running.getInputStream()){return KnowledgeReport.read(in,1024*1024);}});
+    final java.lang.Process running=process;Future<String> output=reader.submit(()->{try(InputStream in=running.getInputStream()){return KnowledgeReport.read(in,1024*1024);}});
     if(!process.waitFor(5,TimeUnit.SECONDS))throw new IOException("Service list timed out");
     String text=output.get(2,TimeUnit.SECONDS);int exit=process.exitValue();
     for(String line:text.split("\n")){
