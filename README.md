@@ -8,8 +8,9 @@ Source prototype, not an audited or device-tested release. Android compilation, 
 
 - Storage Access Framework and Android share menu; no root, analytics, broad storage or INTERNET permission.
 - Streaming header identification, SHA-256, Shannon entropy, touch-selectable block entropy, searchable ASCII strings and hex preview.
-- JNI binding to CDiE's public DIE_ScanFileA function; serialized calls, pinned bundled signature database, deep/heuristic/recursive/aggressive/parent-format flags. Explicit engine errors.
-- JSON report export using the system picker.
+- Primary scanning reuses the CDiE desktop backend: exact signature source paths, format facts, hierarchy, diagnostics, deep/heuristic/recursive/aggressive/parent-format flags, overlays/resources/archives and tag filters. Calls are serialized. Full Qt engine parity is unverified.
+- Shared persisted settings between Scan and the signature laboratory; captured options are exported with the result. Searchable detection evidence is paged without discarding records.
+- Versioned structured JSON report export using the system picker, with content identity, engine/database revisions, native evidence and explicit limitations. See [schema](docs/report-schema.md).
 - Desktop-inspired dark native UI: persistent scan flags, Scan / Rescan, file summary, expandable signature groups with details, raw JSON log, elapsed time and progress indicator. ARM64 native linkage; no Termux. Rescan reopens the selected URI (subject to provider permissions) with current settings.
 
 ## Build
@@ -18,16 +19,19 @@ JDK 17, Gradle 8.11.1, Android platform 35, CMake 3.22.1, NDK 28.2.13676358. API
 
 ```sh
 bash scripts/test.sh
+bash scripts/test-apk.sh
+bash scripts/test-models.sh
 bash scripts/fetch-engine.sh
+bash scripts/test-native.sh
 bash scripts/fetch-knowledge.sh
-gradle :app:assembleDebug
+./gradlew :app:assembleDebug :app:lintDebug
 ```
 
-CDiE and submodules are pinned. Build-time downloads only. GitHub Actions uploads debug APKs if compilation succeeds. Java-only fallback: gradle -PwithCdie=false :app:assembleDebug (no compiler/packer detection).
+CDiE and submodules are pinned. The Gradle wrapper pins 8.11.1 with a distribution SHA-256. Build-time downloads only. GitHub Actions uploads debug APKs if compilation succeeds. Java-only fallback: `./gradlew -PwithCdie=false :app:assembleDebug` (no compiler/packer detection).
 
 ## Limits / roadmap
 
-Inputs capped at 1 GiB; cache copy removed normally, crash recovery and native isolation still needed. ASCII preview capped at approximately 200k characters, runs at 4096, hex first 4096 bytes, entropy up to 256 blocks. No native cancellation yet. Recursive detection flag is exposed but not validated. Add APK tree, paged hex, Unicode, disassembly, imports/exports, signature evidence, database import, batch/profile controls, instrumentation and malformed-file tests, 16 KB page-size verification and license audit before release.
+Inputs capped at 1 GiB; crash recovery and native worker isolation remain pending. ASCII preview is capped at approximately 200k characters, runs at 4096, hex preview at 4096 bytes and entropy at 256 blocks; Native Tools provides paged hex, Unicode extraction, disassembly and native tables. Desktop cooperative cancellation is wired but runtime/race checks remain pending. Cache hits and byte-change invalidation have host fixtures. Native reports have explicit output limits. Archive expansion inherits CDiE's unsupported formats and some silent member-skipping limits, disclosed in exports. Device verification, broad Qt comparison, batch/profile controls, 16 KB page-size verification and a complete license audit remain pending. Consult the [current parity matrix](docs/FEATURE-PARITY.md), rather than treating a successful build as runtime verification.
 
 ## License
 
@@ -44,4 +48,4 @@ Technical detail is the default. Contextual help explains the actual data withou
 Native Tools exposes upstream CDiE data structures, memory maps, imports, exports, symbols, resource metadata, disassembly, hashes, Unicode strings and paged hex. Explore exposes local package inventory, declared services and OS-permitted files. QUERY_ALL_PACKAGES is declared for this local inventory; no INTERNET permission. See [design goals](docs/DESIGN-GOALS.md) and [feature parity](docs/FEATURE-PARITY.md). Hardware testing and full parity remain pending.
 
 ### Verification and community development
-Run `scripts/test.sh` for local Java fixtures and `scripts/test-native.sh` after `scripts/fetch-engine.sh` for Linux-host JNI fixtures (JDK 17, CMake, C compiler). Android CI cross-compiles the ARM64 APK independently. Desktop scan laboratory reuses upstream signature provenance, tag filters, format selection and signature testing. APK signature checks use AOSP apksig; inspect limitations in the feature checklist.
+Run `scripts/test.sh` for the generic inspector, `scripts/test-models.sh` for evidence/settings/export fixtures, `scripts/test-apk.sh` for real AOSP signing verification, and `scripts/test-native.sh` after `scripts/fetch-engine.sh` for Linux-host JNI fixtures (JDK 17, CMake, C compiler and Python 3). `JSON_JAR` and `APKSIG_JAR` accept cached, checksum-verified host dependencies for offline test runs. `NATIVE_BUILD_DIR` optionally retains a CMake build between native test runs. Android CI cross-compiles the ARM64 APK independently; no connected-device verification is claimed.

@@ -19,13 +19,7 @@ import java.util.concurrent.*;
  * trying to infer which signature ran from a detection's display name.
  */
 public final class DesktopScanActivity extends Activity {
-    private static final String PREFS = "desktop_scan";
-    private static final String[] OPTIONS = {
-        "Deep","Heuristic","All formats","Recursive","Verbose","Aggressive",
-        "Overlays","Resources","Archives","Profiling","Hide unknown",
-        "Custom DB","Sort","Result cache"
-    };
-    private static final int DEFAULT_FLAGS = 1|2|16|64|4096;
+    private static final String[] OPTIONS = ScanOptions.LABELS;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final ArrayList<Choice> types = new ArrayList<>();
     private final ArrayList<Choice> signatures = new ArrayList<>();
@@ -60,18 +54,17 @@ public final class DesktopScanActivity extends Activity {
         super.onCreate(state);
         path=getIntent().getStringExtra("path");
         if(path==null||!new File(path).isFile()){finish();return;}
-        db=new File(getFilesDir(),"cdie-db-v1").getAbsolutePath();
-        File customDir=new File(getFilesDir(),"cdie-custom");
-        customDir.mkdirs();custom=customDir.getAbsolutePath();
+        // Database snapshots are prepared on the worker before any native request.
 
-        LinearLayout root=new LinearLayout(this);root.setOrientation(1);
+        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(8),dp(8),dp(8),dp(8));
         root.addView(text("Desktop scan laboratory",19));
         root.addView(text(getIntent().getStringExtra("name"),13));
         format=new Spinner(this);root.addView(format);
-        LinearLayout toggles=new LinearLayout(this);toggles.setOrientation(1);
+        LinearLayout toggles=new LinearLayout(this);toggles.setOrientation(LinearLayout.VERTICAL);
         options=new CheckBox[OPTIONS.length];
-        int stored=getSharedPreferences(PREFS,MODE_PRIVATE).getInt("flags",DEFAULT_FLAGS);
+        ScanOptions storedOptions=ScanPreferences.load(this);
+        int stored=storedOptions.flags;
         for(int i=0;i<OPTIONS.length;i+=3) {
             LinearLayout row=new LinearLayout(this);
             for(int j=i;j<Math.min(i+3,OPTIONS.length);j++) {
@@ -88,8 +81,8 @@ public final class DesktopScanActivity extends Activity {
         include=new EditText(this);exclude=new EditText(this);
         include.setSingleLine();exclude.setSingleLine();
         include.setHint("Include tags (; separated)");exclude.setHint("Exclude tags");
-        include.setText(getSharedPreferences(PREFS,MODE_PRIVATE).getString("include",""));
-        exclude.setText(getSharedPreferences(PREFS,MODE_PRIVATE).getString("exclude",""));
+        include.setText(storedOptions.includeTags);
+        exclude.setText(storedOptions.excludeTags);
         root.addView(include);root.addView(exclude);
 
         LinearLayout controls=new LinearLayout(this);
@@ -134,13 +127,17 @@ public final class DesktopScanActivity extends Activity {
         if(busy)return;
         final int f=flags(),t=typeId();
         final String inc=include.getText().toString(),exc=exclude.getText().toString();
-        getSharedPreferences(PREFS,MODE_PRIVATE).edit().putInt("flags",f)
-            .putString("include",inc).putString("exclude",exc).apply();
+        try {ScanPreferences.save(this,new ScanOptions(f,ScanPreferences.load(this).minimumStringLength,inc,exc));}
+        catch(IllegalArgumentException e){status.setText(e.getMessage());return;}
         busy=true;scanning=verb==1;scan.setEnabled(false);cancel.setEnabled(scanning);
         status.setText(verb==1?"Scanning with desktop backend…":"Reading native backend…");
         worker.execute(()->{
             JSONObject result;
-            try {result=new JSONObject(Engine.desktop(path,db,custom,verb,f,t,inc,exc,arg,source));}
+            try {
+                EngineDatabase database=EngineDatabase.prepare(this);
+                db=database.main.getAbsolutePath();custom=database.custom.getAbsolutePath();
+                result=new JSONObject(Engine.desktop(path,db,custom,verb,f,t,inc,exc,arg,source));
+            }
             catch(Exception|LinkageError e){result=new JSONObject();try{result.put("ok",false);result.put("error",e.toString());}catch(JSONException ignored){}}
             final JSONObject response=result;
             runOnUiThread(()->{
@@ -249,6 +246,13 @@ public final class DesktopScanActivity extends Activity {
             }catch(Exception e){message="Export failed: "+e.getMessage();}
             final String m=message;runOnUiThread(()->{if(!isDestroyed())status.setText(m);});
         });
+    }
+    @Override protected void onPause(){
+        if(options!=null)try{
+            ScanPreferences.save(this,new ScanOptions(flags(),ScanPreferences.load(this).minimumStringLength,
+                include.getText().toString(),exclude.getText().toString()));
+        }catch(IllegalArgumentException e){Toast.makeText(this,"Options not saved: "+e.getMessage(),Toast.LENGTH_LONG).show();}
+        super.onPause();
     }
     @Override protected void onDestroy(){if(scanning)Engine.cancelDesktop();worker.shutdown();super.onDestroy();}
 }

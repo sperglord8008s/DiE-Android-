@@ -40,7 +40,7 @@ public final class ArchiveExplorerActivity extends Activity {
  @Override public void onCreate(Bundle saved){
   super.onCreate(saved);
   String p=getIntent().getStringExtra("path");if(p==null){finish();return;}archive=new File(p);
-  LinearLayout root=new LinearLayout(this);root.setOrientation(1);
+  LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
   title=new TextView(this);title.setTextSize(18);root.addView(title);
   TextView help=new TextView(this);help.setText("ZIP central-directory metadata. Sizes and CRC are declarations until the selected member is decompressed. Entries are never installed or executed.");root.addView(help);
   root.addView(button("Parent directory",()->{if(busy)return;int slash=prefix.lastIndexOf('/',Math.max(0,prefix.length()-2));prefix=slash<0?"":prefix.substring(0,slash+1);render();}));

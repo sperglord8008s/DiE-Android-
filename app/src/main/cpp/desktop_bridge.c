@@ -148,6 +148,8 @@ JNIEXPORT jbyteArray JNICALL Java_org_diemobile_Engine_desktopNative(
                                        &report, &type, &info, &pd);
         (void)xx_pd_set_observer(previous.progress, previous.callback, previous.user_data);
         if (ok) {
+            uint64_t hits = 0, misses = 0;
+            gui_backend_cache_statistics(&hits, &misses);
             xx_buf_append_char(&out.buf, ']');
             string_field(&out.buf, "report", report);
             string_field(&out.buf, "type", type);
@@ -156,7 +158,12 @@ JNIEXPORT jbyteArray JNICALL Java_org_diemobile_Engine_desktopNative(
             string_field(&out.buf, "mode", info.mode);
             string_field(&out.buf, "format", info.type);
             string_field(&out.buf, "log", info.log);
-            xx_buf_appendf(&out.buf, ",\"signatureCount\":%d}", gui_backend_signature_count());
+            string_field(&out.buf, "engine", gui_backend_app_title());
+            string_field(&out.buf, "includeTags", STR(v[3]));
+            string_field(&out.buf, "excludeTags", STR(v[4]));
+            xx_buf_appendf(&out.buf, ",\"signatureCount\":%d,\"flags\":%u,\"typeId\":%d,\"databaseGeneration\":%llu,\"cacheHits\":%llu,\"cacheMisses\":%llu}",
+                gui_backend_signature_count(), (unsigned)flags, type_id,
+                U64(gui_backend_database_generation()), U64(hits), U64(misses));
         } else {
             error_report(&out.buf, out.capped ? "Detection report capped" :
                 atomic_load(&cancel_requested) ? "Scan cancelled" : "Desktop scan failed");

@@ -29,7 +29,7 @@ public final class SystemExplorerActivity extends Activity {
  private Button btn(String s,Runnable r){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setOnClickListener(v->r.run());return b;}
  @Override public void onCreate(Bundle b){
   super.onCreate(b);
-  root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(8),dp(8),dp(8),dp(8));root.setBackgroundColor(0xff15191e);
+  root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(8),dp(8),dp(8),dp(8));root.setBackgroundColor(0xff15191e);
   heading=new TextView(this);heading.setTextSize(18);root.addView(heading);
   detail=new TextView(this);detail.setTextSize(12);root.addView(detail);
   LinearLayout nav=new LinearLayout(this);for(String label:new String[]{"User apps","System apps","Files","Services"}){final String l=label;nav.addView(btn(l,()->{if(l.equals("Files"))browse(new File("/"));else if(l.equals("Services"))new AlertDialog.Builder(this).setTitle("Service inventory").setItems(new String[]{"App-declared services","OS Binder service registry"},(d,w)->{if(w==0)packages(2);else binderServices();}).show();else packages(l.equals("System apps")?1:0);}),new LinearLayout.LayoutParams(0,-2,1));}root.addView(nav);
