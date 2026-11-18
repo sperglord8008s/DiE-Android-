@@ -19,7 +19,7 @@ A free, open-source, offline, expert-first Android software and binary investiga
 
 ## Architecture
 Acquisition adapters -> private bounded input snapshot -> analysis orchestrator -> native tools / Android metadata / knowledge databases -> typed evidence model -> expert UI, contextual help and report exports.
-Keep native code serialized until an isolation and threading review. Later move hostile file analysis into a dedicated isolated worker process with explicit cancellation and resource budgets. The current native process remains vulnerable to upstream parser defects, so do not present it as safe for arbitrary hostile samples.
+Keep native code serialized until an isolation and threading review. Binwalk, MPV and compiled Android resources now have descriptor-only private isolated-worker integration with budgets/cancellation; actual OS IPC/isolated UID behavior remains device-unverified. CDiE, DEX and collected metadata still require process migration. The current native process remains vulnerable to upstream parser defects, so do not present it as safe for arbitrary hostile samples.
 
 ## Feature parity gate
 See FEATURE-PARITY.md. A feature is complete only when a local or CI fixture validates actual output and relevant device flows have been checked. A JNI entry point or successful compilation is not completion. A release should document known unsupported cases, tested Android versions and signing/reproducibility constraints.

@@ -21,7 +21,7 @@ android {
     sourceSets { main { assets.srcDir '../generated-assets' } }
     sourceSets { main { jniLibs.srcDir layout.buildDirectory.dir('generated-binwalk-jni') } }
     sourceSets { main { jniLibs.srcDir layout.buildDirectory.dir('generated-mpv-jni') } }
-    sourceSets { test { java.srcDirs '../tests/fixtures/dex', '../tests/fixtures/metadata' } }
+    sourceSets { test { java.srcDirs '../tests/fixtures/dex', '../tests/fixtures/metadata', '../tests/fixtures/resources' } }
     packaging { resources { merges += ['LICENSE'] } }
     packaging { jniLibs { keepDebugSymbols += ['**/libmpv.so', '**/libav*.so', '**/libsw*.so', '**/libc++_shared.so'] } }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
@@ -74,6 +74,7 @@ tasks.named('preBuild').configure { dependsOn buildMpvAndroid }
 // AOSP's standalone, Apache-2.0 APK signing-scheme verifier.
 dependencies {
     implementation project(':metadata-engine')
+    implementation project(':resource-engine')
     implementation 'com.android.tools.build:apksig:8.9.2'
     // Google's maintained BSD-3-Clause smali fork; data parsing/formatting only.
     implementation 'com.android.tools.smali:smali-dexlib2:3.0.10'

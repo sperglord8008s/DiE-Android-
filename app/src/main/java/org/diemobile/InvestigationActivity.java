@@ -67,6 +67,7 @@ public final class InvestigationActivity extends Activity {
         exportDirectory = new File(getCacheDir(), "tool-exports");
         if ("binwalk".equals(getIntent().getStringExtra("provider"))) backend = new BinwalkBackend(root,new File(getCacheDir(),"binary-snapshots"),inputName,new BinaryWorkerClient(this));
         else if ("mpv".equals(getIntent().getStringExtra("provider"))) backend = new MpvBackend(root,new File(getCacheDir(),"media-snapshots"),inputName,new BinaryWorkerClient(this,"mpv"));
+        else if ("resources".equals(getIntent().getStringExtra("provider"))) backend = new AndroidResourceBackend(root,new File(getCacheDir(),"resource-snapshots"),inputName,new BinaryWorkerClient(this,"resources"));
         else if ("metadata".equals(getIntent().getStringExtra("provider"))) backend = new MetadataBackend(root,new File(getCacheDir(),"metadata-snapshots"),inputName);
         else if ("strings".equals(getIntent().getStringExtra("provider"))) backend = new StringBackend(root,new File(getCacheDir(),"string-snapshots"),inputName,ScanPreferences.load(this).minimumStringLength);
         else backend = new DexBackend(root, new File(getCacheDir(), "investigation-inputs"), inputName,

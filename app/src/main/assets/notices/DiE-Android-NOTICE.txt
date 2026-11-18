@@ -44,3 +44,12 @@ publishes a separate component-source bundle containing all pinned MPV source
 archives and original build recipes. Engine property reference excerpts come
 from the same pinned MPV manual under GPL-2.0-or-later. The application does not
 request network permission or download engines while running.
+
+Compiled Android XML/resource inspection uses the complete source-built Google
+binary-resources 32.5.1 parser (Apache-2.0), with a documented Java 8/UTF-16/
+style-hole/legacy-package compatibility patch and app-owned bounds/report
+adapters. Exact published source SHA-256, URL, complete publisher NOTICE and
+modification details are in android-resources-32.5.1.txt. resource-engine and
+scripts/fetch-resources.sh reproduce the source acquisition and build. Guava
+Android runtime notices are already retained in dex-dependencies.txt; AutoValue
+and annotation dependencies are build-only, not shipped parser engines.

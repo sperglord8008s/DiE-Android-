@@ -93,6 +93,7 @@ unzip -p "$apk" assets/notices/binwalk-3.1.1.txt | cmp - app/src/main/assets/not
 unzip -p "$apk" assets/notices/binary-dependencies.txt | cmp - app/src/main/assets/notices/binary-dependencies.txt
 unzip -p "$apk" assets/notices/rust-stdlib-1.90.0.html | cmp - app/src/main/assets/notices/rust-stdlib-1.90.0.html
 unzip -p "$apk" assets/notices/mpv-runtime.txt | cmp - app/src/main/assets/notices/mpv-runtime.txt
+unzip -p "$apk" assets/notices/android-resources-32.5.1.txt | cmp - app/src/main/assets/notices/android-resources-32.5.1.txt
 unzip -p "$apk" assets/db/_init > "$tmp/db-init"
 test -s "$tmp/db-init"
 
@@ -106,6 +107,7 @@ manifest="$(dirname "$apk")/build-manifest.txt"
   echo 'Pinned toolchain: JDK 17, Rust 1.90.0, Gradle 8.11.1, NDK 28.2.13676358, CMake 3.22.1, build-tools 35.0.0'
   sha256sum binary-engine/Cargo.lock
   sha256sum media-engine/runtime-lock.json media-engine/source-lock.json
+  sha256sum patches/android-resource-engine.patch
   cat generated-assets/engine-revisions.properties generated-assets/knowledge/revisions.txt
   cat app/src/main/assets/analysis-engines.properties
   echo 'Verification: APK signature, ZIP alignment, ELF 16 KiB alignment, application identity/API levels, no INTERNET permission, bundled revision/license assets'

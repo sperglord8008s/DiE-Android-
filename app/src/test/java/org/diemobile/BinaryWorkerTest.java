@@ -29,7 +29,7 @@ public final class BinaryWorkerTest {
         Path directory=Files.createTempDirectory("die-worker-guard"),input=directory.resolve("input.bin"),output=directory.resolve("report.json");Files.write(input,new byte[]{1,2,3});
         ServiceController<BinaryWorkerService> controller=Robolectric.buildService(BinaryWorkerService.class).create();
         try{
-          for(String engine:new String[]{"binwalk","mpv"}){
+          for(String engine:new String[]{"binwalk","mpv","resources"}){
             Message request=Message.obtain(null,BinaryWorkerService.RUN);request.getData().putString("token","guard-fixture");request.getData().putParcelable("input",ParcelFileDescriptor.open(input.toFile(),ParcelFileDescriptor.MODE_READ_ONLY));
             request.getData().putString("engine",engine);
             request.getData().putParcelable("output",ParcelFileDescriptor.open(output.toFile(),ParcelFileDescriptor.MODE_CREATE|ParcelFileDescriptor.MODE_WRITE_ONLY|ParcelFileDescriptor.MODE_TRUNCATE));
