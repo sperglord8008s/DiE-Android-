@@ -179,11 +179,12 @@ public final class NativeToolsActivity extends Activity {
         mode.setSelection(selection);
         mode.setVisibility(ToolReference.modes(currentTool).length > 1 ? View.VISIBLE : View.GONE);
         offset.setText(request.offset < 0 ? "" : "0x" + Long.toHexString(request.offset)); minimum.setText(Integer.toString(request.minimum));
-        offset.setVisibility(currentTool == 6 || currentTool == 9 ? View.VISIBLE : View.GONE);
+        offset.setVisibility(currentTool == 0 || currentTool == 6 || currentTool == 9 ? View.VISIBLE : View.GONE);
+        offset.setHint(currentTool == 0 ? "Mach-O fat slice index (blank = host / first)" : "Physical offset (blank = entry point)");
         minimum.setVisibility(currentTool == 8 ? View.VISIBLE : View.GONE);
         selector.setText(request.selector); selector.setVisibility(currentTool == 0 || currentTool == 7 ? View.VISIBLE : View.GONE);
         selector.setHint(currentTool == 0 ? "NAME[#FIELD] (blank = all)" : "CRC32 / MD4 / MD5 / SHA1 / SHA224 / SHA256 / SHA384 / SHA512");
-        json.setChecked(request.json); json.setVisibility(currentTool == 0 || currentTool == 7 || currentTool == 8 || currentTool == 10 ? View.VISIBLE : View.GONE);
+        json.setChecked(request.json); json.setVisibility(currentTool == 7 || currentTool == 8 || currentTool == 10 ? View.VISIBLE : View.GONE);
         att.setChecked(request.attSyntax); att.setVisibility(currentTool == 6 ? View.VISIBLE : View.GONE);
         filter.setText(location.filter); back.setEnabled(history.hasBack()); binding = false;
     }
@@ -191,7 +192,7 @@ public final class NativeToolsActivity extends Activity {
     private ToolRequest capture() {
         int selected = mode.getSelectedItemPosition();
         int nativeMode = currentTool == 8 ? new int[]{14, 1, 2, 4, 8}[Math.max(0, selected)] : Math.max(0, selected);
-        return new ToolRequest(currentTool, nativeMode, currentTool == 6 || currentTool == 9 ? parseOffset(offset.getText().toString(), true) : -1,
+        return new ToolRequest(currentTool, nativeMode, currentTool == 0 || currentTool == 6 || currentTool == 9 ? parseOffset(offset.getText().toString(), true) : -1,
             Integer.parseInt(minimum.getText().toString()), selector.getText().toString().trim(), json.isShown() && json.isChecked(), currentTool == 6 && att.isChecked());
     }
     private ToolHistory.Location location() {
@@ -238,7 +239,8 @@ public final class NativeToolsActivity extends Activity {
                         result = hashes.legacyReport(request.selector,request.json);
                         hashSource = hashes.snapshot.sha256; resultSize = hashes.snapshot.size;
                     }
-                } else if (request.records()) parsed = NativeTable.parse(Engine.records(file.getAbsolutePath(), request.tool, request.mode, request.offset, request.attSyntax, stop::get));
+                } else if (request.tool == 0) parsed = NativeTable.parse(Engine.structures(file.getAbsolutePath(), request.selector, request.mode, (int)request.offset, stop::get));
+                else if (request.records()) parsed = NativeTable.parse(Engine.records(file.getAbsolutePath(), request.tool, request.mode, request.offset, request.attSyntax, stop::get));
                 else result = request.tool == 9 ? hex(file, Math.max(0, request.offset)) : Engine.tool(file.getAbsolutePath(), request.tool, request.offset,
                     request.mode, request.minimum, request.selector, request.json, request.attSyntax);
                 Properties properties = new Properties();
@@ -308,7 +310,8 @@ public final class NativeToolsActivity extends Activity {
             String heading = "#" + row.index + " " + (row.text("library").isEmpty() ? "" : row.text("library") + "!") + name;
             String numbers = "off=" + NativeTable.hexOffset(row.physicalOffset) + "  VA=" + (row.virtualAddress == null ? "unknown" : "0x" + row.virtualAddress.toString(16).toUpperCase(Locale.ROOT))
                 + "  size=" + (row.sizeBytes == null ? "unknown" : row.sizeBytes);
-            String extra = table.kind.equals("memory-map") ? "part=0x" + Integer.toHexString(row.code("filePartFlags")) + " virtual=" + row.isVirtual + " invisible=" + row.flag("isInvisible")
+            String extra = table.kind.equals("structures") ? row.text("rowType") + (row.text("rowType").equals("field") ? " parent=#" + row.text("parentStructureIndex") + " " + row.text("nativeType") + " = " + row.text("displayValue") + "\n" + row.text("propertyNames") : " type=" + row.text("nativeStructureType") + " count=" + row.text("count"))
+                : table.kind.equals("memory-map") ? "part=0x" + Integer.toHexString(row.code("filePartFlags")) + " virtual=" + row.isVirtual + " invisible=" + row.flag("isInvisible")
                 : table.kind.equals("symbols") ? "kind=" + row.code("kind") + " binding=" + row.code("binding") + " record=" + NativeTable.hexOffset(row.recordOffset)
                 : table.kind.equals("resources") ? "type=" + row.text("typeId") + " name=" + row.text("nameId") + " lang=" + row.text("languageId") + " cp=" + row.text("codePage")
                 : table.kind.equals("disassembly") ? row.text("bytes") + " | " + row.text("addressDomain") + "\n" + row.text("comment")
@@ -367,6 +370,24 @@ public final class NativeToolsActivity extends Activity {
     }
     private void rowActions(NativeTable source, NativeTable.Row row) {
         ArrayList<String> labels = new ArrayList<>(); ArrayList<Runnable> actions = new ArrayList<>();
+        if (source.kind.equals("structures")) try {
+            JSONObject field = row.toJson();
+            if (field.getString("rowType").equals("field")) {
+                int parent = field.getInt("parentStructureIndex");
+                labels.add("Inspect parent structure #" + parent); actions.add(() -> showRow(source, source.rows.get(parent)));
+                NativeStructures.Reference reference = NativeStructures.reference(source, row);
+                if (reference != null) {
+                    if (reference.fileOffset && reference.value.bitLength() <= 63 && reference.value.longValue() < source.fileSize) {
+                        labels.add("Hex at resolved field value (" + reference.basis + ")");
+                        actions.add(() -> navigate(new ToolRequest(9, 0, reference.value.longValue(), 4, "", false, false)));
+                    }
+                    if (reference.virtualAddress) {
+                        labels.add("Map resolved field VA (" + reference.basis + ")");
+                        actions.add(() -> mapAddress("0x" + reference.value.toString(16)));
+                    }
+                }
+            }
+        } catch (JSONException e) { status.setText("Invalid structure relationship: " + e.getMessage()); return; }
         if (row.hasFileByte(source.fileSize)) {
             labels.add("Hex at physical offset"); actions.add(() -> navigate(new ToolRequest(9, 0, row.physicalOffset, 4, "", false, false)));
             labels.add("Disassemble bytes"); actions.add(() -> navigate(new ToolRequest(6, 0, row.physicalOffset, 4, "", true, false)));

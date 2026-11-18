@@ -6,7 +6,7 @@ final class ToolReference {
     static final String[] TITLES = {"Structures", "Memory map", "Imports", "Exports", "Symbols", "Resources",
         "Disassembly", "Hashes", "Unicode strings", "Hex", "Entropy regions"};
     static final String[] HELP = {
-        "Upstream PE/ELF/thin Mach-O DataStructs retain field names and values. Structure inventory lists available selectors; NAME[#FIELD] selects native fields. Other formats may be unsupported.",
+        "Pinned CDiE PE/ELF/thin and fat Mach-O DataStructs expose typed structures and fields, raw/display/variant values, comments, semantic flags and parent relationships. Inventory omits fields; NAME[#FIELD] selects native records. Field storage offsets are distinct from their declared offset/VA values. Fat slices use an explicit index or host architecture / first; other slices remain raw. Unsupported readers and budget failures return no partial success.",
         "Physical offsets locate stored file bytes; VAs belong to the loader's preferred address space before relocation/ASLR. Virtual-only tails have no file bytes. All map records, overlaps and invisible entries are retained. Tap a row for fields/actions.",
         "Imports describe references to external interfaces. For PE, an offset/VA identifies an IAT slot, not the imported function body or import-by-name structure. Delay-load and ordinal records are preserved. An import does not prove a call.",
         "Exports identify named or ordinal entries. Forwarders redirect resolution to another module/entry. PE's native provider retains the first alias per slot. Presence does not prove execution.",
@@ -28,6 +28,18 @@ final class ToolReference {
     }
     static String field(String key) {
         switch (key) {
+            case "rowType": return "A structure describes a whole native occurrence; a field belongs to its parentStructureIndex. All selected occurrences and named fields are retained together.";
+            case "parentStructureIndex": return "Index of the containing structure in this same snapshot. Parent offsets are absolute in the whole input, including a chosen fat Mach-O slice.";
+            case "relativeOffset": return "Signed native field offset relative to the containing structure. The derived physicalOffset is usable only when both parent and field fit the input.";
+            case "rawValue": case "displayValue": return "Exact native hexadecimal/raw representation and formatted interpretation. Native reader display limits can apply; the complete stored range remains separately exportable.";
+            case "nativeComment": return "Upstream format-specific explanation/decoded flags. Static declarations do not prove runtime use, authenticity or checksum validation.";
+            case "properties": case "propertyNames": case "unknownPropertyBits": return "Semantic bits: ID 0x1, VA 0x2, file offset 0x4, size 0x8, count 0x10, pointer 0x20, flags 0x40, timestamp 0x80, string 0x100, reserved 0x200, signature 0x400, checksum 0x800. Unknown bits are retained. Flags alone do not distinguish PE RVAs, resource-relative offsets or fat Mach-O slice offsets. Only reviewed field-specific relationships enable value navigation, using a captured base when required. Pointer alone supplies no address domain; checksum alone is not verification.";
+            case "nativeValue": return "Exact xx_var type and value. Integers are decimal strings, floating values retain IEEE bits, strings/bytes retain full returned hex, and wide strings retain native units. A missing variant is not zero. Native process pointers remain opaque.";
+            case "nativeTextUnits": return "Exact native wchar code units for all returned field text, as eight hexadecimal digits per unit. JSON text preserves UTF-16; invalid 32-bit code points render U+FFFD while these units preserve their original value.";
+            case "physicalRangeValid": return "Whether the entire declared stored range fits the parent and whole input. Invalid/unknown ranges have no physical navigation target; raw native coordinates remain present.";
+            case "nativeStructureId": case "nativeStructureType": return "Unmodified format-specific structure ID and classification: 0 unknown, 1 structure, 2 entry, 3 footer, 4 locator, 5 raw data. RAW_DATA has no named-field schema.";
+            case "nativeOffset": case "nativeAddress": case "nativeEntrySize": case "nativeTotalSize": case "nativeSize": return "Exact signed native descriptor value; negative sentinels remain distinct from usable offsets/sizes. nativeAddress retains raw signed bits while virtualAddress renders the available unsigned address.";
+            case "count": return "Unsigned number of represented occurrences. CDiE expands fixed-size tables to individual structures when reading fields; inventory can retain an aggregate table descriptor.";
             case "index": return "Position in this detached snapshot, not a byte offset or native symbol-table index.";
             case "physicalOffset": return "Absolute physical file offset, or null when no stored target is available. For imports this may locate an indirection slot.";
             case "virtualAddress": return "Preferred virtual address before ASLR/relocation; null means unavailable. Runtime addresses require separate module/load evidence.";
@@ -40,7 +52,8 @@ final class ToolReference {
             case "isVirtual": return "A virtual-only mapping describes loader memory without corresponding file bytes. It must not be extracted as zero-filled data from the file.";
             case "isInvisible": return "Native map visibility metadata. The record remains included here because it can affect address relationships.";
             case "value": return "Raw unsigned symbol value. It may be an absolute value or another native encoding; do not assume it is a physical offset or even an address.";
-            case "nativeType": case "storageClass": case "sectionNumber": case "auxiliaryCount":
+            case "nativeType": return "Native type encoding. A structure field supplies a declared type string; a symbol supplies a numeric format-specific encoding.";
+            case "storageClass": case "sectionNumber": case "auxiliaryCount":
                 return "Unmodified native symbol encoding. PE section numbers: 0 undefined, -1 absolute, -2 debug; positive values are one-based. Auxiliary entries may contribute metadata without separate displayed rows.";
             case "byOrdinal": case "ordinal": return "Ordinal imports/exports identify entries numerically. Named imports normally retain ordinal zero; null export ordinal means the format provides none.";
             case "hint": return "PE import lookup hint from the import-by-name record. It is a loader search aid, not a stable API identity or risk score.";

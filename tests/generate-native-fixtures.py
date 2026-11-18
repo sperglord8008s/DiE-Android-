@@ -123,6 +123,10 @@ high_mach = bytearray(mach)
 struct.pack_into("<Q", high_mach, 56, 0xffff800000000000)
 struct.pack_into("<Q", high_mach, 136, 0xffff800000001000)
 (destination / "mach64-high.bin").write_bytes(high_mach)
+zero_fill_mach = bytearray(mach)
+# A declared zero-fill section has no stored payload even with a nonzero offset.
+struct.pack_into("<I", zero_fill_mach, 168, 1)
+(destination / "mach64-zerofill.bin").write_bytes(zero_fill_mach)
 (destination / "nops.bin").write_bytes(b"\x90" * 9000)
 
 dex = bytearray(112)
@@ -138,3 +142,13 @@ with zipfile.ZipFile(destination / "archive.zip", "w") as archive:
 for name, data in {"truncated-elf.bin": b"\x7fELF\x02\x01", "truncated-pe.bin": pe(32)[:96],
                    "truncated-mach.bin": mach[:16]}.items():
     (destination / name).write_bytes(data)
+
+# Universal Mach-O fixture: unlike process execution, opening either slice is static.
+fat = bytearray(0x4001)
+struct.pack_into(">II", fat, 0, 0xcafebabe, 2)
+for i, (cpu, offset) in enumerate([(0x01000007, 0x1000), (0x0100000c, 0x3000)]):
+    struct.pack_into(">IIIII", fat, 8 + i * 20, cpu, 3 if i == 0 else 0, offset, len(mach), 12)
+    content = bytearray(mach)
+    struct.pack_into("<II", content, 4, cpu, 3 if i == 0 else 0)
+    fat[offset:offset+len(content)] = content
+(destination / "mach-fat.bin").write_bytes(fat)

@@ -24,6 +24,9 @@ public final class ToolWorkflowTest {
         ToolHistory.Location both = history.back();
         require(both.request.mode == 0 && both.controls.mode == 3 && both.page == 2, "Draft controls replaced displayed evidence parameters");
         require(ToolRequest.fromJson(displayed.toJson().toString()).sameAs(displayed), "Saved request round-trip");
+        ToolRequest slice = new ToolRequest(0, 0, 3, 4, "section_64#offset", false, false);
+        require(slice.records() && slice.json && slice.toJson().getLong("physicalOffset") == -1 && slice.toJson().getInt("machOSliceIndex") == 3, "Slice index mislabeled as physical offset");
+        require(ToolRequest.fromJson(slice.toJson().toString()).sameAs(slice), "Captured slice request lost on restore");
         JSONArray rows = new JSONArray(); for (int i = 0; i < 123; i++) rows.put(NativeTableTest.row(i, "record" + i, 0L, null, "1"));
         NativeTable table = NativeTable.parse(NativeTableTest.envelope("symbols", 100, rows).toString());
         ToolRequest captured = new ToolRequest(4, 0, -1, 7, "original-selector", false, false);
@@ -32,6 +35,12 @@ public final class ToolWorkflowTest {
         require(exported.getJSONObject("request").getInt("minimumStringLength") == 7 && exported.getJSONObject("request").getBoolean("nativeJson"), "Export request was inferred from mutable controls");
         JSONObject unknown = new JSONObject(ToolReport.encode("fixture", "bad", 100, "", captured, table, "", 0, "", 0));
         require(unknown.getJSONObject("input").isNull("sha256") && unknown.getJSONObject("input").getString("identitySource").equals("not collected"), "Unknown identity invented");
+        StringBuilder allUnits = new StringBuilder();
+        for (int code = 0; code <= 65535; code++) allUnits.append((char)code);
+        String exact = allUnits.toString();
+        String unicodeReport = ToolReport.encode(exact, null, 0, "source", captured, table, "", 0, exact, 0);
+        JSONObject decodedUnicode = new JSONObject(new String(unicodeReport.getBytes(java.nio.charset.StandardCharsets.UTF_8), java.nio.charset.StandardCharsets.UTF_8));
+        require(decodedUnicode.getJSONObject("input").getString("name").equals(exact) && decodedUnicode.getJSONObject("view").getString("filter").equals(exact), "Tool header lost UTF-16 units during UTF-8 encoding");
         Path root = Files.createTempDirectory("die-export-test");
         try {
             File directory = root.resolve("exports").toFile();

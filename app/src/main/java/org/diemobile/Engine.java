@@ -10,10 +10,25 @@ final class Engine {
     private static native byte[] scanNative(String path,String db,int flags);
     private static native byte[] toolNative(String path,int tool,long offset,int mode,int minimum,String selector,int json,int syntax);
     private static native byte[] recordsNative(String path,int tool,int mode,long offset,int syntax);
+    private static native byte[] structuresNative(String path,String selector,int inventory,int slice,java.util.function.BooleanSupplier cancelled);
+    static synchronized String structures(String path,String selector,int inventory,int slice,java.util.function.BooleanSupplier cancelled) {
+        java.util.Objects.requireNonNull(cancelled, "Cancellation supplier");
+        if(!AVAILABLE)return structureFailure("Native engine unavailable");
+        if(cancelled.getAsBoolean())return structureFailure("Structure request cancelled");
+        if(selector==null || selector.length()>4096 || selector.indexOf('\0')>=0 || inventory<0 || inventory>1 || slice < -1 || slice>=4096)
+            return structureFailure("Invalid structure selector, inventory or slice");
+        byte[] result=structuresNative(path,selector,inventory,slice,cancelled);
+        if(cancelled.getAsBoolean())return structureFailure("Structure request cancelled");
+        return result==null?structureFailure("Native report allocation failed"):new String(result,StandardCharsets.UTF_8);
+    }
+    private static String structureFailure(String message) {
+        return "{\"schema\":\"org.diemobile.native-records\",\"schemaVersion\":1,\"ok\":false,\"kind\":\"structures\",\"error\":\""+message+"\"}";
+    }
     static synchronized String records(String path,int tool,int mode,long offset,boolean attSyntax) {
         return records(path,tool,mode,offset,attSyntax,()->false);
     }
     static synchronized String records(String path,int tool,int mode,long offset,boolean attSyntax,java.util.function.BooleanSupplier cancelled) {
+        if(tool==0)return structures(path,"",mode,-1,cancelled);
         if(!AVAILABLE)return "{\"schema\":\"org.diemobile.native-records\",\"schemaVersion\":1,\"ok\":false,\"kind\":\"unknown\",\"error\":\"Native engine unavailable\"}";
         if(cancelled.getAsBoolean())return "{\"schema\":\"org.diemobile.native-records\",\"schemaVersion\":1,\"ok\":false,\"kind\":\"unknown\",\"error\":\"Table request cancelled\"}";
         byte[] result=recordsNative(path,tool,mode,offset,attSyntax?1:0);

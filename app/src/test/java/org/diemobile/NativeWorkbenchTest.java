@@ -219,6 +219,71 @@ public final class NativeWorkbenchTest {
         assertEquals(View.VISIBLE, list().getVisibility());
         assertTrue("Disassembly pane has only " + list().getHeight() + " px", list().getHeight() >= 160);
     }
+    @Test public void structureFieldsResolveStorageAndPeRvaSeparatelyAndExportAllRows() throws Exception {
+        open("pe32-rich.exe", 0);
+        NativeTable table = ReflectionHelpers.getField(activity, "table");
+        assertEquals("structures", table.kind); assertEquals(274, table.rows.size());
+        EditText filter = activity.findViewById(R.id.native_filter);
+        filter.setText("\"name\":\"e_lfanew\""); assertEquals(1, list().getAdapter().getCount());
+        NativeTable.Row field = (NativeTable.Row)list().getAdapter().getItem(0);
+        assertEquals(Long.valueOf(0x3c), field.physicalOffset);
+        rowAction(0, "Hex at resolved field value (format-defined whole-input file offset)"); settle();
+        assertTrue(((TextView)activity.findViewById(R.id.native_output)).getText().toString().startsWith("0000000000000080"));
+        activity.findViewById(R.id.native_back).performClick(); settle();
+        filter = activity.findViewById(R.id.native_filter);
+        assertEquals("\"name\":\"e_lfanew\"", filter.getText().toString());
+        rowAction(0, "Hex at physical offset"); settle();
+        assertTrue(((TextView)activity.findViewById(R.id.native_output)).getText().toString().startsWith("000000000000003C"));
+        activity.findViewById(R.id.native_back).performClick(); settle();
+        filter = activity.findViewById(R.id.native_filter); filter.setText("\"name\":\"AddressOfEntryPoint\"");
+        rowAction(0, "Map resolved field VA (PE RVA + captured ImageBase 0x400000)"); settle();
+        assertTrue(((TextView)activity.findViewById(R.id.native_output)).getText().toString().startsWith("0000000000000200"));
+        activity.findViewById(R.id.native_back).performClick(); settle();
+        button("Export report").performClick(); settle(); controller.recreate(); activity = controller.get(); settle();
+        JSONObject exported = new JSONObject(finishExport().toString("UTF-8"));
+        assertEquals(274, exported.getJSONObject("nativeRecords").getJSONArray("rows").length());
+        assertEquals("structures", exported.getJSONObject("nativeRecords").getString("kind"));
+        assertEquals(0, exported.getJSONObject("request").getInt("toolId"));
+        assertEquals(-1, exported.getJSONObject("request").getInt("physicalOffset"));
+        assertEquals(-1, exported.getJSONObject("request").getInt("machOSliceIndex"));
+    }
+
+    @Test public void fatSliceFieldsUseWholeInputStorageAndResolvedSliceValues() throws Exception {
+        open("mach-fat.bin", 0);
+        ((EditText)activity.findViewById(R.id.native_offset)).setText("1");
+        activity.findViewById(R.id.native_reload).performClick(); settle();
+        NativeTable table = ReflectionHelpers.getField(activity, "table");
+        NativeTable.Row target = null;
+        for (NativeTable.Row row : table.rows) if (row.name.equals("offset") && row.physicalOffset != null && row.physicalOffset == 0x3000 + 152) target = row;
+        assertNotNull(target);
+        int parent = target.toJson().getInt("parentStructureIndex");
+        ((EditText)activity.findViewById(R.id.native_filter)).setText("\"parentStructureIndex\":" + parent);
+        int position = -1;
+        for (int i = 0; i < list().getAdapter().getCount(); i++) if (((NativeTable.Row)list().getAdapter().getItem(i)).index == target.index) position = i;
+        assertTrue(position >= 0);
+        rowAction(position, "Hex at resolved field value (Mach-O slice-relative value + captured header offset 0x3000)"); settle();
+        assertTrue(((TextView)activity.findViewById(R.id.native_output)).getText().toString().startsWith("0000000000004000"));
+        activity.findViewById(R.id.native_back).performClick(); settle(); controller.recreate(); activity = controller.get(); settle();
+        assertEquals("0x1", ((EditText)activity.findViewById(R.id.native_offset)).getText().toString());
+        ToolRequest captured = ReflectionHelpers.getField(activity, "produced");
+        assertEquals(1, captured.toJson().getInt("machOSliceIndex")); assertEquals(-1, captured.toJson().getInt("physicalOffset"));
+        ReflectionHelpers.<EditText>getField(activity, "selector").setText("section_64#offset");
+        ((EditText)activity.findViewById(R.id.native_filter)).setText("");
+        activity.findViewById(R.id.native_reload).performClick(); settle();
+        table = ReflectionHelpers.getField(activity, "table"); assertEquals(2, table.rows.size());
+        assertEquals(Long.valueOf(0x3000 + 152), table.rows.get(1).physicalOffset);
+        assertNull(NativeStructures.reference(table, table.rows.get(1)));
+    }
+
+    @Test public void structureFieldExportKeepsStoredBytesAcrossMutationAndRecreation() throws Exception {
+        open("pe32-rich.exe", 0);
+        ((EditText)activity.findViewById(R.id.native_filter)).setText("\"name\":\"e_lfanew\"");
+        rowAction(0, "Export stored bytes"); settle();
+        try (RandomAccessFile mutation = new RandomAccessFile(input, "rw")) { mutation.seek(0x3c); mutation.writeInt(0); }
+        controller.recreate(); activity = controller.get(); settle();
+        assertArrayEquals(new byte[]{(byte)0x80, 0, 0, 0}, finishExport().toByteArray());
+    }
+
     private static <T extends View> T findView(View view, Class<T> type) {
         if (type.isInstance(view)) return type.cast(view);
         if (view instanceof ViewGroup) for (int i = 0; i < ((ViewGroup)view).getChildCount(); i++) {

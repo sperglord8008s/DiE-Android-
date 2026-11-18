@@ -54,13 +54,13 @@ The primary UI shows loader base/entry virtual addresses for PE, ELF and thin Ma
 
 ## Native tool report
 
-Native Tools exports `schema: "org.diemobile.tool-report"`, `schemaVersion: 1`. It stages a private immutable JSON file before opening the local system picker. Changes to filters, controls or the Activity after preparation cannot change that pending export.
+Native Tools exports `schema: "org.diemobile.tool-report"`, `schemaVersion: 1`. It stages a private immutable JSON file before opening the local system picker. Changes to filters, controls or the Activity after preparation cannot change that pending export. Tool headers and range report strings preserve exact UTF-16 units through UTF-8 staging.
 
 | Field | Meaning |
 |---|---|
 | `createdAt` | Report preparation time in ISO-8601 UTC |
 | `input` | Display `name`, exact `sizeBytes`, nullable whole-input `sha256` and `identitySource`; the digest comes from the parent inspection, not a new whole-file hash performed by the tool |
-| `request` | Captured `toolId`, native `mode`, `physicalOffset` (`-1` means automatic), `minimumStringLength`, `selector`, `nativeJson` and `attSyntax`; draft controls cannot relabel these results |
+| `request` | Captured `toolId`, native `mode`, `physicalOffset` (`-1` means automatic), `machOSliceIndex` (Structures only; `-1` chooses host/first and never denotes a physical byte), `minimumStringLength`, `selector`, `nativeJson` and `attSyntax`; draft controls cannot relabel these results |
 | `engineRevision` | Bundled CDiE source revision, or empty when not available |
 | `signatureDatabaseUsed` | `false`: native table/byte tools do not run signature rules |
 | `elapsedMs` | Time for that tool request and its provenance lookup |
