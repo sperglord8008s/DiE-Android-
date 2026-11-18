@@ -183,3 +183,15 @@ native request observer serves structures/entropy; other native tools still
 lack active cancellation/isolation. Interactive zoom/charts, more region/fat
 semantics, real SAF/ARM64/crash/memory-pressure and hard resource verification
 remain pending. See [native-entropy.md](native-entropy.md).
+
+Primary interpretation continuation: `ScanTarget` is an immutable input-specific
+request/catalog/capture model. Main reacquires bytes, reads the real native
+compatible catalog and applies one resolved selector to both facts and scan.
+It attaches source/engine/selector-checked context to captured reports without
+changing the profile catalog contract or batch Automatic policy. Run
+`scripts/test-models.sh` and `scripts/test-native.sh` for duplicate/malformed/
+identity/report and actual known-rule/All-types/cache cases. Three new real
+MainActivity cases bring the combined suite to 118. Full Qt format forcing,
+profile/batch interpretation policy, broader raw/malformed fixture coverage and
+real device/SAF/process-death behavior remain pending. See
+[scan-interpretations.md](scan-interpretations.md).

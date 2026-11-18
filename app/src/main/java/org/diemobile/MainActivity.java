@@ -31,6 +31,9 @@ public class MainActivity extends Activity {
  private boolean settingsDirty,loadingSettings;
  private AlertDialog scanOptionsDialog;
  private ScanOptions scannedOptions;
+ private ScanTarget.Request scanTarget=ScanTarget.AUTOMATIC;
+ private ScanTarget.Capture scannedTarget;
+ private AlertDialog interpretationDialog;
  private ScanEvidence evidence;
  private JSONObject nativeFacts;
  private EngineDatabase database;
@@ -55,6 +58,7 @@ public class MainActivity extends Activity {
   super.onCreate(s);ui();
   if(s!=null){
    selectedUri=s.getParcelable("selected");page=s.getInt("page",0);
+   if(s.getString("scanTarget")!=null)try{scanTarget=ScanTarget.Request.restore(s.getString("scanTarget"));}catch(JSONException e){status.setText("Saved interpretation expired; Automatic selected");}
    if(s.getString("preparedReport")!=null){
     try{
      preparedReport=PreparedExport.restore(scanExportDirectory(),s.getString("preparedReport"),s.getString("preparedReportName"),s.getString("preparedReportMime"),s.getLong("preparedReportSize"));
@@ -68,6 +72,7 @@ public class MainActivity extends Activity {
  }
  @Override protected void onSaveInstanceState(Bundle state){
   super.onSaveInstanceState(state);state.putParcelable("selected",selectedUri);state.putInt("page",page);state.putBoolean("preparingReport",preparingReport);
+  try{state.putString("scanTarget",scanTarget.toJson().toString());}catch(JSONException e){throw new IllegalStateException(e);}
   if(preparedReport!=null&&reportPickerOpen){state.putString("preparedReport",preparedReport.file.getAbsolutePath());state.putString("preparedReportName",preparedReport.name);state.putString("preparedReportMime",preparedReport.mime);state.putLong("preparedReportSize",preparedReport.size);}
  }
  @Override protected void onNewIntent(Intent i){super.onNewIntent(i);setIntent(i);receive(i);}
@@ -104,7 +109,7 @@ public class MainActivity extends Activity {
  private int currentFlags(){return currentOptions().flags;}
  @Override protected void onResume(){super.onResume();if(deep==null)return;loadingSettings=true;ScanOptions o=ScanPreferences.load(this);deep.setChecked((o.flags&1)!=0);heuristic.setChecked((o.flags&2)!=0);all.setChecked((o.flags&4)!=0);recursive.setChecked((o.flags&8)!=0);aggressive.setChecked((o.flags&32)!=0);min.setText(""+o.minimumStringLength);loadingSettings=false;settingsChanged();}
  private int minLength(){try{return Math.max(3,Math.min(64,Integer.parseInt(min.getText().toString())));}catch(Exception e){return 4;}}
- private void settingsChanged(){if(loadingSettings)return;ScanPreferences.save(this,currentOptions());settingsDirty=scannedOptions!=null&&!currentOptions().sameAs(scannedOptions);if(!busy&&selectedUri!=null&&settingsDirty){status.setText("Settings changed • press Scan / Rescan");}else if(!busy&&result!=null)finishedStatus();}
+ private void settingsChanged(){if(loadingSettings)return;ScanPreferences.save(this,currentOptions());settingsDirty=scannedOptions!=null&&(!currentOptions().sameAs(scannedOptions)||scannedTarget!=null&&!scanTarget.sameAs(scannedTarget.request));if(!busy&&selectedUri!=null&&settingsDirty){status.setText("Settings changed • press Scan / Rescan");}else if(!busy&&result!=null)finishedStatus();}
  private void optionsDialog() {
   LinearLayout form=vertical();
   form.setPadding(dp(18),dp(8),dp(18),dp(8));
@@ -129,6 +134,19 @@ public class MainActivity extends Activity {
     min.setText(entry.getText());min.setText(""+minLength());settingsChanged();
    }).show();
  }
+ private void chooseInterpretation(){
+  if(busy||result==null)return;
+  final ScanTarget.Capture captured=scannedTarget;final String identity=result.sha256;
+  final ArrayList<ScanTarget.Choice> choices=new ArrayList<>();
+  if(captured!=null&&captured.catalog!=null&&captured.catalog.ok)choices.addAll(captured.catalog.choices);
+  else choices.add(new ScanTarget.Choice(0,"Automatic"));
+  String[] labels=new String[choices.size()];for(int i=0;i<labels.length;i++)labels[i]=choices.get(i).toString();
+  interpretationDialog=new AlertDialog.Builder(this).setTitle("Next scan interpretation")
+   .setItems(labels,(dialog,which)->{
+    if(busy||scannedTarget!=captured||result==null||!result.sha256.equals(identity)){status.setText("Format choices expired for this input");return;}
+    scanTarget=choices.get(which).request();settingsChanged();show();
+   }).setNegativeButton("Cancel",null).show();
+ }
  private void finishedStatus(){status.setText(String.format(Locale.ROOT,"%s • %d ms%s",error.isEmpty()?"Scan complete":"Local scan / engine error",elapsedMs,settingsDirty?" • settings changed":""));}
  private void receive(Intent i){if(i==null)return;Uri u=null;if(Intent.ACTION_VIEW.equals(i.getAction()))u=i.getData();else if(Intent.ACTION_SEND.equals(i.getAction()))u=i.getParcelableExtra(Intent.EXTRA_STREAM);if(u!=null&&"content".equals(u.getScheme()))scan(u);}
  @Override protected void onActivityResult(int req,int code,Intent data){super.onActivityResult(req,code,data);if(req==2){finishReport(code,data);return;}if((req==4||req==5)&&code==RESULT_OK&&data!=null){String p=data.getStringExtra("path");if(p!=null){if(req==5){if(ownedMember!=null)ownedMember.delete();ownedMember=new File(p);selectedDisplayName=data.getStringExtra("display");}scan(Uri.fromFile(new File(p)));}return;}if(code==RESULT_OK&&data!=null&&data.getData()!=null){if(req==1){try{if((data.getFlags()&Intent.FLAG_GRANT_READ_URI_PERMISSION)!=0)getContentResolver().takePersistableUriPermission(data.getData(),Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException ignored){}scan(data.getData());}if(req==3)importExodus(data.getData());}}
@@ -142,27 +160,36 @@ public class MainActivity extends Activity {
  private void openTrackerCatalog(){startActivity(new Intent(this,InvestigationActivity.class).putExtra("provider","tracker-rules").putExtra("path",new File(getFilesDir(),"exodus-trackers.json").getAbsolutePath()).putExtra("name","Imported Exodus tracker definitions"));}
  private String fileName(Uri u){if("file".equals(u.getScheme())){File f=new File(u.getPath());return ownedMember!=null&&f.equals(ownedMember)&&selectedDisplayName!=null?selectedDisplayName:f.getName();}try(Cursor c=getContentResolver().query(u,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){if(c!=null&&c.moveToFirst()&&!c.isNull(0))return c.getString(0);}catch(Exception ignored){}return "input.bin";}
  private void scan(Uri u){
-  if(busy){pending=u;return;}if(ownedMember!=null&&!("file".equals(u.getScheme())&&ownedMember.equals(new File(u.getPath())))){ownedMember.delete();ownedMember=null;selectedDisplayName=null;}if(retainedFile!=null){retainedFile.delete();retainedFile=null;}selectedUri=u;busy=true;scanCancellation=new Engine.Cancellation();final Engine.Cancellation cancellation=scanCancellation;cancel.setEnabled(true);result=null;evidence=null;nativeFacts=null;database=null;report="";error="";guide="";apkReport="";status.setText("Scanning locally…");fileLabel.setText(u.getLastPathSegment()==null?"Selected file":u.getLastPathSegment());open.setEnabled(false);rescan.setEnabled(false);export.setEnabled(false);nativeTools.setEnabled(false);archiveTools.setEnabled(false);progress.setIndeterminate(true);show();
-  final ScanOptions options=currentOptions();int flags=options.flags;final int minLen=options.minimumStringLength;final long started=SystemClock.elapsedRealtime();
+  if(busy){pending=u;return;}if(!java.util.Objects.equals(selectedUri,u))scanTarget=ScanTarget.AUTOMATIC;if(interpretationDialog!=null)interpretationDialog.dismiss();if(ownedMember!=null&&!("file".equals(u.getScheme())&&ownedMember.equals(new File(u.getPath())))){ownedMember.delete();ownedMember=null;selectedDisplayName=null;}if(retainedFile!=null){retainedFile.delete();retainedFile=null;}selectedUri=u;busy=true;scanCancellation=new Engine.Cancellation();final Engine.Cancellation cancellation=scanCancellation;cancel.setEnabled(true);result=null;evidence=null;nativeFacts=null;database=null;report="";error="";guide="";apkReport="";status.setText("Scanning locally…");fileLabel.setText(u.getLastPathSegment()==null?"Selected file":u.getLastPathSegment());open.setEnabled(false);rescan.setEnabled(false);export.setEnabled(false);nativeTools.setEnabled(false);archiveTools.setEnabled(false);progress.setIndeterminate(true);show();
+  final ScanTarget.Request requestedTarget=scanTarget;final ScanOptions options=currentOptions();int flags=options.flags;final int minLen=options.minimumStringLength;final long started=SystemClock.elapsedRealtime();
   worker.execute(()->{
-   File f=null;Inspector.Result r=null;String n="",rep="",err="",fail="",g="",a="";ScanEvidence ev=null;JSONObject facts=null;EngineDatabase databases=null;
+   File f=null;Inspector.Result r=null;String n="",rep="",err="",fail="",g="",a="";ScanEvidence ev=null;JSONObject facts=null;EngineDatabase databases=null;ScanTarget.Capture targetCapture=null;
    try{
     n=fileName(u);String ext=".bin";int dot=n.lastIndexOf('.');if(dot>=0&&n.substring(dot).matches("\\.[a-zA-Z0-9]{1,12}"))ext=n.substring(dot);
     f=File.createTempFile("scan-",ext,getCacheDir());
     try(InputStream in=getContentResolver().openInputStream(u);OutputStream out=new FileOutputStream(f)){if(in==null)throw new IOException("No input data");byte[] b=new byte[65536];int count;long total=0;while((count=in.read(b))!=-1){if(cancellation.isRequested())throw new InterruptedIOException("Scan cancelled during input acquisition");total+=count;if(total>1024L*1024*1024)throw new IOException("Alpha limit: 1 GiB");out.write(b,0,count);}}
     r=Inspector.scan(f,minLen,cancellation::isRequested);
+    targetCapture=ScanTarget.Capture.resolve(requestedTarget,null,r.sha256,r.size,"");
     try{if(cancellation.isRequested())throw new InterruptedIOException("Scan cancelled");KnowledgeReport.Output k=KnowledgeReport.analyze(this,f,r,n,cancellation::isRequested);g=k.guide.toString();a=k.apk.toString();}catch(Exception e){g="Explanatory report unavailable: "+e.getMessage();}
     if(Engine.AVAILABLE){try{
      databases=EngineDatabase.prepare(this);
-     if(!cancellation.isRequested())facts=new JSONObject(Engine.desktop(f.getAbsolutePath(),databases.main.getAbsolutePath(),databases.custom.getAbsolutePath(),5,flags,0,options.includeTags,options.excludeTags,"",""));
-     rep=Engine.desktop(f.getAbsolutePath(),databases.main.getAbsolutePath(),databases.custom.getAbsolutePath(),1,flags,0,options.includeTags,options.excludeTags,"","",cancellation);
+     ScanTarget.Catalog catalog;
+     if(cancellation.isRequested())throw new InterruptedIOException("Scan cancelled before format resolution");
+     try{catalog=ScanTarget.Catalog.parse(Engine.desktop(f.getAbsolutePath(),databases.main.getAbsolutePath(),databases.custom.getAbsolutePath(),0,flags,0,options.includeTags,options.excludeTags,"",""));}
+     catch(Exception e){catalog=ScanTarget.Catalog.unavailable("Compatible-format catalog failed: "+e);}
+     targetCapture=ScanTarget.Capture.resolve(requestedTarget,catalog,r.sha256,r.size,databases.engineRevision);
+     if(targetCapture.nativeTypeId==null)throw new IOException(targetCapture.error);
+     final int selectedType=targetCapture.nativeTypeId;
+     if(cancellation.isRequested())throw new InterruptedIOException("Scan cancelled during format resolution");
+     facts=new JSONObject(Engine.desktop(f.getAbsolutePath(),databases.main.getAbsolutePath(),databases.custom.getAbsolutePath(),5,flags,selectedType,options.includeTags,options.excludeTags,"",""));
+     rep=Engine.desktop(f.getAbsolutePath(),databases.main.getAbsolutePath(),databases.custom.getAbsolutePath(),1,flags,selectedType,options.includeTags,options.excludeTags,"","",cancellation);
      ev=ScanEvidence.parse(rep);if(!ev.ok)err=ev.error;
     }catch(Exception|LinkageError e){err=e.toString();}}
     else err="CDiE not bundled; compiler/packer detection unavailable.";
    }catch(Exception e){fail=e.toString();}finally{if(r==null&&f!=null){f.delete();f=null;}}
-   final ScanEvidence finalEvidence=ev;final JSONObject finalFacts=facts;final EngineDatabase finalDatabases=databases;
+   final ScanEvidence finalEvidence=ev;final JSONObject finalFacts=facts;final EngineDatabase finalDatabases=databases;final ScanTarget.Capture finalTarget=targetCapture;
    final File inputCopy=f;final Inspector.Result fr=r;final String fn=n,fp=rep,fe=err,ff=fail,fg=g,fa=a;
-   runOnUiThread(()->{if(isDestroyed()){if(inputCopy!=null)inputCopy.delete();return;}retainedFile=inputCopy;nativeTools.setEnabled(retainedFile!=null);archiveTools.setEnabled(retainedFile!=null&&fr!=null&&fr.type.contains("ZIP"));result=fr;evidence=finalEvidence;nativeFacts=finalFacts;database=finalDatabases;scannedOptions=options;name=fn;report=fp;error=fe;guide=fg;apkReport=fa;busy=false;cancel.setEnabled(false);elapsedMs=SystemClock.elapsedRealtime()-started;scannedFlags=flags;scannedMin=minLen;settingsDirty=!currentOptions().sameAs(options);fileLabel.setText(fn.isEmpty()?"Selected file":fn);open.setEnabled(true);rescan.setEnabled(selectedUri!=null);reportControls();progress.setIndeterminate(false);progress.setProgress(result!=null?100:0);if(ff.isEmpty())finishedStatus();else status.setText(ff);show();if(pending!=null){Uri next=pending;pending=null;scan(next);}});
+   runOnUiThread(()->{if(isDestroyed()){if(inputCopy!=null)inputCopy.delete();return;}retainedFile=inputCopy;nativeTools.setEnabled(retainedFile!=null);archiveTools.setEnabled(retainedFile!=null&&fr!=null&&fr.type.contains("ZIP"));result=fr;evidence=finalEvidence;nativeFacts=finalFacts;database=finalDatabases;scannedOptions=options;scannedTarget=finalTarget;name=fn;report=fp;error=fe;guide=fg;apkReport=fa;busy=false;cancel.setEnabled(false);elapsedMs=SystemClock.elapsedRealtime()-started;scannedFlags=flags;scannedMin=minLen;settingsDirty=!currentOptions().sameAs(options)||!scanTarget.sameAs(requestedTarget);fileLabel.setText(fn.isEmpty()?"Selected file":fn);open.setEnabled(true);rescan.setEnabled(selectedUri!=null);reportControls();progress.setIndeterminate(false);progress.setProgress(result!=null?100:0);if(ff.isEmpty())finishedStatus();else status.setText(ff);show();if(pending!=null){Uri next=pending;pending=null;scan(next);}});
   });
  }
  private void openDesktopScan(){if(retainedFile==null||!Engine.AVAILABLE)return;Intent i=new Intent(this,DesktopScanActivity.class);i.putExtra("path",retainedFile.getAbsolutePath());i.putExtra("name",name);startActivity(i);}
@@ -192,7 +219,7 @@ public class MainActivity extends Activity {
   pane.removeAllViews();reportFormatButtons.clear();for(int i=0;i<tabs.getChildCount();i++){Button b=(Button)tabs.getChildAt(i);b.setEnabled(i!=page);b.setTextColor(i==page?0xff80cbc4:0xffe5eaf0);}
   if(result==null){pane.addView(txt(busy?"Scan running on worker thread.":"Open or share a file to inspect it. No root or internet access required.",16));return;}
   switch(page){
-   case 0:field("Type",evidence!=null&&evidence.ok?evidence.type:result.type,"Desktop parser interpretation when available; the local header identification is retained in File info and exported reports. Recognition does not validate every structure.");showNativeFacts();field("Size",String.format(Locale.ROOT,"%,d bytes (0x%X)",result.size,result.size),"Exact input length in decimal and hexadecimal. Offsets refer to byte positions within that length.");field("Entropy",String.format(Locale.ROOT,"%.4f / 8",result.entropy),"Shannon entropy of the observed byte histogram, from 0 to 8 bits per byte. Compression, encryption and ordinary media can all produce high entropy; this is not a packing or malware verdict.");heading("Detection results • desktop CDiE");pane.addView(btn("Desktop scan laboratory / signature editor",()->openDesktopScan()));showDetections();heading("Content identity");field("SHA-256",result.sha256,"A 256-bit digest of the exact bytes analyzed. Compare against a trusted digest to identify matching content; it is not a publisher signature.");field("Flags",String.format(Locale.ROOT,"0x%04X",scannedFlags),"Actual desktop-backend flags captured when the scan began. Laboratory options and tag filters apply here too. The export preserves their names and values.");field("Time",elapsedMs+" ms","Elapsed wall-clock time including local copying, file inspection, knowledge lookup and signature scanning.");heading("Technical interpretation");pane.addView(btn("File structure and interpretation",()->{page=1;show();}));if(result.type.contains("ZIP")||result.type.contains("DEX"))pane.addView(btn("APK / DEX evidence and SDK details",()->{page=3;show();}));break;
+   case 0:pane.addView(btn("Next scan interpretation: "+scanTarget.label()+" • choose…",this::chooseInterpretation));pane.addView(txt("Explicit selections run one compatible native pass after Rescan. Automatic lets CDiE choose. New inputs start Automatic; saved flag/tag profiles and batches are separate.",12));if(scannedTarget!=null)field("Requested interpretation",scannedTarget.request.label()+" • backend selector "+(scannedTarget.nativeTypeId==null?"unresolved":scannedTarget.nativeTypeId),"Captured selection for the displayed scan. Explicit choices are compatible native scan passes, not validation of every format structure. Draft selection changes apply only after Rescan.");field("Type",evidence!=null&&evidence.ok?evidence.type:result.type,"Desktop parser interpretation when available; the local header identification is retained in File info and exported reports. Recognition does not validate every structure.");showNativeFacts();field("Size",String.format(Locale.ROOT,"%,d bytes (0x%X)",result.size,result.size),"Exact input length in decimal and hexadecimal. Offsets refer to byte positions within that length.");field("Entropy",String.format(Locale.ROOT,"%.4f / 8",result.entropy),"Shannon entropy of the observed byte histogram, from 0 to 8 bits per byte. Compression, encryption and ordinary media can all produce high entropy; this is not a packing or malware verdict.");heading("Detection results • desktop CDiE");pane.addView(btn("Desktop scan laboratory / signature editor",()->openDesktopScan()));showDetections();heading("Content identity");field("SHA-256",result.sha256,"A 256-bit digest of the exact bytes analyzed. Compare against a trusted digest to identify matching content; it is not a publisher signature.");field("Flags",String.format(Locale.ROOT,"0x%04X",scannedFlags),"Actual desktop-backend flags captured when the scan began. Laboratory options and tag filters apply here too. The export preserves their names and values.");field("Time",elapsedMs+" ms","Elapsed wall-clock time including local copying, file inspection, knowledge lookup and signature scanning.");heading("Technical interpretation");pane.addView(btn("File structure and interpretation",()->{page=1;show();}));if(result.type.contains("ZIP")||result.type.contains("DEX"))pane.addView(btn("APK / DEX evidence and SDK details",()->{page=3;show();}));break;
    case 1:heading("File information");pane.addView(btn("Binary comparison / exact differing byte ranges",()->openInvestigation("comparison")));pane.addView(btn("Whole-file hashes / CRC32 / MD4 / MD5 / SHA-1 / SHA-2",()->openInvestigation("hashes")));pane.addView(btn("Binary Android manifest / resource tables / compiled XML",()->openInvestigation("resources")));pane.addView(btn("MPV / media codecs / containers / stream metadata",()->openInvestigation("mpv")));pane.addView(btn("Binwalk / whole-blob signatures / resource carving",()->openInvestigation("binwalk")));pane.addView(btn("PhotoRec / whole-blob formats / stored-byte carving",()->openInvestigation("photorec")));pane.addView(btn("Collected metadata / EXIF / IPTC / ICC / XMP",()->openInvestigation("metadata")));field("Name",name);field("Type",result.type);field("Size",String.format(Locale.ROOT,"%,d bytes (0x%X)",result.size,result.size));field("Entropy",String.format(Locale.ROOT,"%.4f bits/byte",result.entropy));heading("SHA-256");pane.addView(mono(result.sha256));heading("Structure and interpretation");readableReport(guide);break;
    case 2:heading("Technical reference");readableReport(guide);break;
    case 3:heading("APK / SDKs • static evidence");pane.addView(btn("APK signing / rotation / certificates / detached v4",()->openInvestigation("apk-signing")));pane.addView(btn("Package / split declarations / captured relationships",()->openInvestigation("package-set")));pane.addView(btn("Imported Exodus rules / metadata / diagnostics",this::openTrackerCatalog));pane.addView(btn("Canonical SDK / library rules / regex / source metadata",()->openInvestigation("sdk-rules")));if(result.type.contains("ZIP")||result.type.contains("DEX"))pane.addView(btn("DEX tables / bytecode / references / smali",()->openInvestigation("dex")));readableReport(apkReport);break;
@@ -247,7 +274,7 @@ public class MainActivity extends Activity {
  private void prepareReport(){prepareReport(ScanReportFormats.Format.JSON);}
  private void prepareReport(ScanReportFormats.Format format){
   if(result==null||scannedOptions==null||busy||preparingReport||reportPickerOpen||writingReport)return;
-  final Inspector.Result source=result;final ScanOptions options=scannedOptions;final ScanEvidence scan=evidence;
+  final Inspector.Result source=result;final ScanOptions options=scannedOptions;final ScanTarget.Capture capturedTarget=scannedTarget;final ScanEvidence scan=evidence;
   final JSONObject facts=nativeFacts;final EngineDatabase db=database;final String inputName=name,explanation=guide,apk=apkReport,engineError=error;
   final long duration=elapsedMs;
   preparingReport=true;reportControls();status.setText("Preparing the captured scan report…");
@@ -255,6 +282,7 @@ public class MainActivity extends Activity {
    PreparedExport staged=null;
    try{
     JSONObject output=ScanReport.create(inputName,source,options,scan,facts,db==null?"":db.engineRevision,db==null?"":db.signatureRevision,db==null?"":db.customDigest,duration,explanation,apk,engineError);
+    if(capturedTarget!=null)capturedTarget.attach(output);
     staged=PreparedExport.stream(scanExportDirectory(),"die-android-report-"+source.sha256.substring(0,12)+"."+format.extension,format.mime,writer->ScanReportFormats.write(writer,output,format,this::isDestroyed),this::isDestroyed);
     final PreparedExport ready=staged;
     runOnUiThread(()->{

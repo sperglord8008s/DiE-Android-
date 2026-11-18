@@ -9,7 +9,7 @@ cmake --build "$build" --target diemobile --parallel 4
 cc -O0 -g -Wl,--export-dynamic tests/native_fixture.c -o "$tmp/fixture"
 source scripts/test-dependencies.sh
 load_json_test_dependency "$tmp"
-javac -cp "$json_test_jar" -d "$tmp/classes" app/src/main/java/org/diemobile/{Engine,Inspector,CustomRuleStore,NativeTable,NativeStructures,NativeEntropy,FileRange,RangeAnalysis}.java tests/{NativeToolsTest,NativeRecordsTest,NativeStructuresTest,NativeEntropyTest,NativeUnavailableTest}.java
+javac -cp "$json_test_jar" -d "$tmp/classes" app/src/main/java/org/diemobile/{Engine,Inspector,ScanTarget,ScanOptions,CustomRuleStore,NativeTable,NativeStructures,NativeEntropy,FileRange,RangeAnalysis}.java tests/{NativeToolsTest,NativeRecordsTest,NativeStructuresTest,NativeEntropyTest,ScanTargetNativeTest,NativeUnavailableTest}.java
 mkdir -p "$tmp/custom"
 python3 tests/generate-native-fixtures.py "$tmp/formats"
 timeout 180s java -Djava.library.path="$build" -cp "$tmp/classes:$json_test_jar" org.diemobile.NativeToolsTest "$tmp/fixture" "$PWD/generated-assets/db" "$tmp/custom" "$tmp/formats"
@@ -24,5 +24,6 @@ cc -std=gnu11 -O2 -Iapp/src/main/cpp -Ivendor/CDiE/src -Ivendor/CDiE/dep/xxfclib
   -L"$build" -Wl,-rpath,"$build" -ldiemobile -o "$tmp/structure-values"
 "$tmp/structure-values" "$tmp/structure-values.jsonl"
 python3 tests/check-structure-values.py "$tmp/structure-values.jsonl"
+timeout 60s java -Djava.library.path="$build" -cp "$tmp/classes:$json_test_jar" org.diemobile.ScanTargetNativeTest "$tmp/fixture" "$PWD/generated-assets/db" "$tmp/custom-targets"
 mkdir -p "$tmp/no-native"
 java -Djava.library.path="$tmp/no-native" -cp "$tmp/classes:$json_test_jar" org.diemobile.NativeUnavailableTest

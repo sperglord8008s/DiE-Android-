@@ -33,9 +33,10 @@ report string and uses direct hexadecimal escapes for predictable per-unit work.
 |---|---|
 | `createdAt` | Captured report preparation time in ISO-8601 UTC, before picker delay; not the binary's creation time |
 | `source` | Display name, exact `sizeBytes`, SHA-256 of the private input snapshot, and independent header identification |
-| `options` | Captured desktop flags and enabled names, semicolon-separated include/exclude tags, automatic `typeId: 0`, and minimum preview string length |
+| `options` | Captured desktop flags and enabled names, semicolon-separated include/exclude tags, captured `typeId` (0 requests Automatic; explicit unresolved names use null), and minimum preview string length |
 | `provenance` | CDiE revision, Detect-It-Easy database revision, custom database enabled state and original ZIP SHA-256, elapsed milliseconds including acquisition/inspection, and `networkUsed: false` |
 | `scan` | Native JSON object with `ok`, full `rows`, parser facts, engine log, flags, loaded signature count, in-process database generation and cumulative cache counters; a failure has `ok: false` and `error` |
+| `scanTarget` | Optional versioned primary interpretation request, complete compatible catalog, source/engine identity and resolved native selector; see [selection contracts](scan-interpretations.md). Flag/tag profiles and desktop batches have separate Automatic policies. |
 | `facts` | Native format facts, a native unsupported/error response, or null if unavailable; the native flags state which fields are meaningful |
 | `engineError` | Acquisition/binding/configuration or parser error that prevented a complete native scan |
 | `inspection` | Whole-file entropy in bits/byte and bounded block-entropy, ASCII and hex previews |

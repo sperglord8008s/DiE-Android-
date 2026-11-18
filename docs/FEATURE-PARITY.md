@@ -42,6 +42,7 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | Comprehensive per-field documentation and investigative guidance | partial |
 | Cooperative cancellation and result cache | desktop cache hit and byte-change invalidation host verified; request-owned scan cancellation and Java streaming cancellation host verified; typed table queued-cancel/recovery checked with Robolectric/real JNI, active table calls settle before cancellation is shown; active scan interrupt latency and handset lifecycle tests pending |
 | Typed native structures and fields | actual CDiE PE/ELF/thin/fat Mach-O visitor, exact descriptors/values/text units, parent/storage links, reviewed RVA/slice references, selectors/inventory, budgets and active cooperative cancellation; independent native/Python byte and Unicode/IEEE/bounds fixtures and three actual-JNI UI cases pass; broader formats, per-field semantics, Qt parity and device/provider/isolation behavior remain incomplete/unverified; see [contracts](native-structures.md) |
+| Primary compatible-format selection | actual native compatible catalog, explicit facts/scan selector, source-bound captured reports, rescan-by-name/state, new-input Automatic and stale-dialog rejection; native known-rule/All-types/cache separation and three actual-engine UI/export cases pass; arbitrary forcing, interpretation profiles/batch policy, Qt settings and handset/provider flows remain incomplete/unverified; see [contracts](scan-interpretations.md) |
 | Saved scan option profiles | complete named snapshots of all 14 shared flags, tag filters and preview minimum; strict lossless catalog imports/exports, immutable IDs, revision-checked atomic saves, apply/rename/update/delete and staged picker lifetime; host/file/malformed/metadata fixtures and six actual-widget/one actual-CDiE-request cases pass (93 suite checks); manual format/tool settings, Qt settings compatibility, named batch/report profile attribution and broader semantic/report diff, power-loss/import-approval process death and handset flows remain incomplete/unverified |
 | Desktop document batches | captured 64-input plan, actual serial CDiE/native facts, full input/report identities, fixed settings/revisions, checkpointed outcomes, cooperative request-owned cancellation, complete exports, persistent owned byte views and saved/damaged-batch deletion; host failures/budgets/mutation/leases and seven actual-engine/widget cases pass (100 full-suite checks); directory/background/resume/cross-batch semantic diff/manual-format/profile attribution, power-loss and handset/provider flows remain incomplete/unverified |
 | Exact binary byte comparison | complete aligned-byte runs/tails with whole-input identities, independent side/range coordinates, staged complete exports and atomic candidate replacement; independent naive/random/seam/100,000-run/budget/publication/retention fixtures and five actual comparator/native-hex cases pass (105 full-suite checks); insertion alignment, moved content, semantic/report/package diff, Qt equivalence and handset/provider/durability flows remain incomplete/unverified |
@@ -161,3 +162,12 @@ Independent Python byte/log2/IEEE checks cover 18 scopes, 612 intervals and all
 4,608 bins, alongside original native report compatibility and cancellation/
 callback recovery. See [native-entropy.md](native-entropy.md). Device execution,
 interactive charts and hard OS resource/isolation guarantees remain unverified.
+
+Primary compatible-format selection adds three actual-engine Android host cases
+(118 full-suite checks when combined): captured facts/scan IDs and complete
+pending exports through draft changes/recreation, name-based restoration/new
+input defaults, stale dialogs and exported unresolved diagnostics/recovery.
+Actual native known-rule cases also verify explicit-only passes under both
+All-types settings and separate cached Binary/Automatic results. See
+[scan-interpretations.md](scan-interpretations.md); device/full Qt semantics and
+profile/batch interpretation policies remain pending.

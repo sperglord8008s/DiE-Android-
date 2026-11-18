@@ -54,3 +54,12 @@ verify the returned values; native packed labels are explained as a display
 heuristic, not a verdict. Native request cancellation/deadline observation is
 shared with Structures; OS process isolation remains pending. See
 [entropy contracts](native-entropy.md).
+
+Primary scans now expose CDiE's complete compatible-format choices alongside
+Automatic. The chosen name resolves against the freshly acquired input; facts
+and scanning use the same actual selector. Reports bind the request, full
+catalog, source and engine identity, including explicit unresolved failures.
+Stale controls cannot relabel captured results. Known native passes/cache and
+three real-engine Android host cases pass. Profiles/batches retain their
+separate Automatic/flag-setting policies; broader desktop/device equivalence
+remains unverified. See [interpretation contracts](scan-interpretations.md).
