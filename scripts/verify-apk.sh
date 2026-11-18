@@ -118,6 +118,7 @@ manifest="$(dirname "$apk")/build-manifest.txt"
   sha256sum hash-engine/source-lock.json
   sha256sum regex-engine/source-lock.json
   sha256sum regex-engine/tracker-unicode-lock.json
+  sha256sum signing-engine/source-lock.json package-engine/source-lock.json
   echo "Canonical LibChecker catalog SHA-256: $(cat generated-assets/knowledge/libchecker-v5.json.sha256)"
   cat generated-assets/engine-revisions.properties generated-assets/knowledge/revisions.txt
   cat app/src/main/assets/analysis-engines.properties

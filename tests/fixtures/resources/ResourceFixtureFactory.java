@@ -75,6 +75,21 @@ public final class ResourceFixtureFactory {
         values[1500]="long-"+String.join("",Collections.nCopies(9000,"x"))+"-full-search-tail";
         return chunk(3,8,new byte[0],pool(values,false,false));
     }
+    /** Generic wire tree for duplicate/ambiguous declarations a normal packager rejects. */
+    public static byte[] xmlTree(String[] strings,int[] resourceIds,int[] elementNames,int[] depths,int[][][] attributes) throws IOException {
+        ByteArrayOutputStream events=new ByteArrayOutputStream();List<Integer> stack=new ArrayList<>();
+        for(int i=0;i<elementNames.length;i++) {
+            if(depths[i]<0||depths[i]>stack.size())throw new AssertionError("Invalid fixture depth");
+            while(stack.size()>depths[i]) { int name=stack.remove(stack.size()-1);events.write(chunk(0x103,16,words(2,-1),words(-1,name))); }
+            ByteBuffer extension=ByteBuffer.allocate(20).order(ByteOrder.LITTLE_ENDIAN);
+            extension.putInt(-1).putInt(elementNames[i]).putShort((short)20).putShort((short)20).putShort((short)attributes[i].length).putShort((short)0).putShort((short)0).putShort((short)0);
+            ByteArrayOutputStream values=new ByteArrayOutputStream();
+            for(int[] attribute:attributes[i])values.write(join(words(attribute[0],attribute[1],attribute[2]),value(attribute[3],attribute[4])));
+            events.write(chunk(0x102,16,words(1,-1),join(extension.array(),values.toByteArray())));stack.add(elementNames[i]);
+        }
+        while(!stack.isEmpty()) {int name=stack.remove(stack.size()-1);events.write(chunk(0x103,16,words(2,-1),words(-1,name)));}
+        return chunk(3,8,new byte[0],join(pool(strings,true,false),chunk(0x180,8,new byte[0],words(resourceIds)),events.toByteArray()));
+    }
     private static byte[] entry(int key,int type,int data) throws IOException { return join(words(8,key),value(type,data)); }
     private static byte[] type(int flags,int[] indices,int[] offsets,byte[] entries) throws IOException {
         boolean sparse=(flags&1)!=0,shortOffsets=(flags&2)!=0;

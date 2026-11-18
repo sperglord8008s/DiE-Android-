@@ -73,6 +73,8 @@ public final class InvestigationActivity extends Activity {
         else if ("hashes".equals(getIntent().getStringExtra("provider"))) backend = new HashBackend(root,new File(getCacheDir(),"hash-snapshots"),inputName,new BinaryWorkerClient(this,"hashes"));
         else if ("apk-signing".equals(getIntent().getStringExtra("provider"))) backend = new ApkSigningBackend(root,new File(getCacheDir(),"signing-snapshots"),inputName,
             getIntent().getStringExtra("sha256"),getIntent().getLongExtra("sourceSize",-1),retentionState);
+        else if ("package-set".equals(getIntent().getStringExtra("provider"))) backend = new PackageSetBackend(root,new File(getCacheDir(),"package-snapshots"),inputName,
+            getIntent().getStringExtra("sha256"),getIntent().getLongExtra("sourceSize",-1),getIntent().getStringArrayListExtra("packagePaths"),getIntent().getStringExtra("inventoryPackage"),retentionState,new BinaryWorkerClient(this,"resources"));
         else if ("sdk-rules".equals(getIntent().getStringExtra("provider"))) backend = new SdkCatalogBackend(()->getAssets().open("knowledge/libchecker-v5.json"),new File(getCacheDir(),"knowledge-snapshots"));
         else if ("tracker-rules".equals(getIntent().getStringExtra("provider"))) backend = new TrackerCatalogBackend(()->new FileInputStream(new File(getFilesDir(),"exodus-trackers.json")),new File(getCacheDir(),"tracker-snapshots"));
         else if ("metadata".equals(getIntent().getStringExtra("provider"))) backend = new MetadataBackend(root,new File(getCacheDir(),"metadata-snapshots"),inputName);
@@ -92,7 +94,7 @@ public final class InvestigationActivity extends Activity {
             } catch (IOException e) { status.setText("Prepared export expired; prepare it again"); }
         }
         bind(location);
-        if (root.isFile()||"apk-signing".equals(getIntent().getStringExtra("provider"))&&retentionState!=null||"sdk-rules".equals(getIntent().getStringExtra("provider"))||"tracker-rules".equals(getIntent().getStringExtra("provider"))) load(location, false);
+        if (root.isFile()||"package-set".equals(getIntent().getStringExtra("provider"))||"apk-signing".equals(getIntent().getStringExtra("provider"))&&retentionState!=null||"sdk-rules".equals(getIntent().getStringExtra("provider"))||"tracker-rules".equals(getIntent().getStringExtra("provider"))) load(location, false);
         else { status.setText("Input snapshot expired; reopen it from Scan. An available prepared export can still finish."); controls(); }
     }
     private void createViews() {

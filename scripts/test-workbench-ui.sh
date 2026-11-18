@@ -13,5 +13,6 @@ cmake --build "$build" --target diemobile diehash --parallel 4
 build=$(cd "$build" && pwd)
 python3 tests/generate-native-fixtures.py "$fixtures"
 DIE_REQUIRE_AAPT2=true python3 tests/generate-resource-reference.py "$fixtures/android-resources"
+DIE_REQUIRE_AAPT2=true python3 tests/generate-package-reference.py "$fixtures/packages"
 cc -O0 -g -Wl,--export-dynamic tests/native_fixture.c -o "$fixtures/elf-fixture"
 ./gradlew --no-daemon -PhostNativeLibraryDir="$build" -PnativeFixturesDir="$fixtures" :app:testDebugUnitTest

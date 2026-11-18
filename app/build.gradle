@@ -84,6 +84,12 @@ def verifyTrackerUnicode = tasks.register('verifyTrackerUnicode', Exec) {
 }
 tasks.named('preBuild').configure { dependsOn verifyTrackerUnicode }
 
+def verifyPackageContracts = tasks.register('verifyPackageContracts', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'python3', rootProject.file('scripts/check-package-contract.py').absolutePath
+}
+tasks.named('preBuild').configure { dependsOn verifyPackageContracts }
+
 // Verify the actual Maven bytecode used for signing inspection, independently
 // of Gradle cache/network state. Source contracts are checked by test-apk.sh.
 def apksigVerifier = configurations.create('apksigVerifier') {

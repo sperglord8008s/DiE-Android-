@@ -91,6 +91,12 @@ public final class SystemExplorerActivity extends Activity {
     String meta="Package: "+pkg+"\nVersion: "+info.versionName+"\nUID: "+a.uid+" • min/target SDK: "+a.minSdkVersion+"/"+a.targetSdkVersion+"\nData directory: "+a.dataDir+"\nNative library directory: "+a.nativeLibraryDir+"\n\nUID is the Android/Linux security identity. Paths identify configured directories, not permission to read them. System-app status is not a trust guarantee.";
     entries.add(new Entry("Package identity","Tap for technical details",()->new AlertDialog.Builder(this).setTitle(pkg).setMessage(meta).setPositiveButton("Close",null).show()));
     entries.add(new Entry("Base APK",a.sourceDir,()->select(new File(a.sourceDir))));
+    ArrayList<String> packagePaths=new ArrayList<>();if(a.sourceDir!=null)packagePaths.add(a.sourceDir);if(a.splitSourceDirs!=null)Collections.addAll(packagePaths,a.splitSourceDirs);
+    entries.add(new Entry("Investigate captured base + split APK set",packagePaths.size()+" PackageManager paths • compiled declarations, dependencies and independent signing evidence",()->{
+     if(packagePaths.isEmpty()){Toast.makeText(this,"No APK source paths exposed for this package",Toast.LENGTH_LONG).show();return;}
+     startActivity(new Intent(this,InvestigationActivity.class).putExtra("provider","package-set").putExtra("path",packagePaths.get(0)).putExtra("name",pkg)
+      .putExtra("inventoryPackage",pkg).putStringArrayListExtra("packagePaths",packagePaths));
+    }));
     if(a.splitSourceDirs!=null)for(String p:a.splitSourceDirs)entries.add(new Entry("Split APK",p,()->select(new File(p))));
     if(a.nativeLibraryDir!=null)entries.add(new Entry("Native library directory",a.nativeLibraryDir,()->browse(new File(a.nativeLibraryDir))));
     if(a.dataDir!=null)entries.add(new Entry("Data directory (may be inaccessible)",a.dataDir,()->browse(new File(a.dataDir))));
