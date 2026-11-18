@@ -284,6 +284,47 @@ public final class NativeWorkbenchTest {
         assertArrayEquals(new byte[]{(byte)0x80, 0, 0, 0}, finishExport().toByteArray());
     }
 
+    @Test public void entropyHistogramHasNoInventedByteLocationsAndExportsTheCompleteScope() throws Exception {
+        open("entropy-uniform.bin", 10);
+        NativeTable original = ReflectionHelpers.getField(activity, "table");
+        assertEquals("entropy", original.kind); assertEquals(100, original.metadata().getInt("sampleCount"));
+        ((EditText)activity.findViewById(R.id.native_filter)).setText("byte-frequency");
+        assertEquals(50, list().getAdapter().getCount());
+        activity.findViewById(R.id.native_next).performClick();
+        NativeTable.Row bin = (NativeTable.Row)list().getAdapter().getItem(0);
+        assertEquals(50, bin.code("byteValue")); assertNull(bin.physicalOffset); assertNull(bin.virtualAddress); assertNull(bin.sizeBytes);
+        list().performItemClick(null, 0, 0);
+        ShadowAlertDialog.getLatestAlertDialog().getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+        AlertDialog noBytes = ShadowAlertDialog.getLatestAlertDialog(); assertEquals("No byte navigation", Shadows.shadowOf(noBytes).getTitle().toString()); noBytes.dismiss();
+        ((EditText)activity.findViewById(R.id.native_filter)).setText("\"byteValue\":255");
+        assertEquals(1, list().getAdapter().getCount()); assertEquals("Byte 0xFF", ((NativeTable.Row)list().getAdapter().getItem(0)).name);
+        button("Export report").performClick(); settle();
+        try (RandomAccessFile mutation = new RandomAccessFile(input, "rw")) { mutation.seek(0); mutation.write(new byte[512]); }
+        controller.recreate(); activity = controller.get(); settle();
+        JSONObject report = new JSONObject(finishExport().toString("UTF-8"));
+        JSONObject snapshot = report.getJSONObject("nativeRecords");
+        assertEquals(original.rows.size(), snapshot.getJSONArray("rows").length());
+        assertEquals(original.toJson().getJSONArray("rows").toString(), snapshot.getJSONArray("rows").toString());
+        assertEquals(10, report.getJSONObject("request").getInt("toolId"));
+        assertTrue(report.getJSONObject("request").getBoolean("nativeJson"));
+        assertEquals("\"byteValue\":255", report.getJSONObject("view").getString("filter"));
+    }
+
+    @Test public void entropyFinalBlockExportsExactRemainderBytesAcrossRecreation() throws Exception {
+        open("entropy-uniform.bin", 10);
+        ((EditText)activity.findViewById(R.id.native_filter)).setText("\"name\":\"Block 99\"");
+        assertEquals(1, list().getAdapter().getCount());
+        NativeTable.Row block = (NativeTable.Row)list().getAdapter().getItem(0);
+        assertEquals(Long.valueOf(129690), block.physicalOffset); assertEquals("1386", block.text("sizeBytes"));
+        byte[] expected = java.util.Arrays.copyOfRange(Files.readAllBytes(input.toPath()), 129690, 131076);
+        rowAction(0, "Export stored bytes"); settle();
+        try (RandomAccessFile mutation = new RandomAccessFile(input, "rw")) { mutation.seek(129690); mutation.write(new byte[1386]); }
+        controller.recreate(); activity = controller.get(); settle();
+        assertArrayEquals(expected, finishExport().toByteArray());
+        ToolRequest produced = ReflectionHelpers.getField(activity, "produced"); assertEquals(10, produced.tool);
+    }
+
     private static <T extends View> T findView(View view, Class<T> type) {
         if (type.isInstance(view)) return type.cast(view);
         if (view instanceof ViewGroup) for (int i = 0; i < ((ViewGroup)view).getChildCount(); i++) {

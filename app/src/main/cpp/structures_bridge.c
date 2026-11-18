@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 /* Borrowed CDiE DataStructs are detached synchronously. No format parser here. */
 #include "records_json.h"
+#include "native_request.h"
 #include "app/cdie_file_info.h"
 #include <limits.h>
 #include <sys/stat.h>
@@ -14,11 +15,7 @@
 
 typedef struct structures_context {
     json_report rows;
-    JNIEnv *env;
-    jobject stop;
-    jmethodID poll;
-    struct timespec started;
-    const char *failure;
+    native_request request;
     size_t count, structures, fields, parent_index;
     xx_data_struct parent;
     int64_t file_size;
@@ -27,20 +24,12 @@ typedef struct structures_context {
 } structures_context;
 
 static bool stopped(const xx_pd_struct *progress, void *user) {
-    (void)progress;
     structures_context *context = user;
-    if (context->failure) return true;
-    if ((*context->env)->ExceptionCheck(context->env)) return true;
-    if ((*context->env)->CallBooleanMethod(context->env, context->stop, context->poll)) {
-        context->failure = "Structure request cancelled";
+    if (context->rows.failed) {
+        if (!context->request.failure) context->request.failure = "Structure report hit its 16 MiB, text/value, formatting or allocation limit; no partial snapshot returned";
         return true;
     }
-    struct timespec now;
-    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0 || now.tv_sec - context->started.tv_sec >= 30) {
-        context->failure = "Structure request exceeded its 30-second cooperative deadline";
-        return true;
-    }
-    return context->rows.failed;
+    return native_request_stopped(progress, &context->request);
 }
 
 /* Emit JSON UTF-16 escapes directly, avoiding lossy wchar_t -> UTF-8 conversion.
@@ -132,7 +121,7 @@ static void native_value(json_report *report, const xx_var *value) {
 
 static int start_row(structures_context *context) {
     if (stopped(NULL, context)) return 0;
-    if (context->count >= MAX_ROWS) { context->failure = "Structure report exceeds 10,000 combined structure/field rows; no partial snapshot returned"; return 0; }
+    if (context->count >= MAX_ROWS) { context->request.failure = "Structure report exceeds 10,000 combined structure/field rows; no partial snapshot returned"; return 0; }
     number_format(&context->rows, "%s{\"index\":%llu", context->count ? "," : "", U64(context->count));
     context->count++;
     return !context->rows.failed;
@@ -150,7 +139,7 @@ static int file_begin(const char *path, const char *type, int64_t size, void *us
     (void)path;
     structures_context *context = user;
     if (size < 0 || size > MAX_INPUT_BYTES) {
-        context->failure = "Structure input changed or exceeds 256 MiB";
+        context->request.failure = "Structure input changed or exceeds 256 MiB";
         return 0;
     }
     context->file_size = size;
@@ -235,34 +224,31 @@ static void report_failure(json_report *report, const char *message) {
 JNIEXPORT jbyteArray JNICALL Java_org_diemobile_Engine_structuresNative(JNIEnv *env, jclass cls,
     jstring path, jstring selector, jint inventory, jint slice, jobject stop) {
     (void)cls;
-    structures_context context = {0}; context.env = env; context.stop = stop;
+    structures_context context = {0};
+    native_request_init(&context.request, env, stop);
     xx_buf_init(&context.rows.buffer);
     json_report output = {0}; xx_buf_init(&output.buffer);
     const char *target = path ? (*env)->GetStringUTFChars(env, path, NULL) : NULL;
     const char *query = selector ? (*env)->GetStringUTFChars(env, selector, NULL) : NULL;
     char *error = NULL;
     struct stat status;
-    jclass stop_class = stop ? (*env)->GetObjectClass(env, stop) : NULL;
-    context.poll = stop_class ? (*env)->GetMethodID(env, stop_class, "getAsBoolean", "()Z") : NULL;
-    if (stop_class) (*env)->DeleteLocalRef(env, stop_class);
-    if (clock_gettime(CLOCK_MONOTONIC, &context.started) != 0) context.failure = "Cannot read monotonic deadline clock";
-    else if (!target || !query || !context.poll) context.failure = "Structure request parameters unavailable";
-    else if (inventory < 0 || inventory > 1 || slice < -1 || slice >= 4096 || strlen(query) > 4096) context.failure = "Invalid structure selector, inventory or slice";
-    else if (stat(target, &status) || !S_ISREG(status.st_mode) || status.st_size < 0 || status.st_size > MAX_INPUT_BYTES) context.failure = "Structures require a regular input of at most 256 MiB";
-    else {
+    if (!context.request.failure && (!target || !query)) context.request.failure = "Structure request parameters unavailable";
+    if (!context.request.failure && (inventory < 0 || inventory > 1 || slice < -1 || slice >= 4096 || strlen(query) > 4096)) context.request.failure = "Invalid structure selector, inventory or slice";
+    if (!context.request.failure && (stat(target, &status) || !S_ISREG(status.st_mode) || status.st_size < 0 || status.st_size > MAX_INPUT_BYTES)) context.request.failure = "Structures require a regular input of at most 256 MiB";
+    if (!context.request.failure) {
         xx_pd_struct progress = xx_pd_init();
         xx_pd_observer previous = xx_pd_set_observer(&progress, stopped, &context);
         const cdie_file_info_visitor visitor = {file_begin, structure_begin, field_visit, structure_end};
         int ok = cdie_file_info_visit_slice(target, slice, *query ? query : "Info", inventory, &visitor, &context, &progress, &error);
         xx_pd_set_observer(previous.progress, previous.callback, previous.user_data);
-        if (!ok && !context.failure) context.failure = error ? error : "Native structure reader failed";
+        if (!ok && !context.request.failure) context.request.failure = error ? error : "Native structure reader failed";
     }
-    if (context.rows.failed && !context.failure) context.failure = "Structure report exceeds 16 MiB, text/value limits or allocation failed; no partial snapshot returned";
-    if (context.failure) report_failure(&output, context.failure);
+    if (context.rows.failed && !context.request.failure) context.request.failure = "Structure report exceeds 16 MiB, text/value limits or allocation failed; no partial snapshot returned";
+    if (context.request.failure) report_failure(&output, context.request.failure);
     else {
         literal(&output, "{\"schema\":\"org.diemobile.native-records\",\"schemaVersion\":1,\"ok\":true,\"kind\":\"structures\",\"scope\":\"complete-snapshot\",\"fileType\":");
         string(&output, context.file_type);
-        number_format(&output, ",\"fileSizeBytes\":%lld,\"rowCount\":%llu,\"metadata\":{\"adapterVersion\":1,\"referencePolicy\":\"reviewed-field-domains-v1\",\"selector\":", I64(context.file_size), U64(context.count));
+        number_format(&output, ",\"fileSizeBytes\":%lld,\"rowCount\":%llu,\"metadata\":{\"adapterVersion\":1,\"requestContractVersion\":1,\"referencePolicy\":\"reviewed-field-domains-v1\",\"selector\":", I64(context.file_size), U64(context.count));
         string(&output, *query ? query : "Info");
         number_format(&output, ",\"inventoryOnly\":%s,\"requestedMachOSliceIndex\":%d,\"structureCount\":%llu,\"fieldCount\":%llu,\"maxRows\":%u,\"maxReportBytes\":%u,\"maxInputBytes\":%lld,\"maxTextNativeUnits\":%u,\"nativeWcharBits\":%u,\"deadlineSeconds\":30",
             inventory ? "true" : "false", slice, U64(context.structures), U64(context.fields), MAX_ROWS, REPORT_LIMIT, I64(MAX_INPUT_BYTES), MAX_TEXT_UNITS, (unsigned)(sizeof(wchar_t) * CHAR_BIT));

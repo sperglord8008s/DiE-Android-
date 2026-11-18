@@ -10,7 +10,7 @@ final class NativeTable {
     static final String SCHEMA = "org.diemobile.native-records";
     private static final BigInteger U64_LIMIT = BigInteger.ONE.shiftLeft(64);
     private static final Set<String> KINDS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
-        "structures", "memory-map", "imports", "exports", "symbols", "resources", "disassembly")));
+        "entropy", "structures", "memory-map", "imports", "exports", "symbols", "resources", "disassembly")));
 
     static final class Row {
         final int index;
@@ -94,6 +94,7 @@ final class NativeTable {
             JSONArray array = json.getJSONArray("rows");
             long count = nonnegativeLong(json.get("rowCount"));
             if (count != array.length() || count > 10000) throw new JSONException("Native table count/limit mismatch");
+            if (kind.equals("entropy")) NativeEntropy.validate(array, fileSize, json.getJSONObject("metadata"));
             if (kind.equals("structures")) NativeStructures.validate(array, fileSize, json.getJSONObject("metadata"));
             for (int i = 0; i < array.length(); i++) parsed.add(new Row(i, array.getJSONObject(i)));
         }

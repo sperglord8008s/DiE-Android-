@@ -184,7 +184,7 @@ public final class NativeToolsActivity extends Activity {
         minimum.setVisibility(currentTool == 8 ? View.VISIBLE : View.GONE);
         selector.setText(request.selector); selector.setVisibility(currentTool == 0 || currentTool == 7 ? View.VISIBLE : View.GONE);
         selector.setHint(currentTool == 0 ? "NAME[#FIELD] (blank = all)" : "CRC32 / MD4 / MD5 / SHA1 / SHA224 / SHA256 / SHA384 / SHA512");
-        json.setChecked(request.json); json.setVisibility(currentTool == 7 || currentTool == 8 || currentTool == 10 ? View.VISIBLE : View.GONE);
+        json.setChecked(request.json); json.setVisibility(currentTool == 7 || currentTool == 8 ? View.VISIBLE : View.GONE);
         att.setChecked(request.attSyntax); att.setVisibility(currentTool == 6 ? View.VISIBLE : View.GONE);
         filter.setText(location.filter); back.setEnabled(history.hasBack()); binding = false;
     }
@@ -310,7 +310,8 @@ public final class NativeToolsActivity extends Activity {
             String heading = "#" + row.index + " " + (row.text("library").isEmpty() ? "" : row.text("library") + "!") + name;
             String numbers = "off=" + NativeTable.hexOffset(row.physicalOffset) + "  VA=" + (row.virtualAddress == null ? "unknown" : "0x" + row.virtualAddress.toString(16).toUpperCase(Locale.ROOT))
                 + "  size=" + (row.sizeBytes == null ? "unknown" : row.sizeBytes);
-            String extra = table.kind.equals("structures") ? row.text("rowType") + (row.text("rowType").equals("field") ? " parent=#" + row.text("parentStructureIndex") + " " + row.text("nativeType") + " = " + row.text("displayValue") + "\n" + row.text("propertyNames") : " type=" + row.text("nativeStructureType") + " count=" + row.text("count"))
+            String extra = table.kind.equals("entropy") ? row.text("rowType") + (row.text("rowType").equals("byte-frequency") ? " value=" + row.text("byteValue") + " count=" + row.text("count") + " p=" + row.text("probability") : " H=" + row.text("entropyBitsPerByte") + " bits/byte • native display: " + row.text("upstreamDisplayLabel"))
+                : table.kind.equals("structures") ? row.text("rowType") + (row.text("rowType").equals("field") ? " parent=#" + row.text("parentStructureIndex") + " " + row.text("nativeType") + " = " + row.text("displayValue") + "\n" + row.text("propertyNames") : " type=" + row.text("nativeStructureType") + " count=" + row.text("count"))
                 : table.kind.equals("memory-map") ? "part=0x" + Integer.toHexString(row.code("filePartFlags")) + " virtual=" + row.isVirtual + " invisible=" + row.flag("isInvisible")
                 : table.kind.equals("symbols") ? "kind=" + row.code("kind") + " binding=" + row.code("binding") + " record=" + NativeTable.hexOffset(row.recordOffset)
                 : table.kind.equals("resources") ? "type=" + row.text("typeId") + " name=" + row.text("nameId") + " lang=" + row.text("languageId") + " cp=" + row.text("codePage")

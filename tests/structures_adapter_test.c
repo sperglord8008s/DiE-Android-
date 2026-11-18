@@ -44,7 +44,9 @@ int main(int argc, char **argv) {
     if (!emit(output, "absent", &value)) return 12;
     if (fclose(output)) return 13;
     structures_context context = {0};
-    if (file_begin("fixture", "PE32", MAX_INPUT_BYTES + 1, &context) || !context.failure) return 14;
+    if (file_begin("fixture", "PE32", MAX_INPUT_BYTES + 1, &context) || !context.request.failure) return 14;
+    structures_context report_limit = {0}; report_limit.rows.failed = true;
+    if (!stopped(NULL, &report_limit) || !report_limit.request.failure || !strstr(report_limit.request.failure, "16 MiB")) return 16;
     json_report report = {0}; xx_buf_init(&report.buffer);
     value.type = 123456; native_value(&report, &value);
     if (!report.failed) return 14;

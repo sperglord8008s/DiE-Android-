@@ -16,7 +16,7 @@ final class ToolReference {
         "Whole-file CRC32, MD4, MD5, SHA1, SHA224, SHA256, SHA384 and SHA512 use pinned xxfclib/RHash contexts in one bounded isolated-worker pass. An empty selector returns all; an algorithm name selects one. CRC32 detects accidental errors; MD4/MD5/SHA1 have collision weaknesses. SHA-2 digests are not publisher authentication. File info opens the typed hash evidence viewer with per-algorithm references.",
         "Strict UTF-8 and UTF-16LE/BE extraction is bounded by the native reader. Both UTF-16 alignments are scanned. Minimum length and encoding are captured with exports. Coincidental and unused strings are possible.",
         "Read-only 4 KiB pages show physical bytes. A file offset is not a VA. Go to offset/VA translates through a native map and asks you to choose when records overlap.",
-        "Native region entropy measures byte distributions across format regions. Use a selected record's Range analysis for exact offset/length entropy and digests. Compression, encryption and ordinary media can all have high entropy."
+        "Shannon entropy measures byte distributions, in bits per byte. This complete snapshot retains whole-input entropy, all eligible native physical regions, every contiguous block covering the input and all 256 histogram bins, including zeros. Regions can overlap; blocks partition the entire input. Histogram bins have no individual file offset. Native packed/not packed display labels use a 6.5 threshold and do not establish packing, encryption or maliciousness. Select physical measurements for range/byte actions; unsupported/malformed regions and budget failures remain explicit."
     };
     private ToolReference() {}
     static String[] modes(int tool) {
@@ -28,7 +28,11 @@ final class ToolReference {
     }
     static String field(String key) {
         switch (key) {
-            case "rowType": return "A structure describes a whole native occurrence; a field belongs to its parentStructureIndex. All selected occurrences and named fields are retained together.";
+            case "entropyBitsPerByte": return "Shannon byte entropy, -sum(p * log2(p)), over every byte in this exact physical interval. Range 0..8 bits/byte, with zero for empty input. It is a distribution statistic, not a packing/encryption/malware verdict.";
+            case "entropyIeeeBitsHex": return "Exact native IEEE-754 binary64 bits for the entropy value; the JSON number uses the pinned locale-independent shortest round-trip formatter.";
+            case "upstreamDisplayLabel": return "Pinned CDiE legacy display heuristic: packed at entropy >= 6.5, otherwise not packed. Ordinary compressed media can exceed the threshold; the label does not verify a packer or rule match.";
+            case "byteValue": case "probability": return "Whole-input histogram bin (0..255) and derived count/fileSize, with zero for empty input. Every bin is retained. These values are aggregate statistics with no single storage offset or payload range.";
+            case "rowType": return "Structures use structure/field rows and parentStructureIndex. Entropy uses whole-file/region/block measurements and aggregate byte-frequency bins; the latter have no individual physical location. All returned records remain exportable.";
             case "parentStructureIndex": return "Index of the containing structure in this same snapshot. Parent offsets are absolute in the whole input, including a chosen fat Mach-O slice.";
             case "relativeOffset": return "Signed native field offset relative to the containing structure. The derived physicalOffset is usable only when both parent and field fit the input.";
             case "rawValue": case "displayValue": return "Exact native hexadecimal/raw representation and formatted interpretation. Native reader display limits can apply; the complete stored range remains separately exportable.";
@@ -39,7 +43,7 @@ final class ToolReference {
             case "physicalRangeValid": return "Whether the entire declared stored range fits the parent and whole input. Invalid/unknown ranges have no physical navigation target; raw native coordinates remain present.";
             case "nativeStructureId": case "nativeStructureType": return "Unmodified format-specific structure ID and classification: 0 unknown, 1 structure, 2 entry, 3 footer, 4 locator, 5 raw data. RAW_DATA has no named-field schema.";
             case "nativeOffset": case "nativeAddress": case "nativeEntrySize": case "nativeTotalSize": case "nativeSize": return "Exact signed native descriptor value; negative sentinels remain distinct from usable offsets/sizes. nativeAddress retains raw signed bits while virtualAddress renders the available unsigned address.";
-            case "count": return "Unsigned number of represented occurrences. CDiE expands fixed-size tables to individual structures when reading fields; inventory can retain an aggregate table descriptor.";
+            case "count": return "For entropy histogram bins this is the exact whole-input occurrence count of the byte value. For structures it is the unsigned number of represented occurrences. CDiE expands fixed-size tables to individual structures when reading fields; inventory can retain an aggregate table descriptor.";
             case "index": return "Position in this detached snapshot, not a byte offset or native symbol-table index.";
             case "physicalOffset": return "Absolute physical file offset, or null when no stored target is available. For imports this may locate an indirection slot.";
             case "virtualAddress": return "Preferred virtual address before ASLR/relocation; null means unavailable. Runtime addresses require separate module/load evidence.";

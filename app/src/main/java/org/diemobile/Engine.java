@@ -10,6 +10,18 @@ final class Engine {
     private static native byte[] scanNative(String path,String db,int flags);
     private static native byte[] toolNative(String path,int tool,long offset,int mode,int minimum,String selector,int json,int syntax);
     private static native byte[] recordsNative(String path,int tool,int mode,long offset,int syntax);
+    private static native byte[] entropyNative(String path,java.util.function.BooleanSupplier cancelled);
+    static synchronized String entropy(String path,java.util.function.BooleanSupplier cancelled) {
+        java.util.Objects.requireNonNull(cancelled, "Cancellation supplier");
+        if(!AVAILABLE)return entropyFailure("Native engine unavailable");
+        if(cancelled.getAsBoolean())return entropyFailure("Entropy request cancelled");
+        byte[] result=entropyNative(path,cancelled);
+        if(cancelled.getAsBoolean())return entropyFailure("Entropy request cancelled");
+        return result==null?entropyFailure("Native report allocation failed"):new String(result,StandardCharsets.UTF_8);
+    }
+    private static String entropyFailure(String message) {
+        return "{\"schema\":\"org.diemobile.native-records\",\"schemaVersion\":1,\"ok\":false,\"kind\":\"entropy\",\"error\":\""+message+"\"}";
+    }
     private static native byte[] structuresNative(String path,String selector,int inventory,int slice,java.util.function.BooleanSupplier cancelled);
     static synchronized String structures(String path,String selector,int inventory,int slice,java.util.function.BooleanSupplier cancelled) {
         java.util.Objects.requireNonNull(cancelled, "Cancellation supplier");
@@ -28,6 +40,7 @@ final class Engine {
         return records(path,tool,mode,offset,attSyntax,()->false);
     }
     static synchronized String records(String path,int tool,int mode,long offset,boolean attSyntax,java.util.function.BooleanSupplier cancelled) {
+        if(tool==10)return mode==0?entropy(path,cancelled):entropyFailure("Entropy does not support a mode selector");
         if(tool==0)return structures(path,"",mode,-1,cancelled);
         if(!AVAILABLE)return "{\"schema\":\"org.diemobile.native-records\",\"schemaVersion\":1,\"ok\":false,\"kind\":\"unknown\",\"error\":\"Native engine unavailable\"}";
         if(cancelled.getAsBoolean())return "{\"schema\":\"org.diemobile.native-records\",\"schemaVersion\":1,\"ok\":false,\"kind\":\"unknown\",\"error\":\"Table request cancelled\"}";

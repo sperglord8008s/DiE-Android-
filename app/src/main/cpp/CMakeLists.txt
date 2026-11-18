@@ -21,7 +21,7 @@ add_library(diehash SHARED hash_bridge.c
   "${HASH_SRC}/third_party/rhash/byte_order.c"
   "${CDIE_ROOT}/dep/xxfclib/src/algo/sha512/xx_sha512.c")
 target_link_libraries(diehash PRIVATE die_static)
-add_library(diemobile SHARED bridge.c tools_bridge.c desktop_bridge.c records_bridge.c structures_bridge.c
+add_library(diemobile SHARED bridge.c tools_bridge.c desktop_bridge.c records_bridge.c structures_bridge.c entropy_bridge.c
   "${CDIE_ROOT}/src/gui/gui_backend.c"
   "${CDIE_ROOT}/src/gui/gui_result_tree.c"
   "${ANALYSIS_SRC}/cdie_file_info.c"

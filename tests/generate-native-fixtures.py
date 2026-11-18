@@ -152,3 +152,9 @@ for i, (cpu, offset) in enumerate([(0x01000007, 0x1000), (0x0100000c, 0x3000)]):
     struct.pack_into("<II", content, 4, cpu, 3 if i == 0 else 0)
     fat[offset:offset+len(content)] = content
 (destination / "mach-fat.bin").write_bytes(fat)
+
+# Entropy boundary fixtures are data only. Non-power-of-two sizes test remainders.
+for length in [0, 1, 511, 512, 513, 1023, 1024, 51200, 51203, 65537]:
+    (destination / f"entropy-{length}.bin").write_bytes(bytes((i * 73 + i // 17) & 255 for i in range(length)))
+(destination / "entropy-uniform.bin").write_bytes(bytes(range(256)) * 512 + b"TAIL")
+(destination / "entropy-zero.bin").write_bytes(bytes(65537))

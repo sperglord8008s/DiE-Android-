@@ -15,9 +15,9 @@ final class ToolRequest {
         if (selector == null || selector.length() > 4096 || selector.indexOf('\0') >= 0) throw new IllegalArgumentException("Invalid selector");
         if (tool == 0 && (mode > 1 || offset >= 4096)) throw new IllegalArgumentException("Invalid structure inventory/slice");
         this.tool = tool; this.mode = mode; this.offset = offset; this.minimum = minimum;
-        this.selector = selector; this.json = (tool >= 0 && tool <= 6) || json; this.attSyntax = attSyntax;
+        this.selector = selector; this.json = (tool >= 0 && tool <= 6) || tool == 10 || json; this.attSyntax = attSyntax;
     }
-    boolean records() { return tool >= 0 && tool <= 6; }
+    boolean records() { return tool >= 0 && tool <= 6 || tool == 10; }
     boolean sameAs(ToolRequest other) {
         return other != null && tool == other.tool && mode == other.mode && offset == other.offset && minimum == other.minimum
             && selector.equals(other.selector) && json == other.json && attSyntax == other.attSyntax;
