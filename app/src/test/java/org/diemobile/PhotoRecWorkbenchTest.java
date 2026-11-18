@@ -175,6 +175,17 @@ public final class PhotoRecWorkbenchTest {
         root("Rejected / unresolved");
         assertTrue(list().getAdapter().getCount() > 0);
         for (int i = 0; i < list().getAdapter().getCount(); i++) assertNull(row(i).sizeBytes);
+        search("header-rejected");
+        assertTrue(list().getAdapter().getCount() > 0);
+        assertTrue(row(0).json().has("rejectedRecoveryStateIndex"));
+        action(0, "Export complete selected record JSON");
+        JSONObject selected =
+                new JSONObject(new String(finishExport(), StandardCharsets.UTF_8))
+                        .getJSONArray("rows")
+                        .getJSONObject(0);
+        assertTrue(selected.get("headerCalculatedSizeBytes") instanceof String);
+        assertEquals(14, selected.getJSONArray("rejectedRecoveryState").length());
+        assertFalse(selected.getBoolean("dataCheckExecuted"));
         root("All signature candidates");
         search("dcm");
         assertEquals(1, list().getAdapter().getCount());
@@ -217,5 +228,49 @@ public final class PhotoRecWorkbenchTest {
         for (int i = 0; i < 774; i++)
             if (!exported.getJSONArray("rows").getJSONObject(i).getBoolean("searched")) excluded++;
         assertEquals(193, excluded);
+    }
+
+    @Test
+    public void completeCompactCaptureSurvivesSourceExpiryAndPickerRecreation() throws Exception {
+        root("complete compact capture JSON");
+        ShadowAlertDialog.getLatestAlertDialog()
+                .getButton(AlertDialog.BUTTON_POSITIVE)
+                .performClick();
+        settle();
+        assertNotNull(Shadows.shadowOf(activity).getNextStartedActivityForResult());
+        assertTrue(input.delete());
+        controller.recreate();
+        activity = controller.get();
+        settle();
+        JSONObject capture = new JSONObject(new String(finishExport(), StandardCharsets.UTF_8));
+        assertEquals("org.diemobile.photorec-capture", capture.getString("schema"));
+        String expected =
+                java.util.HexFormat.of()
+                        .formatHex(
+                                java.security.MessageDigest.getInstance("SHA-256")
+                                        .digest(fixture.bytes));
+        assertEquals(
+                expected,
+                capture.getJSONObject("provenance").getJSONObject("input").getString("sha256"));
+        JSONObject engine =
+                capture.getJSONObject("engineReportMetadata")
+                        .put("rows", capture.getJSONArray("rows"))
+                        .put("patterns", capture.getJSONArray("patterns"))
+                        .put(
+                                "rejectedRecoveryStates",
+                                capture.getJSONArray("rejectedRecoveryStates"));
+        assertEquals(2, engine.getInt("schemaVersion"));
+        assertEquals(774, engine.getJSONArray("patterns").length());
+        PhotoRecReport decoded = new PhotoRecReport(engine);
+        boolean nested = false;
+        for (int i = 0; i < engine.getInt("candidateCount"); i++) {
+            JSONObject row = decoded.row(i);
+            if (row.getString("name").equals("png")
+                    && row.getLong("physicalOffset") == fixture.nestedPngAt) {
+                assertEquals(fixture.png.length, row.getLong("reportedSizeBytes"));
+                nested = true;
+            }
+        }
+        assertTrue("Nested evidence missing from complete compact capture", nested);
     }
 }

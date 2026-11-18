@@ -17,22 +17,8 @@ class CarvingBackend extends InvestigationBackend {
     private InputSnapshot snapshot;
     private JSONObject header;
     private JSONArray candidates, patterns;
-    private static final String[] PHOTO_REC_REJECTED_FIELDS = {
-        "headerCalculatedSizeBytes",
-        "minimumFileSizeBytes",
-        "dataCheckAvailable",
-        "fileCheckAvailable",
-        "upstreamTime",
-        "upstreamFlags",
-        "upstreamOffsetOk",
-        "upstreamOffsetError",
-        "upstreamExtra",
-        "upstreamCheckpointOffset",
-        "upstreamCheckpointStatus",
-        "upstreamDataCheckTemporary",
-        "dataCheckFileSizeCounterBytes",
-        "reportedExtension"
-    };
+    private PhotoRecReport photoRecReport;
+    private static final String[] PHOTO_REC_REJECTED_FIELDS = PhotoRecReport.REJECTED_FIELDS;
 
     CarvingBackend(
             File root,
@@ -67,13 +53,13 @@ class CarvingBackend extends InvestigationBackend {
                 throw new IOException(
                         response.optString("error", "Binary worker failed without a diagnostic"));
             if (!response.optString("schema").equals(schema)
-                    || response.optInt("schemaVersion") != 1
+                    || response.optInt("schemaVersion") != (photoRec ? 2 : 1)
                     || response.getLong("fileSizeBytes") != input.size
                     || !response.getString("sourceRevision").equals(sourceRevision))
                 throw new IOException("Binary worker report schema/input/source mismatch");
             JSONArray rows = response.getJSONArray("rows"),
                     catalog = response.getJSONArray("patterns");
-            if (rows.length() > (photoRec ? 50000 : 20000)
+            if (rows.length() > (photoRec ? PhotoRecReport.MAX_CANDIDATES : 20000)
                     || catalog.length() > 10000
                     || rows.length() != response.getInt("candidateCount")
                     || catalog.length() != response.getInt("patternCount"))
@@ -96,10 +82,12 @@ class CarvingBackend extends InvestigationBackend {
                 throw new IOException(
                         "PhotoRec worker scope differs from the requested buffer-only analysis");
             if (photoRec) validatePhotoRecCatalog(response, catalog);
-            int limitedDataCandidates = 0;
+            PhotoRecReport decoded = photoRec ? new PhotoRecReport(response, stop) : null;
+            int limitedDataCandidates = 0, compactRejectedCandidates = 0;
             for (int i = 0; i < rows.length(); i++) {
                 EvidenceRows.check(stop);
-                JSONObject row = rows.getJSONObject(i);
+                JSONObject row = photoRec ? decoded.row(i) : rows.getJSONObject(i);
+                if (photoRec && decoded.compact(i)) compactRejectedCandidates++;
                 if (photoRec && row.optBoolean("dataCheckLimited")) limitedDataCandidates++;
                 long offset = row.getLong("physicalOffset");
                 if (offset < 0 || offset >= input.size)
@@ -175,8 +163,16 @@ class CarvingBackend extends InvestigationBackend {
                 throw new IOException(
                         "PhotoRec data-work counts or partial coverage differ from returned"
                                 + " candidates");
+            if (photoRec
+                    && response.getInt("compactRejectedCandidateCount")
+                            != compactRejectedCandidates)
+                throw new IOException(
+                        "PhotoRec compact rejected occurrence count differs from the original"
+                                + " rows");
+            photoRecReport = decoded;
             response.remove("rows");
             response.remove("patterns");
+            if (photoRec) response.remove("rejectedRecoveryStates");
             header = response;
             patterns = catalog;
             candidates = rows;
@@ -185,6 +181,10 @@ class CarvingBackend extends InvestigationBackend {
         } finally {
             if (!success) input.close();
         }
+    }
+
+    private JSONObject candidate(int ordinal) throws Exception {
+        return photoRec ? photoRecReport.row(ordinal) : candidates.getJSONObject(ordinal);
     }
 
     private static void validatePhotoRecCatalog(JSONObject response, JSONArray catalog)
@@ -196,7 +196,7 @@ class CarvingBackend extends InvestigationBackend {
             if (!fields.getString(i).equals(PHOTO_REC_REJECTED_FIELDS[i]))
                 throw new IOException(
                         "PhotoRec rejected-state field dictionary differs from its contract");
-        if (!response.getString("adapter").equals("diemobile-photorec-1")
+        if (!response.getString("adapter").equals("diemobile-photorec-2")
                 || !response.getString("sourceArchiveSha256")
                         .equals("0cfd82ca6890188a3a4fe01c9b970f654eb3af396580f408ed024789e2873616")
                 || response.getJSONArray("optionalLibraries").length() != 0)
@@ -285,7 +285,7 @@ class CarvingBackend extends InvestigationBackend {
         int count = 0;
         for (int i = 0; i < candidates.length(); i++) {
             EvidenceRows.check(stop);
-            JSONObject value = candidates.getJSONObject(i);
+            JSONObject value = candidate(i);
             boolean accepted = value.getBoolean("parserAccepted");
             if (request.equals("all")
                     || request.equals("bounded") && !value.isNull("reportedSizeBytes")
@@ -307,7 +307,7 @@ class CarvingBackend extends InvestigationBackend {
             Row row(int i, BooleanSupplier cancelled) throws Exception {
                 EvidenceRows.check(cancelled);
                 int original = indices[i];
-                JSONObject value = new JSONObject(candidates.getJSONObject(original).toString());
+                JSONObject value = new JSONObject(candidate(original).toString());
                 if (photoRec) {
                     if (!value.has("description"))
                         value.put(
@@ -412,6 +412,12 @@ class CarvingBackend extends InvestigationBackend {
     @Override
     List<Link> roots(String request, BooleanSupplier stop) throws Exception {
         List<Link> result = new ArrayList<>();
+        if (photoRec)
+            result.add(
+                    Link.text(
+                            "Preview / export complete compact capture JSON",
+                            "compact-capture",
+                            "photorec-capture.json"));
         if (photoRec) result.add(Link.view("Bounded stored-byte ranges (data-stop)", "bounded"));
         result.add(
                 Link.view(
@@ -423,8 +429,7 @@ class CarvingBackend extends InvestigationBackend {
         result.add(Link.view("Rejected / unresolved magic candidates", "unresolved"));
         result.add(Link.view("Complete signature / magic catalog", "catalog"));
         TreeSet<String> names = new TreeSet<>();
-        for (int i = 0; i < candidates.length(); i++)
-            names.add(candidates.getJSONObject(i).getString("name"));
+        for (int i = 0; i < candidates.length(); i++) names.add(candidate(i).getString("name"));
         for (String format : names) result.add(Link.view("Format: " + format, "format:" + format));
         return result;
     }
@@ -449,6 +454,16 @@ class CarvingBackend extends InvestigationBackend {
                                 .put("name", name)
                                 .put("sizeBytes", snapshot.size)
                                 .put("sha256", snapshot.sha256));
+    }
+
+    @Override
+    void writeText(String request, Writer output, BooleanSupplier stop) throws Exception {
+        if (!photoRec || !request.equals("compact-capture")) {
+            super.writeText(request, output, stop);
+            return;
+        }
+        acquire(stop);
+        photoRecReport.writeCapture(output, provenance(), stop);
     }
 
     @Override

@@ -16,12 +16,39 @@ public final class PhotoRecInvestigationTest {
 
     private static JSONObject at(JSONObject report, String name, long start) throws Exception {
         JSONArray rows = report.getJSONArray("rows");
+        PhotoRecReport decoded = new PhotoRecReport(report);
         for (int i = 0; i < rows.length(); i++) {
-            JSONObject row = rows.getJSONObject(i);
+            JSONObject row = decoded.row(i);
             if (row.getString("name").equals(name)
                     && row.optLong("candidateStartPhysicalOffset", -1) == start) return row;
         }
         throw new AssertionError("Missing " + name + " at " + start);
+    }
+
+    private static final class CountingWriter extends Writer {
+        private final String token = "\"patternIndex\":";
+        private int matched;
+        long records, characters;
+
+        @Override
+        public void write(char[] text, int start, int length) {
+            characters += length;
+            for (int i = start; i < start + length; i++) {
+                char c = text[i];
+                if (c == token.charAt(matched)) {
+                    if (++matched == token.length()) {
+                        records++;
+                        matched = 0;
+                    }
+                } else matched = c == token.charAt(0) ? 1 : 0;
+            }
+        }
+
+        @Override
+        public void flush() {}
+
+        @Override
+        public void close() {}
     }
 
     public static void main(String[] args) throws Exception {
@@ -67,8 +94,9 @@ public final class PhotoRecInvestigationTest {
         require(
                 searched == report.getInt("searchedPatternCount"),
                 "Coverage count differs from actual patterns");
+        PhotoRecReport decoded = new PhotoRecReport(report);
         for (int i = 0; i < rows.length(); i++) {
-            JSONObject row = rows.getJSONObject(i);
+            JSONObject row = decoded.row(i);
             String identity = row.getInt("patternIndex") + ":" + row.getLong("magicOffset");
             require(actual.add(identity), "Duplicate magic occurrence invented");
             JSONObject pattern = catalog.getJSONObject(row.getInt("patternIndex"));
@@ -155,8 +183,11 @@ public final class PhotoRecInvestigationTest {
                 "Input cap ignored");
         Files.delete(large.toPath());
         File bomb = directory.resolve("magic-bomb.bin").toFile();
-        byte[] repeated = new byte[240000];
-        for (int i = 0; i < repeated.length; i++) repeated[i] = (byte) "RIFF".charAt(i % 4);
+        byte[] repeated = new byte[250001 * 16];
+        for (int i = 0; i < repeated.length; i += 16) {
+            repeated[i] = 'B';
+            repeated[i + 1] = 'M';
+        }
         Files.write(bomb.toPath(), repeated);
         JSONObject refused = new JSONObject(PhotoRecEngine.scanPath(bomb.getAbsolutePath()));
         require(
@@ -233,6 +264,156 @@ public final class PhotoRecInvestigationTest {
         require(
                 Objects.requireNonNull(partialSnapshots.list()).length == 0,
                 "Partial coverage snapshot leaked");
+        // More rejected occurrences than the old hard cap must remain complete,
+        // with shared raw state represented once and rows expanded lazily.
+        int repeatedHeaders = 75000;
+        byte[] denseBytes = new byte[repeatedHeaders * 16 + fixture.wav.length];
+        for (int i = 0; i < repeatedHeaders * 16; i += 16) {
+            denseBytes[i] = 'B';
+            denseBytes[i + 1] = 'M';
+        }
+        System.arraycopy(fixture.wav, 0, denseBytes, repeatedHeaders * 16, fixture.wav.length);
+        File denseFile = directory.resolve("dense-magic.bin").toFile();
+        Files.write(denseFile.toPath(), denseBytes);
+        String denseEncoded = PhotoRecEngine.scanPath(denseFile.getAbsolutePath());
+        JSONObject dense = new JSONObject(denseEncoded);
+        require(
+                dense.getBoolean("ok")
+                        && dense.getInt("compactRejectedCandidateCount") >= repeatedHeaders
+                        && denseEncoded.length() < 8 * 1024 * 1024
+                        && dense.getJSONArray("rejectedRecoveryStates").length() < 50,
+                "Dense discovery/state failure: "
+                        + dense.optString("error")
+                        + "; compact="
+                        + dense.optInt("compactRejectedCandidateCount")
+                        + "; bytes="
+                        + denseEncoded.length());
+        PhotoRecReport denseDecoded = new PhotoRecReport(dense);
+        int exactBmpHeaders = 0;
+        for (int i = 0; i < dense.getInt("candidateCount"); i++) {
+            JSONObject row = denseDecoded.row(i);
+            long magic = row.getLong("magicOffset");
+            if (row.getString("name").equals("bmp") && magic < repeatedHeaders * 16) {
+                require(
+                        magic % 16 == 0
+                                && !row.getBoolean("headerAccepted")
+                                && row.isNull("reportedSizeBytes"),
+                        "Compact rejected coordinate or callback outcome changed");
+                exactBmpHeaders++;
+            }
+        }
+        require(exactBmpHeaders == repeatedHeaders, "Dense occurrence inventory is incomplete");
+        File denseSnapshots = directory.resolve("dense-snapshots").toFile();
+        String denseName =
+                "dense-" + (char) 0xD800 + "-" + (char) 0xDFFF + "-" + (char) 0 + "-研究.bin";
+        try (PhotoRecBackend backend =
+                new PhotoRecBackend(
+                        denseFile, denseSnapshots, denseName, (input, stop) -> denseEncoded)) {
+            EvidenceRows all = backend.open("all", () -> false);
+            require(
+                    all.size() == dense.getInt("candidateCount"),
+                    "Lazy model changed dense row count");
+            EvidenceRows.Page middle = all.select("", () -> false).page(1000, () -> false);
+            require(
+                    middle.rows.get(0).index == 50000
+                            && middle.rows.get(0).sizeBytes == null
+                            && middle.rows.get(0).json().has("headerCalculatedSizeBytes"),
+                    "Dense lazy paging lost original ordinals or raw expanded state");
+            CountingWriter counter = new CountingWriter();
+            all.writeReport(counter, backend.provenance(), "no matches", 1000, 1, () -> false);
+            require(
+                    counter.records == all.size() && counter.characters > denseEncoded.length(),
+                    "Complete dense export was restricted by filter/page or omitted expanded"
+                            + " records");
+            StringWriter compact = new StringWriter();
+            backend.writeText("compact-capture", compact, () -> false);
+            JSONObject capture = new JSONObject(compact.toString());
+            require(
+                    capture.getString("schema").equals("org.diemobile.photorec-capture")
+                            && capture.getJSONObject("provenance")
+                                            .getJSONObject("input")
+                                            .getString("sha256")
+                                            .length()
+                                    == 64,
+                    "Compact capture lost its source identity or explicit schema");
+            JSONObject reconstructed =
+                    capture.getJSONObject("engineReportMetadata")
+                            .put("rows", capture.getJSONArray("rows"))
+                            .put("patterns", capture.getJSONArray("patterns"))
+                            .put(
+                                    "rejectedRecoveryStates",
+                                    capture.getJSONArray("rejectedRecoveryStates"));
+            require(
+                    reconstructed.similar(dense),
+                    "Compact capture changed original engine evidence or row order");
+            require(
+                    capture.getJSONObject("provenance")
+                            .getJSONObject("input")
+                            .getString("name")
+                            .equals(denseName),
+                    "Compact capture changed source-name UTF-16 units");
+            java.util.concurrent.atomic.AtomicInteger cancellationCalls =
+                    new java.util.concurrent.atomic.AtomicInteger();
+            java.util.function.BooleanSupplier cancel =
+                    () -> cancellationCalls.incrementAndGet() > 100;
+            File cancelledExports = directory.resolve("cancelled-capture").toFile();
+            try {
+                PreparedExport.stream(
+                        cancelledExports,
+                        "capture.json",
+                        "application/json",
+                        output -> backend.writeText("compact-capture", output, cancel),
+                        cancel);
+                throw new AssertionError("Cancelled compact capture returned a successful stage");
+            } catch (InterruptedIOException expectedCancellation) {
+                require(
+                        Objects.requireNonNull(cancelledExports.list()).length == 0,
+                        "Cancelled compact capture left staged bytes");
+            }
+
+            require(
+                    compact.getBuffer().length() < 8 * 1024 * 1024,
+                    "Complete compact capture unexpectedly expanded rejected rows");
+        }
+        require(Objects.requireNonNull(denseSnapshots.list()).length == 0, "Dense snapshot leaked");
+        JSONObject malformed = new JSONObject(denseEncoded);
+        malformed.getJSONArray("rows").getJSONArray(0).put(2, Integer.MAX_VALUE);
+        try (PhotoRecBackend backend =
+                new PhotoRecBackend(
+                        denseFile,
+                        denseSnapshots,
+                        "bad-state-index.bin",
+                        (input, stop) -> malformed.toString())) {
+            try {
+                backend.open("all", () -> false);
+                throw new AssertionError("Out-of-dictionary compact reference accepted");
+            } catch (IOException expectedFailure) {
+                require(
+                        expectedFailure.getMessage().contains("dictionary"),
+                        expectedFailure.toString());
+            }
+        }
+        JSONObject fractional = new JSONObject(denseEncoded);
+        fractional.getJSONArray("rows").getJSONArray(0).put(1, 0.5);
+        try {
+            new PhotoRecReport(fractional).row(0);
+            throw new AssertionError("Fractional magic offset rounded");
+        } catch (IOException expectedFailure) {
+            require(
+                    expectedFailure.getMessage().contains("exact integer"),
+                    expectedFailure.toString());
+        }
+        JSONObject overflowing = new JSONObject(denseEncoded);
+        overflowing
+                .getJSONArray("rejectedRecoveryStates")
+                .getJSONArray(0)
+                .put(0, "18446744073709551616");
+        try {
+            new PhotoRecReport(overflowing);
+            throw new AssertionError("Raw unsigned state overflow accepted");
+        } catch (IOException expectedFailure) {
+            require(expectedFailure.getMessage().contains("uint64"), expectedFailure.toString());
+        }
         File snapshots = directory.resolve("snapshots").toFile();
         BinaryRunner runner =
                 (input, stop) -> {

@@ -13,7 +13,7 @@
     "src/fidentify.c",
     "src/Makefile.am"
   ],
-  "adapter": "diemobile-photorec-1",
+  "adapter": "diemobile-photorec-2",
   "optionalLibraries": [],
   "auxiliarySignatureFiles": false,
   "fileCheckCallbacksExecuted": false,
@@ -25,5 +25,12 @@
     "src/file_list.c": "b4257ba28e1815073c4e952457a82e82f48f98ad24d657d1d1d9a0ecb0b885ad",
     "src/fidentify.c": "bf2ad0b73ded802782ff16698a4a0869c31bef410763000e4ef1dd92efe31177",
     "src/Makefile.am": "1a26b888477facb1d663fdec98a1f84b9f646975dc496b9f9cd5d53c86ee21c7"
-  }
+  },
+  "nativeSchemaVersion": 2,
+  "maximumCandidateOccurrences": 250000,
+  "compactRejectedRecordFields": [
+    "patternIndex",
+    "magicOffset",
+    "recoveryStateIndex"
+  ]
 }

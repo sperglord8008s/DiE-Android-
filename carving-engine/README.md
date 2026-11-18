@@ -51,3 +51,13 @@ edited cache inputs fail explicitly. The source ZIP carries that verified tarbal
 under its default cache path and the complete standalone adapter/build inputs;
 extract it, set `JAVA_HOME`, and run `DIE_OFFLINE=true bash scripts/build-photorec.sh host`.
 The JSON test dependency and Android toolchains are separate build prerequisites.
+
+Adapter 2 uses native evidence schema 2: rejected occurrences are lossless
+`[patternIndex, magicOffset, recoveryStateIndex]` tuples referencing exact
+shared raw states. Header-accepted and negative-start records remain objects.
+Original row ordinals and every occurrence remain intact; the limit is now
+250,000 occurrences / 24 MiB native report. `PhotoRecReport` validates and lazily
+expands the tuples; complete compact captures carry source identity and the
+entire indexed report. A 75,000-rejection/streaming/reconstruction fixture and
+an actual 48 MiB APK audit cover the former 50,000-hit failure. These transport
+changes do not broaden the separately documented format/validation scope.

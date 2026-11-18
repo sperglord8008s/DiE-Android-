@@ -27,9 +27,9 @@ for name in ['LICENSE', 'scripts/build-photorec.sh', 'scripts/fetch-photorec.sh'
              'app/src/main/assets/notices/photorec-7.2.txt',
              'app/src/main/assets/notices/photorec-source-headers.txt']:
     files[name] = root / name
-for name in ['Inspector', 'EvidenceRows', 'InputSnapshot', 'InvestigationBackend',
+for name in ['Inspector', 'EvidenceRows', 'EvidenceJson', 'InputSnapshot', 'InvestigationBackend',
              'FileRange', 'RangeAnalysis', 'PreparedExport', 'PhotoRecEngine',
-             'BinaryRunner', 'CarvingBackend', 'PhotoRecBackend']:
+             'PhotoRecReport', 'BinaryRunner', 'CarvingBackend', 'PhotoRecBackend']:
     path = 'app/src/main/java/org/diemobile/' + name + '.java'
     files[path] = root / path
 directory = root / 'app/build/photorec-sources'

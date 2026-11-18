@@ -92,9 +92,41 @@ Normal close deletes its private input; recreation reacquires from the original
 path when available. Persistent carving sessions and recursive extracted-file
 handoff remain pending.
 
+## Indexed evidence and complete capture
+
+Native `org.diemobile.photorec-evidence` **version 2** retains the original row
+order. Accepted/header-only/negative-start records are objects. Each ordinary
+rejected header is `[patternIndex, magicOffset, recoveryStateIndex]`; its exact
+raw callback tuple is stored once in `rejectedRecoveryStates`, using
+`rejectedRecoveryStateFields` as the field dictionary. Occurrences are never
+deduplicated. Candidate starts, fixed rejected outcomes and header-window
+lengths are derived from the catalog and owned source size; every raw returned
+state value remains available. Rejected state does not establish a valid
+recovery object under the upstream callback contract.
+
+The Java receiver checks exact integer selectors, dictionary bounds/widths,
+uint64 decimal strings, uint32/int64 state and every original coordinate/count.
+Rows expand only when queried/displayed/streamed. The compact and expanded
+representations retain the same evidence, including repeated raw occurrences.
+A 75,000-header fixture verifies every occurrence, page 1,000/original index
+50,000, complete streamed exports and exact engine-report reconstruction.
+Fractional offsets, invalid state references, uint64 overflow and cancelled
+staging are rejected without retaining an input/output stage.
+
+**Root views → Preview / export complete compact capture JSON** stages a complete
+`org.diemobile.photorec-capture` **version 1** before opening the picker. It
+contains fresh captured input SHA-256/size/name in `provenance`, original
+`engineReportMetadata`, `patterns`, `rejectedRecoveryStates` and every `rows`
+entry. Reconstruct the native packet by adding those three arrays to the
+metadata object. The capture includes all rows regardless of current table,
+filter or page. UTF-16 source-name units and all raw unsigned strings survive;
+cancellation discards incomplete staging. A pending capture remains exportable
+after source expiry and recreation. Ordinary selected-table/record exports
+continue to stream fully expanded, named fields.
+
 ## Limits and verification
 
-Limits: **64 MiB input**, **50,000 candidate occurrences**, **10,000 patterns**,
+Limits: **64 MiB input**, **250,000 candidate occurrences**, **10,000 patterns**,
 **8 MiB copied data per candidate / 256 MiB aggregate data-block copying**, **24 MiB native report**,
 **30-second cooperative native deadline**, and the shared **45-second request
 watchdog / 32 MiB pipe envelope**. Input/match/report/deadline caps fail with no successful prefix. Data-work caps preserve complete magic/header discovery, mark each limited candidate with null extent and an explicit reason, and expose aggregate counts in help/exports.
@@ -108,9 +140,9 @@ all 77 fixture occurrences, overlapping JPEG/PNG, GIF subblocks/trailer and WAV
 declared size, negative/relative starts, DICOM header-only evidence, missing JPEG
 EOI, malformed PNG length, bad-CRC semantics, invalid/oversized descriptors,
 caller position, budget exhaustion, complete exports and exact immutable carving.
-Three API 28 Robolectric cases use actual host JNI/widgets with only OS transport
+Four API 28 Robolectric cases use actual host JNI/widgets with only OS transport
 and destination streams substituted: unknown/bounded evidence, picker-delay
-source-expiry/recreation, and catalog paging/full export including exclusions.
+source-expiry/recreation, catalog paging/full export including exclusions, and complete compact capture through source expiry/picker recreation.
 The full regression count is recorded in the continuation/parity documents.
 
 ARM64 source compilation, static 16 KiB alignment and host/fixture verification
@@ -119,11 +151,12 @@ API 26/35 and 16 KiB Android runtime remain unverified. Complete PhotoRec featur
 parity, filesystem/unallocated media, fragmented/JPEG Digger recovery, every weak
 signature and exhaustive format/codec/integrity checks remain incomplete.
 
-Large-blob limitation reproduced locally: the preserved 48 MiB app APK exceeds
-50,000 raw occurrences (even rejected headers are retained). This version fails
-explicitly with the examined byte position/dominant pattern instead of exporting
-a successful prefix. Compact indexed raw-occurrence transport is a continuation
-priority; successful small media/oracle fixtures do not establish that large APK
-coverage. Rejected recovery state uses an exact dictionary-described tuple in
-the native report and expands into named fields when viewed/exported; the
-upstream callback does not guarantee a valid recovery object after rejection.
+The former 50,000-record transport limit was reproduced on the local 48 MiB
+debug APK. Adapter 2 resolves that case with a lossless dictionary representation:
+all **109,023** occurrences complete for **50,223,887 bytes**, source SHA-256
+`c799a83bfd0508963dcb3ea58dd6aa38d687979dc0b3edff920cef9abafb8444`. The
+receiver and complete exports run with a 256 MiB JVM heap in a separate host
+audit: 176,292,786 expanded characters versus about 2,305,975 compact capture
+characters; 18 ranges have bounded data-stop evidence. This is one static host
+audit, not comprehensive APK recognition, integrity or Android runtime proof.
+Debug signing/build environments can produce different APK bytes.

@@ -93,4 +93,16 @@ APK signing evidence uses the shared `org.diemobile.evidence-table` schema plus 
 
 Captured package-set tables also use `org.diemobile.evidence-table`, with `org.diemobile.package-set` source provenance version 1 and an independently hashed `org.diemobile.package-input-index`. Every row preserves source/table/original ordinals and streams its full captured record regardless of preview/filter/page. Aggregate coordinates stay null; APK and expanded-manifest byte views select independent owned sources. See [package-set contracts](package-set-investigation.md).
 
-PhotoRec uses native `org.diemobile.photorec-evidence` version 1 plus the shared `org.diemobile.evidence-table` wrapper. `photorec-patterns` retains every original pattern and explicit searched/excluded policy; `photorec-candidates` retains every searched occurrence and raw header/data state. `headerAccepted` is separate from a positive bounded data-stop extent. Negative derived starts retain the magic location with null `candidateStartPhysicalOffset`, labelled `physicalOffsetMeaning` and no extractable length. Complete source identity/configuration/limits accompany filtered or selected exports. See [PhotoRec contracts](photorec-investigation.md).
+PhotoRec uses native `org.diemobile.photorec-evidence` version 2 plus the shared `org.diemobile.evidence-table` wrapper. `photorec-patterns` retains every original pattern and explicit searched/excluded policy; `photorec-candidates` retains every searched occurrence and raw header/data state. `headerAccepted` is separate from a positive bounded data-stop extent. Negative derived starts retain the magic location with null `candidateStartPhysicalOffset`, labelled `physicalOffsetMeaning` and no extractable length. Complete source identity/configuration/limits accompany filtered or selected exports. See [PhotoRec contracts](photorec-investigation.md).
+
+`org.diemobile.photorec-capture`, version 1, is the complete indexed capture.
+`provenance.input` retains owned source name/size/SHA-256; `engineReportMetadata`
+retains native schema/configuration/counts/limits, and `patterns`,
+`rejectedRecoveryStates`, `rows` retain every original indexed record. In native
+schema 2 an ordinary rejected row is `[patternIndex, magicOffset, recoveryStateIndex]`;
+its physical start/window sizes follow from the catalog/input and its raw
+state follows `rejectedRecoveryStateFields`. Other rows are original objects.
+Row order is unchanged. Reconstruct the native packet by combining metadata
+with the three arrays. Expanded evidence-table exports retain all named fields.
+Both forms preserve every occurrence; capture staging is independent of
+filter/page and survives pending-picker recreation/source expiry.

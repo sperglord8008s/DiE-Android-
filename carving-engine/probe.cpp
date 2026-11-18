@@ -32,7 +32,7 @@ namespace {
 constexpr uint64_t MAX_BLOB_BYTES = 64ULL * 1024 * 1024;
 constexpr uint64_t MAX_WORK = 256ULL * 1024 * 1024;
 constexpr uint64_t MAX_CANDIDATE_WORK = 8ULL * 1024 * 1024;
-constexpr size_t MAX_ROWS = 50000;
+constexpr size_t MAX_ROWS = 250000;
 constexpr size_t MAX_REPORT = 24 * 1024 * 1024;
 constexpr unsigned BLOCK = 65536;
 constexpr const char *REVISION = "281be432dd79121e08e0898887a9ee1f30fb3e96";
@@ -198,14 +198,7 @@ std::string candidate(const Registry &registry, size_t pattern, uint64_t magic,
         // returned state in a dictionary-described tuple instead of repeating
         // hundreds of field-name bytes. The Java viewer expands it per row.
         std::ostringstream rejected;
-        rejected << "{\"name\":" << quoted(hint->extension)
-            << ",\"patternIndex\":" << pattern << ",\"physicalOffset\":" << start
-            << ",\"candidateStartPhysicalOffset\":" << start << ",\"magicOffset\":" << magic
-            << ",\"magicRelativeOffset\":" << p->offset
-            << ",\"headerAccepted\":false,\"parserAccepted\":false,\"parserStatus\":\"header-rejected\""
-            << ",\"reportedSizeBytes\":null,\"fileCheckExecuted\":false,\"renameCheckExecuted\":false"
-            << ",\"headerWindowSourceBytes\":" << actual << ",\"headerWindowZeroPaddingBytes\":" << BLOCK-actual
-            << ",\"rejectedRecoveryState\":["
+        rejected << '['
             << quoted(std::to_string(recovered.calculated_file_size).c_str()) << ','
             << quoted(std::to_string(recovered.min_filesize).c_str()) << ','
             << (recovered.data_check ? "true" : "false") << ','
@@ -216,7 +209,7 @@ std::string candidate(const Registry &registry, size_t pattern, uint64_t magic,
             << quoted(std::to_string(recovered.checkpoint_offset).c_str()) << ','
             << recovered.checkpoint_status << ',' << recovered.data_check_tmp << ','
             << quoted(std::to_string(recovered.file_size).c_str()) << ','
-            << (recovered.extension ? quoted(recovered.extension) : "null") << "]}";
+            << (recovered.extension ? quoted(recovered.extension) : "null") << ']';
         return rejected.str();
     }
     uint64_t initial_calculated = recovered.calculated_file_size;
@@ -332,6 +325,9 @@ std::string scan(int fd) {
         throw std::runtime_error("PhotoRec input changed during acquisition");
     static Registry registry;
     std::vector<std::string> rows;
+    std::vector<std::string> rejected_states;
+    std::map<std::string, size_t> state_indices;
+    size_t compact_rejections = 0;
     std::vector<size_t> occurrences(registry.patterns.size(), 0);
     size_t report_bytes = registry.catalog.size();
     uint64_t underflow = 0;
@@ -347,7 +343,7 @@ std::string scan(int fd) {
             uint64_t magic = offset + 1 - p->length;
             if (rows.size() >= MAX_ROWS) {
                 size_t common = size_t(std::max_element(occurrences.begin(), occurrences.end())-occurrences.begin());
-                throw std::runtime_error("PhotoRec exceeds 50000 candidate records at physical byte " + std::to_string(offset)
+                throw std::runtime_error("PhotoRec exceeds " + std::to_string(MAX_ROWS) + " candidate records at physical byte " + std::to_string(offset)
                     + "; dominant observed magic " + registry.patterns[common]->file_stat->file_hint->extension
                     + " (pattern " + std::to_string(common) + ", " + std::to_string(occurrences[common])
                     + " occurrences); no complete result");
@@ -368,16 +364,31 @@ std::string scan(int fd) {
                     << ",\"parserStatus\":\"magic-matched/negative-candidate-start/header-not-called\"}";
                 row = rejected.str();
             } else row = candidate(registry, pattern, magic, input, source_size, budget);
+            if (!row.empty() && row.front() == '[') {
+                auto found = state_indices.find(row);
+                size_t state;
+                if (found == state_indices.end()) {
+                    state = rejected_states.size();
+                    report_bytes += row.size();
+                    rejected_states.push_back(row);
+                    state_indices.emplace(std::move(row), state);
+                } else state = found->second;
+                row = '[' + std::to_string(pattern) + ',' + std::to_string(magic) + ',' + std::to_string(state) + ']';
+                ++compact_rejections;
+            }
             report_bytes += row.size();
             if (report_bytes > MAX_REPORT) throw std::runtime_error("PhotoRec report exceeds 24 MiB; no complete result");
             rows.push_back(std::move(row));
         }
     }
     std::ostringstream out;
-    out << "{\"ok\":true,\"schema\":\"org.diemobile.photorec-evidence\",\"schemaVersion\":1"
+    out << "{\"ok\":true,\"schema\":\"org.diemobile.photorec-evidence\",\"schemaVersion\":2"
         << ",\"engine\":\"PhotoRec\",\"engineVersion\":\"7.2\",\"sourceRevision\":" << quoted(REVISION)
         << ",\"sourceArchiveSha256\":\"0cfd82ca6890188a3a4fe01c9b970f654eb3af396580f408ed024789e2873616\""
-        << ",\"adapter\":\"diemobile-photorec-1\",\"fileSizeBytes\":" << source_size
+        << ",\"adapter\":\"diemobile-photorec-2\",\"fileSizeBytes\":" << source_size
+        << ",\"compactRejectedCandidateCount\":" << compact_rejections
+        << ",\"rejectedRecoveryStateCount\":" << rejected_states.size()
+        << ",\"compactRejectedEncoding\":\"[patternIndex,magicOffset,recoveryStateIndex]; original row ordinal is unchanged\""
         << ",\"maximumInputBytes\":" << MAX_BLOB_BYTES << ",\"maximumCandidateRecords\":" << MAX_ROWS
         << ",\"maximumReportBytes\":" << MAX_REPORT << ",\"cooperativeDeadlineMs\":30000"
         << ",\"headerWindowMode\":\"borrowed immutable source with zero-padded suffix\""
@@ -394,7 +405,9 @@ std::string scan(int fd) {
         << ",\"searchedPatternCount\":" << registry.searched_patterns
         << ",\"excludedPatternCount\":" << registry.patterns.size() - registry.searched_patterns
         << ",\"searchCoverage\":\"Every byte for catalog patterns marked searched; one-byte/all-zero signatures remain catalogued but require an anchored scope not implemented by this adapter\""
-        << ",\"candidateCount\":" << rows.size() << ",\"patterns\":" << registry.catalog << ",\"rows\":[";
+        << ",\"candidateCount\":" << rows.size() << ",\"patterns\":" << registry.catalog << ",\"rejectedRecoveryStates\":[";
+    for (size_t i = 0; i < rejected_states.size(); ++i) { if (i) out << ','; out << rejected_states[i]; }
+    out << "],\"rows\":[";
     for (size_t i = 0; i < rows.size(); ++i) { if (i) out << ','; out << rows[i]; }
     out << "]}";
     std::string report = out.str();

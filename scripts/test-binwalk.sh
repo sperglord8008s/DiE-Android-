@@ -8,6 +8,6 @@ trap 'rm -rf "$tmp"' EXIT
 source scripts/test-dependencies.sh
 load_json_test_dependency "$tmp"
 javac -cp "$json_test_jar" -d "$tmp/classes" \
-  app/src/main/java/org/diemobile/{Inspector,EvidenceRows,InputSnapshot,InvestigationBackend,FileRange,RangeAnalysis,PreparedExport,BinwalkEngine,BinaryRunner,CarvingBackend,BinwalkBackend}.java \
+  app/src/main/java/org/diemobile/{Inspector,EvidenceRows,EvidenceJson,InputSnapshot,InvestigationBackend,FileRange,RangeAnalysis,PreparedExport,BinwalkEngine,BinaryRunner,CarvingBackend,PhotoRecReport,BinwalkBackend}.java \
   tests/fixtures/metadata/MetadataFixtureFactory.java tests/BinwalkInvestigationTest.java
 java --add-opens=java.base/java.io=ALL-UNNAMED -Djava.library.path="$PWD/app/build/host-binwalk" -cp "$tmp/classes:$json_test_jar" org.diemobile.BinwalkInvestigationTest "$tmp"
