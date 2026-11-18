@@ -39,6 +39,8 @@ public class MainActivity extends Activity {
  private Inspector.Result result;
  private String name="",report="",error="",guide="",apkReport="";
  private boolean busy;
+ private PreparedExport preparedReport;
+ private boolean preparingReport,reportPickerOpen,writingReport;
  private Uri pending;
  private int page;
  private int dp(float n){return (int)(n*getResources().getDisplayMetrics().density+.5f);}
@@ -47,8 +49,25 @@ public class MainActivity extends Activity {
  private TextView mono(String s){TextView t=txt(s,12);t.setTypeface(Typeface.MONOSPACE);t.setTextIsSelectable(true);return t;}
  private Button btn(String s,Runnable r){Button b=new Button(this);b.setText(s);b.setTextSize(12);b.setMinHeight(dp(38));b.setMinimumHeight(dp(38));b.setMinWidth(dp(48));b.setMinimumWidth(dp(48));b.setPadding(dp(8),0,dp(8),0);b.setAllCaps(false);b.setOnClickListener(v->r.run());return b;}
  private CheckBox opt(LinearLayout l,String s,boolean b){CheckBox c=new CheckBox(this);c.setText(s);c.setTextSize(12);c.setChecked(b);l.addView(c,new LinearLayout.LayoutParams(0,dp(42),1));return c;}
- @Override public void onCreate(Bundle s){super.onCreate(s);ui();if(s!=null&&s.getParcelable("selected")!=null){selectedUri=s.getParcelable("selected");page=s.getInt("page",0);scan(selectedUri);}else receive(getIntent());}
- @Override protected void onSaveInstanceState(Bundle state){super.onSaveInstanceState(state);state.putParcelable("selected",selectedUri);state.putInt("page",page);}
+ @Override public void onCreate(Bundle s){
+  super.onCreate(s);ui();
+  if(s!=null){
+   selectedUri=s.getParcelable("selected");page=s.getInt("page",0);
+   if(s.getString("preparedReport")!=null){
+    try{
+     preparedReport=PreparedExport.restore(scanExportDirectory(),s.getString("preparedReport"),s.getString("preparedReportName"),s.getString("preparedReportMime"),s.getLong("preparedReportSize"));
+     reportPickerOpen=true;status.setText("Captured report is ready; finish choosing its destination");reportControls();return;
+    }catch(IOException error){status.setText("Prepared report expired; prepare the report again");}
+   }
+   if(selectedUri!=null){scan(selectedUri);return;}
+   if(s.getBoolean("preparingReport"))status.setText("Report preparation was interrupted; reopen the input to prepare it again");
+  }
+  receive(getIntent());
+ }
+ @Override protected void onSaveInstanceState(Bundle state){
+  super.onSaveInstanceState(state);state.putParcelable("selected",selectedUri);state.putInt("page",page);state.putBoolean("preparingReport",preparingReport);
+  if(preparedReport!=null&&reportPickerOpen){state.putString("preparedReport",preparedReport.file.getAbsolutePath());state.putString("preparedReportName",preparedReport.name);state.putString("preparedReportMime",preparedReport.mime);state.putLong("preparedReportSize",preparedReport.size);}
+ }
  @Override protected void onNewIntent(Intent i){super.onNewIntent(i);setIntent(i);receive(i);}
  private void ui(){
   root=vertical();root.setBackgroundColor(0xff15191e);root.setPadding(dp(8),dp(6),dp(8),dp(4));
@@ -62,7 +81,7 @@ public class MainActivity extends Activity {
   LinearLayout fileRow=new LinearLayout(this);fileRow.setGravity(Gravity.CENTER_VERTICAL);fileRow.addView(fileLabel,new LinearLayout.LayoutParams(0,-2,1));
   open=btn("…",()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);startActivityForResult(i,1);});open.setContentDescription("Browse for a file");fileRow.addView(open);root.addView(fileRow);
   LinearLayout actions=new LinearLayout(this);rescan=btn("Scan / Rescan",()->{if(selectedUri!=null)scan(selectedUri);});rescan.setEnabled(false);
-  export=btn("Save report",()->{Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/json");i.putExtra(Intent.EXTRA_TITLE,"die-android-report.json");startActivityForResult(i,2);});
+  export=btn("Save report",this::prepareReport);
   export.setEnabled(false);actions.addView(rescan,new LinearLayout.LayoutParams(0,-2,1));cancel=btn("Cancel",()->{if(busy&&scanCancellation!=null){scanCancellation.cancel();status.setText("Cancellation requested • waiting for analysis to stop");}});cancel.setEnabled(false);actions.addView(cancel,new LinearLayout.LayoutParams(0,-2,1));actions.addView(export,new LinearLayout.LayoutParams(0,-2,1));nativeTools=btn("Tools",()->openNativeTools());nativeTools.setEnabled(false);actions.addView(nativeTools,new LinearLayout.LayoutParams(0,-2,1));archiveTools=btn("Archive",()->openArchive());archiveTools.setEnabled(false);actions.addView(archiveTools,new LinearLayout.LayoutParams(0,-2,1));root.addView(actions);
   ScanOptions prefs=ScanPreferences.load(this);
   optionPanel=vertical();
@@ -87,7 +106,7 @@ public class MainActivity extends Activity {
  private void optionsDialog(){LinearLayout form=vertical();form.setPadding(dp(18),dp(8),dp(18),dp(8));TextView desc=txt("Deep: additional signature rules.\nHeuristic: infer probable matches.\nRecursive: inspect embedded files.\nAggressive: additional speculative checks.\nAll types: also scan compatible parent formats.\n\nMinimum ASCII string length (3–64)",14);form.addView(desc);EditText entry=new EditText(this);entry.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);entry.setText(min.getText());form.addView(entry);form.addView(btn("Import Exodus database (JSON)",()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");startActivityForResult(i,3);}));new AlertDialog.Builder(this).setTitle("Scan options").setView(form).setNegativeButton("Cancel",null).setPositiveButton("Apply",(d,w)->{min.setText(entry.getText());min.setText(""+minLength());settingsChanged();}).show();}
  private void finishedStatus(){status.setText(String.format(Locale.ROOT,"%s • %d ms%s",error.isEmpty()?"Scan complete":"Local scan / engine error",elapsedMs,settingsDirty?" • settings changed":""));}
  private void receive(Intent i){if(i==null)return;Uri u=null;if(Intent.ACTION_VIEW.equals(i.getAction()))u=i.getData();else if(Intent.ACTION_SEND.equals(i.getAction()))u=i.getParcelableExtra(Intent.EXTRA_STREAM);if(u!=null&&"content".equals(u.getScheme()))scan(u);}
- @Override protected void onActivityResult(int req,int code,Intent data){super.onActivityResult(req,code,data);if((req==4||req==5)&&code==RESULT_OK&&data!=null){String p=data.getStringExtra("path");if(p!=null){if(req==5){if(ownedMember!=null)ownedMember.delete();ownedMember=new File(p);selectedDisplayName=data.getStringExtra("display");}scan(Uri.fromFile(new File(p)));}return;}if(code==RESULT_OK&&data!=null&&data.getData()!=null){if(req==1){try{if((data.getFlags()&Intent.FLAG_GRANT_READ_URI_PERMISSION)!=0)getContentResolver().takePersistableUriPermission(data.getData(),Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException ignored){}scan(data.getData());}if(req==2)save(data.getData());if(req==3)importExodus(data.getData());}}
+ @Override protected void onActivityResult(int req,int code,Intent data){super.onActivityResult(req,code,data);if(req==2){finishReport(code,data);return;}if((req==4||req==5)&&code==RESULT_OK&&data!=null){String p=data.getStringExtra("path");if(p!=null){if(req==5){if(ownedMember!=null)ownedMember.delete();ownedMember=new File(p);selectedDisplayName=data.getStringExtra("display");}scan(Uri.fromFile(new File(p)));}return;}if(code==RESULT_OK&&data!=null&&data.getData()!=null){if(req==1){try{if((data.getFlags()&Intent.FLAG_GRANT_READ_URI_PERMISSION)!=0)getContentResolver().takePersistableUriPermission(data.getData(),Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException ignored){}scan(data.getData());}if(req==3)importExodus(data.getData());}}
  private void importExodus(Uri u){
   worker.execute(()->{String msg;File temp=new File(getFilesDir(),"exodus-trackers.tmp");try(InputStream in=getContentResolver().openInputStream(u)){
    if(in==null)throw new IOException("No input");byte[] data=KnowledgeReport.bytes(in,8*1024*1024);JSONObject obj=new JSONObject(new String(data,StandardCharsets.UTF_8));obj.getJSONObject("trackers");
@@ -118,7 +137,7 @@ public class MainActivity extends Activity {
    }catch(Exception e){fail=e.toString();}finally{if(r==null&&f!=null){f.delete();f=null;}}
    final ScanEvidence finalEvidence=ev;final JSONObject finalFacts=facts;final EngineDatabase finalDatabases=databases;
    final File inputCopy=f;final Inspector.Result fr=r;final String fn=n,fp=rep,fe=err,ff=fail,fg=g,fa=a;
-   runOnUiThread(()->{if(isDestroyed()){if(inputCopy!=null)inputCopy.delete();return;}retainedFile=inputCopy;nativeTools.setEnabled(retainedFile!=null);archiveTools.setEnabled(retainedFile!=null&&fr!=null&&fr.type.contains("ZIP"));result=fr;evidence=finalEvidence;nativeFacts=finalFacts;database=finalDatabases;scannedOptions=options;name=fn;report=fp;error=fe;guide=fg;apkReport=fa;busy=false;cancel.setEnabled(false);elapsedMs=SystemClock.elapsedRealtime()-started;scannedFlags=flags;scannedMin=minLen;settingsDirty=!currentOptions().sameAs(options);fileLabel.setText(fn.isEmpty()?"Selected file":fn);open.setEnabled(true);rescan.setEnabled(selectedUri!=null);export.setEnabled(result!=null);progress.setIndeterminate(false);progress.setProgress(result!=null?100:0);if(ff.isEmpty())finishedStatus();else status.setText(ff);show();if(pending!=null){Uri next=pending;pending=null;scan(next);}});
+   runOnUiThread(()->{if(isDestroyed()){if(inputCopy!=null)inputCopy.delete();return;}retainedFile=inputCopy;nativeTools.setEnabled(retainedFile!=null);archiveTools.setEnabled(retainedFile!=null&&fr!=null&&fr.type.contains("ZIP"));result=fr;evidence=finalEvidence;nativeFacts=finalFacts;database=finalDatabases;scannedOptions=options;name=fn;report=fp;error=fe;guide=fg;apkReport=fa;busy=false;cancel.setEnabled(false);elapsedMs=SystemClock.elapsedRealtime()-started;scannedFlags=flags;scannedMin=minLen;settingsDirty=!currentOptions().sameAs(options);fileLabel.setText(fn.isEmpty()?"Selected file":fn);open.setEnabled(true);rescan.setEnabled(selectedUri!=null);reportControls();progress.setIndeterminate(false);progress.setProgress(result!=null?100:0);if(ff.isEmpty())finishedStatus();else status.setText(ff);show();if(pending!=null){Uri next=pending;pending=null;scan(next);}});
   });
  }
  private void openDesktopScan(){if(retainedFile==null||!Engine.AVAILABLE)return;Intent i=new Intent(this,DesktopScanActivity.class);i.putExtra("path",retainedFile.getAbsolutePath());i.putExtra("name",name);startActivity(i);}
@@ -197,24 +216,49 @@ public class MainActivity extends Activity {
   Button previous=btn("Previous 50",()->renderEvidence(target,query,page-1));previous.setEnabled(page>0);navigation.addView(previous);
   Button next=btn("Next 50",()->renderEvidence(target,query,page+1));next.setEnabled(page+1<pages);navigation.addView(next);target.addView(navigation);
  }
- private void save(Uri uri){
-  if(result==null||scannedOptions==null)return;
+ private File scanExportDirectory(){return new File(getCacheDir(),"scan-exports");}
+ private void reportControls(){export.setEnabled(!busy&&result!=null&&scannedOptions!=null&&!preparingReport&&!reportPickerOpen&&!writingReport);}
+ private void prepareReport(){
+  if(result==null||scannedOptions==null||busy||preparingReport||reportPickerOpen||writingReport)return;
   final Inspector.Result source=result;final ScanOptions options=scannedOptions;final ScanEvidence scan=evidence;
   final JSONObject facts=nativeFacts;final EngineDatabase db=database;final String inputName=name,explanation=guide,apk=apkReport,engineError=error;
   final long duration=elapsedMs;
+  preparingReport=true;reportControls();status.setText("Preparing the captured scan report…");
   worker.execute(()->{
-   String message;
+   PreparedExport staged=null;
    try{
     JSONObject output=ScanReport.create(inputName,source,options,scan,facts,db==null?"":db.engineRevision,db==null?"":db.signatureRevision,db==null?"":db.customDigest,duration,explanation,apk,engineError);
-    try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){
-     if(out==null)throw new IOException("Cannot open destination");out.write(output.toString(2).getBytes(StandardCharsets.UTF_8));
-    }
-    message="Report saved";
-   }catch(Exception e){message="Export failed: "+e;}
-   final String text=message;runOnUiThread(()->{if(!isDestroyed())Toast.makeText(this,text,Toast.LENGTH_LONG).show();});
+    staged=PreparedExport.stream(scanExportDirectory(),"die-android-report-"+source.sha256.substring(0,12)+".json","application/json",writer->EvidenceJson.write(writer,output,this::isDestroyed),this::isDestroyed);
+    final PreparedExport ready=staged;
+    runOnUiThread(()->{
+     if(isDestroyed()){ready.discard();return;}
+     preparingReport=false;preparedReport=ready;reportPickerOpen=true;reportControls();
+     Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(ready.mime).putExtra(Intent.EXTRA_TITLE,ready.name);
+     try{startActivityForResult(intent,2);if(!busy)status.setText("Choose a destination for the captured report • "+source.sha256.substring(0,12));}
+     catch(RuntimeException error){ready.discard();preparedReport=null;reportPickerOpen=false;reportControls();status.setText("Cannot open the report picker: "+error.getMessage());}
+    });
+   }catch(Exception error){
+    if(staged!=null)staged.discard();
+    runOnUiThread(()->{if(!isDestroyed()){preparingReport=false;reportControls();if(!busy)status.setText("Report preparation failed: "+error.getMessage());}});
+   }
   });
  }
- @Override protected void onDestroy(){if(busy&&scanCancellation!=null)scanCancellation.cancel();worker.shutdown();if(retainedFile!=null)retainedFile.delete();if(ownedMember!=null)ownedMember.delete();super.onDestroy();}
+ private void finishReport(int code,Intent data){
+  reportPickerOpen=false;final PreparedExport captured=preparedReport;preparedReport=null;
+  if(captured==null){reportControls();status.setText("Prepared report expired; prepare it again");return;}
+  if(code!=RESULT_OK||data==null||data.getData()==null){captured.discard();reportControls();if(!busy)status.setText("Report export cancelled");return;}
+  final Uri uri=data.getData();writingReport=true;reportControls();if(!busy)status.setText("Writing the captured report…");
+  worker.execute(()->{
+   String message;
+   try(OutputStream output=getContentResolver().openOutputStream(uri,"wt")){
+    if(output==null)throw new IOException("Cannot open the report destination");
+    captured.copyTo(output,()->false);message="Report saved • "+captured.size+" bytes";
+   }catch(Exception error){message="Export failed; destination may contain partial data: "+error.getMessage();}
+   finally{captured.discard();}
+   final String text=message;runOnUiThread(()->{if(!isDestroyed()){writingReport=false;reportControls();rescan.setEnabled(!busy&&selectedUri!=null);if(!busy)status.setText(text);Toast.makeText(this,text,Toast.LENGTH_LONG).show();}});
+  });
+ }
+ @Override protected void onDestroy(){if(busy&&scanCancellation!=null)scanCancellation.cancel();worker.shutdown();if((!reportPickerOpen||isFinishing())&&preparedReport!=null)preparedReport.discard();if(retainedFile!=null)retainedFile.delete();if(ownedMember!=null)ownedMember.delete();super.onDestroy();}
  private class Graph extends View{
   final Inspector.Result r;final TextView detail;final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);int selected=-1;
   Graph(Inspector.Result data,TextView t){super(MainActivity.this);r=data;detail=t;setContentDescription("Entropy graph, 0 to 8 bits per byte");}

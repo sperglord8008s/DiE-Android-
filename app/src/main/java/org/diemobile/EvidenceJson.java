@@ -3,12 +3,12 @@ package org.diemobile;
 
 import java.io.*;
 import java.util.Iterator;
-import java.util.Locale;
 import java.util.function.BooleanSupplier;
 import org.json.*;
 
 /** Streaming JSON for full engine values; preserves every UTF-16 code unit. */
 final class EvidenceJson {
+    private static final char[] HEX="0123456789ABCDEF".toCharArray();
     private final Writer output;
     private final BooleanSupplier cancelled;
     private int visited;
@@ -51,13 +51,18 @@ final class EvidenceJson {
     static void quoted(Writer output, String value, BooleanSupplier cancelled) throws Exception {
         output.write('"');
         int start = 0;
+        char[] escaped=null;
         for (int i = 0; i < value.length(); i++) {
             if ((i & 4095) == 0) EvidenceRows.check(cancelled);
             char c = value.charAt(i);
             if (c == '"' || c == '\\' || c < 0x20 || Character.isSurrogate(c)) {
                 output.write(value,start,i-start);
                 if (c == '"' || c == '\\') { output.write('\\'); output.write(c); }
-                else output.write(String.format(Locale.ROOT,"\\u%04X",(int)c));
+                else {
+                    if(escaped==null) escaped=new char[]{'\\','u','0','0','0','0'};
+                    escaped[2]=HEX[(c>>>12)&15];escaped[3]=HEX[(c>>>8)&15];escaped[4]=HEX[(c>>>4)&15];escaped[5]=HEX[c&15];
+                    output.write(escaped);
+                }
                 start = i+1;
             }
         }

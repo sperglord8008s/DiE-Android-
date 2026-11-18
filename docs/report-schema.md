@@ -12,9 +12,26 @@ Metadata providers add complete streamed values alongside explicitly bounded int
 
 The primary Scan screen exports an object with `schema: "org.diemobile.scan-report"` and integer `schemaVersion: 1`. A consumer should check both before interpretation. Export is an explicit, local Storage Access Framework operation; the application does not upload reports.
 
+The complete displayed analysis and captured scan options are serialized into an
+owned private report **before** opening the document picker. Later source/view
+changes cannot replace that report. Its default filename includes the first
+twelve input SHA-256 digits. Pending report bytes survive activity recreation
+and can finish even when the source or current scan result has expired. Picker
+cancellation deletes the stage; destination failure reports possible partial
+provider data and deletes the private stage. Preparation observes lifecycle
+cancellation and has a 256 MiB encoded limit, depth 256 and two million JSON
+nodes; failure exposes no successful prefix and does not open a destination.
+
+UTF-8 JSON preserves every decoded UTF-16 code unit in names, keys, metadata and
+native fields. Controls and surrogate units are escaped explicitly; isolated
+surrogates are not replaced by `?` or U+FFFD. This is exact decoded identity,
+separate from original encoded file bytes. JSON whitespace/pretty indentation
+is not part of schema v1. The streamed encoder avoids a second complete rendered
+report string and uses direct hexadecimal escapes for predictable per-unit work.
+
 | Field | Meaning |
 |---|---|
-| `createdAt` | Export time in ISO-8601 UTC; not the binary's creation time |
+| `createdAt` | Captured report preparation time in ISO-8601 UTC, before picker delay; not the binary's creation time |
 | `source` | Display name, exact `sizeBytes`, SHA-256 of the private input snapshot, and independent header identification |
 | `options` | Captured desktop flags and enabled names, semicolon-separated include/exclude tags, automatic `typeId: 0`, and minimum preview string length |
 | `provenance` | CDiE revision, Detect-It-Easy database revision, custom database enabled state and original ZIP SHA-256, elapsed milliseconds including acquisition/inspection, and `networkUsed: false` |

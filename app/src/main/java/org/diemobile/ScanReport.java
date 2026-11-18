@@ -34,7 +34,7 @@ final class ScanReport {
         result.put("explanations", guide).put("apkAnalysis", apk);
         result.put("limitations", new JSONArray().put("Static observations do not establish execution or safety.")
             .put("CDiE differs from Qt DiE; full signature and heuristic parity is unverified.")
-            .put("Native parsing runs in the app process; worker isolation is pending.")
+            .put("Primary CDiE and legacy APK/DEX metadata analysis remain in the app process; descriptor-worker tools have separately documented device-verification limits.")
             .put("Archive expansion may skip unsupported or resource-limited members upstream; empty results are not exhaustive coverage.")
             .put("ASCII, hex and block-entropy previews are bounded; native tools expose further analysis."));
         return result;

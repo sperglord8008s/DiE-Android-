@@ -2,6 +2,8 @@
 package org.diemobile;
 
 import java.nio.file.*;
+import java.nio.charset.StandardCharsets;
+import java.io.*;
 import org.json.*;
 
 public final class ScanEvidenceTest {
@@ -52,6 +54,21 @@ public final class ScanEvidenceTest {
             require(report.getJSONObject("provenance").getString("signatureRevision").equals("db-revision"), "Provenance missing");
             JSONObject custom = report.getJSONObject("provenance").getJSONObject("customDatabase");
             require(custom.getBoolean("enabled") && custom.getString("archiveSha256").equals("c".repeat(64)), "Custom database identity lost");
+            String exact="NUL\0 valid 😀 isolated high \ud800 isolated low \udfff";
+            report=ScanReport.create(exact,inspection,original,evidence,new JSONObject().put(exact,exact),"engine","database","",0,exact,exact,exact);
+            ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+            try(Writer writer=new OutputStreamWriter(bytes,StandardCharsets.UTF_8.newEncoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT))) {
+                EvidenceJson.write(writer,report,()->false);
+            }
+            JSONObject restored=new JSONObject(bytes.toString(StandardCharsets.UTF_8));
+            require(restored.getJSONObject("source").getString("name").equals(exact)&&restored.getString("apkAnalysis").equals(exact)
+                &&restored.getJSONObject("facts").getString(exact).equals(exact),"Primary UTF-8 report changed exact decoded UTF-16 metadata or keys");
+            char[] units=new char[65536];for(int i=0;i<units.length;i++)units[i]=(char)i;
+            String everyUnit=new String(units);StringWriter full=new StringWriter();
+            EvidenceJson.write(full,new JSONObject().put(everyUnit,everyUnit),()->false);
+            ByteArrayOutputStream utf8=new ByteArrayOutputStream();
+            try(Writer writer=new OutputStreamWriter(utf8,StandardCharsets.UTF_8.newEncoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT))) { writer.write(full.toString()); }
+            require(new JSONObject(utf8.toString(StandardCharsets.UTF_8)).getString(everyUnit).equals(everyUnit),"JSON encoder failed to preserve every UTF-16 code unit in values/keys");
         } finally { Files.deleteIfExists(input); }
         System.out.println("Options, typed evidence paging, diagnostics and versioned report fixtures passed.");
     }
