@@ -63,7 +63,12 @@ final class KnowledgeReport {
   o.guide.append("Entropy estimates how evenly byte values occur. Compression, encryption, images and random data can all produce high entropy. Low entropy may reflect repeated data or padding. Neither establishes malware or encryption. Use the graph to locate transitions, then inspect the corresponding content.\n\nSIGNATURES\nCDiE compares file structures and patterns against its database. A matching compiler, packer or SDK identifies a possible technology, not a verified author or runtime behavior. A missed match does not establish absence.\n\nSTRINGS AND HEX\nStrings are printable byte sequences and may expose names or configuration; they may also be unused or coincidental. Hex displays original bytes; an offset is a position in the file, not always a virtual memory address. Previews are bounded.\n\nLIMITS\nStatic analysis only: no app is installed, executed, or submitted online. Results are not a safety verdict. Malformed, encrypted, split or obfuscated content may be missed. Individual detection details in Scan show underlying rule output.\n");
   if(t.startsWith("ELF"))try{elf(file,o);}catch(Exception e){o.guide.append("\nELF header detail unavailable: ").append(e.getMessage()).append("\n");}
   if(t.contains("ZIP"))try{archive(c,file,o,cancelled);}catch(Exception e){o.item("Archive inspection incomplete: "+e.getMessage());}
-  else if(t.contains("DEX"))try{DexDocument document=DexDocument.read(file,cancelled);Set<String> classes=document.definedClassNames(cancelled);dexSummary(o,displayName,document);o.item("Distinct MUTF-8/Unicode defined class names inspected: "+classes.size());dexLibraries(catalog(c,cancelled),classes,o,cancelled);trackers(c,classes,o); }catch(Exception e){o.item("DEX inspection incomplete: "+e.getMessage());}
+  else if(t.contains("DEX"))try{
+   DexDocument document=DexDocument.read(file,cancelled);Set<String> classes=document.definedClassNames(cancelled);
+   dexSummary(o,displayName,document);o.item("Distinct MUTF-8/Unicode defined class names inspected: "+classes.size());
+   try{dexLibraries(catalog(c,cancelled),classes,o,cancelled);}catch(InterruptedIOException stopped){throw stopped;}catch(Exception error){o.item("LibChecker DEX matching incomplete: "+error.getMessage());}
+   trackers(c,document.definedClassDescriptors(cancelled),o);
+  }catch(Exception e){o.item("DEX inspection incomplete: "+e.getMessage());}
   else o.apk.append("Not a recognized ZIP/APK or DEX input. Use File info / File 101 for general interpretation.\n");
   return o;
  }
@@ -100,7 +105,7 @@ final class KnowledgeReport {
   o.item("Header integrity is not publisher authentication or ART verification. Identifier counts include referenced types and members; they do not establish local definitions, loading or execution. Class-name matching is static evidence.");
  }
  static void archive(Context c,File file,Output o,BooleanSupplier cancelled)throws Exception{
-  Set<String> nativeNames=new TreeSet<>(),abis=new TreeSet<>(),classes=new TreeSet<>();List<String> entries=new ArrayList<>();
+  Set<String> nativeNames=new TreeSet<>(),abis=new TreeSet<>(),classes=new TreeSet<>(),descriptors=new TreeSet<>();List<String> entries=new ArrayList<>();
   boolean manifest=false;int count=0,dexCount=0;long total=0,dexBytes=0;boolean partial=false;
   try(ZipFile zip=new ZipFile(file)){
    Map<String,Integer> dexNames=new HashMap<>();Enumeration<? extends ZipEntry> directory=zip.entries();int directoryCount=0;
@@ -127,7 +132,9 @@ final class KnowledgeReport {
      try(InputStream in=zip.getInputStream(e)){
       byte[] b=bytes(in,(int)e.getSize(),cancelled);CRC32 crc=new CRC32();crc.update(b);
       if(b.length!=e.getSize()||crc.getValue()!=e.getCrc())throw new IOException("Expanded size or CRC32 mismatch");
-      dexSummary(o,n,dex(b,classes,cancelled));
+      DexDocument document=dex(b,classes,cancelled);Set<String> raw=document.definedClassDescriptors(cancelled);
+      for(String descriptor:raw){EvidenceRows.check(cancelled);descriptors.add(descriptor);if(descriptors.size()>MAX_CLASSES)throw new IOException("Defined descriptor inspection exceeds 120,000 names");}
+      dexSummary(o,n,document);
      }catch(Exception ex){if(cancelled.getAsBoolean())throw ex;partial=true;o.item("DEX "+n+" inspection incomplete: "+ex.getMessage());}
     }
    }
@@ -140,8 +147,8 @@ final class KnowledgeReport {
   for(String n:nativeNames){EvidenceRows.check(cancelled);if(o.clipped)break;o.item(n);match(o,rules,"native-libs",n);}
   if(nativeNames.isEmpty())o.item("No conventional lib/<ABI>/*.so entries seen; code could be stored elsewhere.");
   if(manifest){o.guide.append("\nAPK FOUND\nThis archive contains AndroidManifest.xml. See APK / SDKs for package identity, permissions, exposed components, library evidence and community package guidance. The report describes requested capabilities, not actions observed in use.\n");o.append(ApkSigningReport.analyze(file));pkg(c,file,o,rules);manifestLibraries(c,file,o,rules,cancelled);}
-  if(dexCount>0&&rules!=null)dexLibraries(rules,classes,o,cancelled);
-  if(dexCount>0)trackers(c,classes,o);
+  if(dexCount>0&&rules!=null)try{dexLibraries(rules,classes,o,cancelled);}catch(InterruptedIOException stopped){throw stopped;}catch(Exception error){o.item("LibChecker DEX matching incomplete: "+error.getMessage());}
+  if(dexCount>0)trackers(c,descriptors,o);
   o.section("Archive inventory (first 1,000 entries; no extraction)");for(String n:entries)o.item(n);
   if(count>entries.size())o.item("Inventory truncated.");
  }
@@ -255,22 +262,25 @@ final class KnowledgeReport {
   if(p.equals("android.permission.REQUEST_INSTALL_PACKAGES"))return "Can request user-mediated package installation; not permission for silent installation.";
   return "Declared permission; consult platform or defining application's documentation for its exact scope.";
  }
- static void trackers(Context c,Set<String> classes,Output o){
+ static void trackers(Context c,Set<String> descriptors,Output o)throws Exception{
   o.section("Exodus tracker evidence — offline imported database");
   File f=new File(c.getFilesDir(),"exodus-trackers.json");
   if(!f.isFile()){o.item("No Exodus snapshot imported. Use Options > Import Exodus database (JSON). No tracker result is available.");return;}
   try(InputStream in=new FileInputStream(f)){
-   JSONObject all=new JSONObject(read(in,8*1024*1024)).getJSONObject("trackers");Iterator<String> it=all.keys();int matched=0,skipped=0,checked=0;
-   while(it.hasNext()&&checked<2000){String id=it.next();checked++;JSONObject rule=all.optJSONObject(id);if(rule==null)continue;
-    String sig=rule.optString("code_signature","");
-    // Literal package names only; no untrusted regex evaluation. Alternatives with operators are not silently treated as matches.
-    if(!sig.matches("[A-Za-z0-9_$]+(\\.[A-Za-z0-9_$]+)+\\.?")){skipped++;continue;}
-    String prefix=sig.endsWith(".")?sig.substring(0,sig.length()-1):sig;
-    String hit=null;for(String n:classes)if(n.equals(prefix)||n.startsWith(prefix+".")||n.startsWith(prefix+"$")){hit=n;break;}
-    if(hit!=null){matched++;o.item(rule.optString("name",id)+" [Exodus ID "+id+"] — "+rule.optString("categories","")+"; evidence class "+hit+"; signature "+sig);String d=rule.optString("description");if(!d.isEmpty())o.item(d);String link=rule.optString("website");if(!link.isEmpty())o.item("Source: "+link);}
+   TrackerCatalog catalog=TrackerCatalog.read(in,o.cancelled);TrackerCatalog.Result result=catalog.match(descriptors,o.cancelled);
+   o.item("Exact imported bytes SHA-256 "+catalog.sha256+"; "+catalog.bytes.length+" bytes; "+catalog.rules.size()+" records. Independent RE2/J search adapter, frozen Unicode "+TrackerUnicode.VERSION+"; audited Exodus contract "+TrackerCatalog.REFERENCE+". No online authenticity check.");
+   for(TrackerCatalog.Evaluation evaluation:result.evaluations){
+    EvidenceRows.check(o.cancelled);if(o.clipped)break;TrackerCatalog.Rule rule=evaluation.rule;
+    if(evaluation.status.equals("matched")){
+     o.item(TrackerCatalog.preview(rule.name,512)+" [Exodus ID "+rule.id+"] — regex-search association; original signature: "+rule.signature);
+     o.item("Evidence original descriptor "+evaluation.descriptor+"; slash-name match UTF-16 units ["+evaluation.start+", "+evaluation.end+") = "+evaluation.input.substring(evaluation.start,evaluation.end)+". One first evidence class per matching rule; names do not verify tracker use.");
+     o.item("Original tracker metadata JSON: "+TrackerCatalog.preview(rule.slice.raw,8192));
+    }else if(evaluation.status.equals("unsupported")||evaluation.status.equals("not-fully-searched"))o.item("INCOMPLETE tracker "+rule.id+" / "+TrackerCatalog.preview(rule.name,512)+": "+evaluation.status+"; "+rule.diagnostic);
    }
-   o.item(matched+" literal signature matches; "+skipped+" unsupported or empty signatures skipped; "+checked+" database entries inspected"+(it.hasNext()?" (limit reached)":"")+".");
-   o.item("Imported Exodus database is ODbL 1.0 / individual contents DbCL 1.0. This is a limited local matcher, not the full Exodus engine. A matching class does not establish use; obfuscation, missing splits and complex signatures can produce false negatives.");
-  }catch(Exception e){o.item("Exodus snapshot could not be analyzed: "+e.getMessage());}
+   o.item(result.hits+" matching rules; "+result.unsupportedRules+" unsupported rules; "+result.unsearched+" not fully searched; "+result.unsupportedInputs.size()+" unsupported class names; "+result.inputCount+" original descriptors; "+result.comparisons+" regex/class comparisons. Ignored short signatures follow the upstream >3-code-point gate.");
+   if(!result.complete())o.item("PARTIAL tracker search: unsupported rules/names or budget limits leave unknown results. "+result.limit);
+   for(int i=0;i<Math.min(16,result.unsupportedInputs.size());i++)o.item("Unsupported descriptor (LF, isolated surrogate or >16,384 UTF-16 units): "+result.unsupportedInputs.get(i));
+   o.item("Imported Exodus database is ODbL 1.0 / individual contents DbCL 1.0. Complete unknown fields, source/version metadata, exact original records and snapshot bytes are available in Imported Exodus rules. This independent adapter does not bundle the AGPL Exodus core. It inspects defined classes in the bounded selected DEX/APK scope, unlike upstream dexdump text extraction; nested APKs, omitted splits, arbitrary type references and live traffic are not inspected here. No class association proves initialization, collection, transmission, a vulnerability or malicious behavior.");
+  }catch(InterruptedIOException cancelled){throw cancelled;}catch(Exception e){o.item("Exodus snapshot could not be analyzed: "+e.getMessage());}
  }
 }

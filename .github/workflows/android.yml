@@ -73,6 +73,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - run: bash scripts/test-apk.sh
       - run: bash scripts/test-models.sh
       - run: bash scripts/test-dex.sh
@@ -81,6 +84,7 @@ jobs:
       - run: bash scripts/test-resources.sh
       - run: bash scripts/fetch-knowledge.sh
       - run: bash scripts/test-knowledge.sh
+      - run: bash scripts/test-trackers.sh
 
   binary-integration:
     runs-on: ubuntu-latest

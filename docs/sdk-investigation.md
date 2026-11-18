@@ -112,8 +112,10 @@ no engine/database update or reputation request happens at runtime.
 Remaining SDK scope includes full split/framework reference resolution,
 fingerprint/version providers such as Flutter/AndroidX details, tracker-engine
 compatibility, observed live use and broader device validation. User-imported
-Exodus data still uses the existing limited literal package matcher; this
-LibChecker change does not imply complete Exodus matching. UAD-NG remains a
+Exodus data now has a separate regex-search adapter with frozen Unicode classes,
+complete original metadata/catalog exports and explicit unsupported syntax; see
+[tracker contracts](tracker-investigation.md). Its compared subset does not imply
+complete Python regex or upstream acquisition equivalence. UAD-NG remains a
 separate exact package-ID/community-guidance catalog.
 
 ## Verification

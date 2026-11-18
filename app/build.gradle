@@ -78,6 +78,12 @@ def verifyHashSources = tasks.register('verifyHashSources', Exec) {
 }
 tasks.named('preBuild').configure { dependsOn verifyHashSources }
 
+def verifyTrackerUnicode = tasks.register('verifyTrackerUnicode', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'python3', rootProject.file('scripts/tracker-unicode.py').absolutePath
+}
+tasks.named('preBuild').configure { dependsOn verifyTrackerUnicode }
+
 // AOSP's standalone, Apache-2.0 APK signing-scheme verifier.
 dependencies {
     implementation project(':metadata-engine')

@@ -98,6 +98,7 @@ unzip -p "$apk" assets/notices/mpv-runtime.txt | cmp - app/src/main/assets/notic
 unzip -p "$apk" assets/notices/android-resources-32.5.1.txt | cmp - app/src/main/assets/notices/android-resources-32.5.1.txt
 unzip -p "$apk" assets/notices/rhash-md4-1.4.5.txt | cmp - app/src/main/assets/notices/rhash-md4-1.4.5.txt
 unzip -p "$apk" assets/notices/re2j-1.8.txt | cmp - app/src/main/assets/notices/re2j-1.8.txt
+unzip -p "$apk" assets/notices/unicode-15.0.0.txt | cmp - app/src/main/assets/notices/unicode-15.0.0.txt
 unzip -p "$apk" assets/knowledge/libchecker-v5.json | cmp - generated-assets/knowledge/libchecker-v5.json
 unzip -p "$apk" assets/knowledge/libchecker-v5.json.sha256 | cmp - generated-assets/knowledge/libchecker-v5.json.sha256
 unzip -p "$apk" assets/db/_init > "$tmp/db-init"
@@ -116,6 +117,7 @@ manifest="$(dirname "$apk")/build-manifest.txt"
   sha256sum patches/android-resource-engine.patch
   sha256sum hash-engine/source-lock.json
   sha256sum regex-engine/source-lock.json
+  sha256sum regex-engine/tracker-unicode-lock.json
   echo "Canonical LibChecker catalog SHA-256: $(cat generated-assets/knowledge/libchecker-v5.json.sha256)"
   cat generated-assets/engine-revisions.properties generated-assets/knowledge/revisions.txt
   cat app/src/main/assets/analysis-engines.properties

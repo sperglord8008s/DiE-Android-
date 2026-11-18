@@ -70,6 +70,7 @@ public final class InvestigationActivity extends Activity {
         else if ("resources".equals(getIntent().getStringExtra("provider"))) backend = new AndroidResourceBackend(root,new File(getCacheDir(),"resource-snapshots"),inputName,new BinaryWorkerClient(this,"resources"));
         else if ("hashes".equals(getIntent().getStringExtra("provider"))) backend = new HashBackend(root,new File(getCacheDir(),"hash-snapshots"),inputName,new BinaryWorkerClient(this,"hashes"));
         else if ("sdk-rules".equals(getIntent().getStringExtra("provider"))) backend = new SdkCatalogBackend(()->getAssets().open("knowledge/libchecker-v5.json"),new File(getCacheDir(),"knowledge-snapshots"));
+        else if ("tracker-rules".equals(getIntent().getStringExtra("provider"))) backend = new TrackerCatalogBackend(()->new FileInputStream(new File(getFilesDir(),"exodus-trackers.json")),new File(getCacheDir(),"tracker-snapshots"));
         else if ("metadata".equals(getIntent().getStringExtra("provider"))) backend = new MetadataBackend(root,new File(getCacheDir(),"metadata-snapshots"),inputName);
         else if ("strings".equals(getIntent().getStringExtra("provider"))) backend = new StringBackend(root,new File(getCacheDir(),"string-snapshots"),inputName,ScanPreferences.load(this).minimumStringLength);
         else backend = new DexBackend(root, new File(getCacheDir(), "investigation-inputs"), inputName,
@@ -87,7 +88,7 @@ public final class InvestigationActivity extends Activity {
             } catch (IOException e) { status.setText("Prepared export expired; prepare it again"); }
         }
         bind(location);
-        if (root.isFile()||"sdk-rules".equals(getIntent().getStringExtra("provider"))) load(location, false);
+        if (root.isFile()||"sdk-rules".equals(getIntent().getStringExtra("provider"))||"tracker-rules".equals(getIntent().getStringExtra("provider"))) load(location, false);
         else { status.setText("Input snapshot expired; reopen it from Scan. An available prepared export can still finish."); controls(); }
     }
     private void createViews() {
@@ -202,7 +203,11 @@ public final class InvestigationActivity extends Activity {
     }
     private void rootViews() {
         if (busy || pickerOpen) return; String[] names = new String[roots.size()]; for (int i = 0; i < names.length; i++) names[i] = roots.get(i).label;
-        new AlertDialog.Builder(this).setTitle("Root evidence views").setItems(names, (dialog, which) -> navigate(roots.get(which))).setNegativeButton("Cancel", null).show();
+        new AlertDialog.Builder(this).setTitle("Root evidence views").setItems(names, (dialog, which) -> followLink(roots.get(which))).setNegativeButton("Cancel", null).show();
+    }
+    private void followLink(InvestigationBackend.Link link) {
+        if (link.binary) prepare(stop -> PreparedExport.bytes(exportDirectory,link.textName,backend.binaryValue(link.request,stop::get),stop::get));
+        else if (link.textName != null) renderText(link); else navigate(link);
     }
     private void showText(String caption, String value) {
         ScrollView scroll = new ScrollView(this); String displayed = value.length() > 128 * 1024 ? value.substring(0,128 * 1024) + "\n\nDISPLAY PREVIEW: full scoped JSON remains available through export." : value;
@@ -239,10 +244,7 @@ public final class InvestigationActivity extends Activity {
     }
     private void actionDialog(EvidenceRows.Row row, List<InvestigationBackend.Link> links) {
         List<String> labels = new ArrayList<>(); List<Runnable> actions = new ArrayList<>();
-        for (InvestigationBackend.Link link : links) { labels.add(link.label); actions.add(() -> {
-            if (link.binary) prepare(stop -> PreparedExport.bytes(exportDirectory,link.textName,backend.binaryValue(link.request,stop::get),stop::get));
-            else if (link.textName == null) navigate(link); else renderText(link);
-        }); }
+        for (InvestigationBackend.Link link : links) { labels.add(link.label); actions.add(() -> followLink(link)); }
         if (row.physicalOffset != null && row.physicalOffset < byteSize) {
             labels.add("Hex at associated physical offset"); actions.add(() -> {
                 if (!bytes.isFile() || bytes.length() != byteSize) { status.setText("Input snapshot expired or changed; reopen it from Scan"); return; }

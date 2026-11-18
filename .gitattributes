@@ -14,3 +14,5 @@ app/src/main/assets/notices/android-resources-32.5.1.txt -text whitespace=-blank
 patches/android-resource-engine.patch whitespace=-blank-at-eol
 hash-engine/third_party/rhash/* -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
 regex-engine/third_party/re2j/** -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+app/src/main/assets/notices/unicode-15.0.0.txt -text whitespace=-blank-at-eol,-blank-at-eof
+app/src/main/java/org/diemobile/TrackerUnicode.java -text

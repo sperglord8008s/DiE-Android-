@@ -68,13 +68,19 @@ final class DexDocument {
             .put("engine", ENGINE).put("engineVersion", VERSION).put("networkUsed", false).put("executionObserved", false);
     }
     Set<String> definedClassNames(BooleanSupplier cancelled) throws Exception {
+        return definedClasses(false,cancelled);
+    }
+    Set<String> definedClassDescriptors(BooleanSupplier cancelled) throws Exception {
+        return definedClasses(true,cancelled);
+    }
+    private Set<String> definedClasses(boolean descriptors,BooleanSupplier cancelled) throws Exception {
         Set<String> result = new TreeSet<>(); int count = 0;
         for (Entry entry : entries) for (int i = 0; i < entry.dex.getClassSection().size(); i++) {
             EvidenceRows.check(cancelled);
             if (++count > MAX_CLASSES) throw new IOException("Defined-class inspection exceeds 120,000 records");
             String descriptor = entry.dex.getClassSection().get(i).getType();
             if (!descriptor.startsWith("L") || !descriptor.endsWith(";") || descriptor.length() < 3) throw new IOException("Invalid class definition descriptor");
-            result.add(descriptor.substring(1, descriptor.length() - 1).replace('/', '.'));
+            result.add(descriptors?descriptor:descriptor.substring(1, descriptor.length() - 1).replace('/', '.'));
         }
         return Collections.unmodifiableSet(result);
     }
