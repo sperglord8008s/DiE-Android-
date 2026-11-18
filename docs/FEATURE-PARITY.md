@@ -103,3 +103,9 @@ fixtures preserve every result/first witness/span against unfiltered searches
 across 191 mixed patterns; 400 rules over 30,003 descriptors finish with three
 regex searches. All 428 active patterns of the separately audited public
 snapshot qualify for 3,139 index states. Device performance remains unverified.
+
+Build dependency checks now stage and verify downloads before publishing cache
+files, retain checksum rejection for existing inputs, refuse missing offline
+dependencies and share public CI inputs between test steps. Interrupted/invalid
+download fixtures and real offline signing/DEX/AAPT2 references pass. This
+addresses a reproduced Maven HTTP 429 failure without bypassing a test or pin.

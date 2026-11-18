@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-only
+set -euo pipefail
+cd "$(dirname "$0")/.."
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+mkdir -p "$tmp/bin"
+cat > "$tmp/bin/curl" <<'MOCK'
+#!/usr/bin/env bash
+set -eu
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" = -o ]]; then destination="$2"; shift 2; else shift; fi
+done
+printf 'called\n' >> "$DEPENDENCY_FETCH_CALLS"
+case "$DEPENDENCY_FETCH_MODE" in
+  valid) printf 'known complete bytes\n' > "$destination" ;;
+  checksum) printf 'wrong complete bytes\n' > "$destination" ;;
+  interrupted) printf 'partial' > "$destination"; exit 22 ;;
+esac
+MOCK
+chmod +x "$tmp/bin/curl"
+export PATH="$tmp/bin:$PATH" DEPENDENCY_FETCH_CALLS="$tmp/calls" DEPENDENCY_FETCH_MODE=valid
+checksum=$(printf 'known complete bytes\n' | sha256sum | cut -d' ' -f1)
+source scripts/fetch-verified.sh
+fetch_verified_dependency "$tmp/cache/dependency.jar" "$checksum" https://fixture.invalid/public.jar
+test "$(cat "$tmp/cache/dependency.jar")" = 'known complete bytes'
+test "$(wc -l < "$tmp/calls")" -eq 1
+fetch_verified_dependency "$tmp/cache/dependency.jar" "$checksum" https://fixture.invalid/public.jar
+test "$(wc -l < "$tmp/calls")" -eq 1
+export DEPENDENCY_FETCH_MODE=interrupted
+if fetch_verified_dependency "$tmp/cache/interrupted.jar" "$checksum" https://fixture.invalid/public.jar; then echo 'Interrupted download was published.' >&2; exit 1; fi
+test ! -e "$tmp/cache/interrupted.jar"
+test -z "$(find "$tmp/cache" -name '*.download.*' -print)"
+export DEPENDENCY_FETCH_MODE=checksum
+if fetch_verified_dependency "$tmp/cache/wrong.jar" "$checksum" https://fixture.invalid/public.jar; then echo 'Wrong checksum was published.' >&2; exit 1; fi
+test ! -e "$tmp/cache/wrong.jar"
+test -z "$(find "$tmp/cache" -name '*.download.*' -print)"
+printf 'edited cached bytes\n' > "$tmp/cache/edited.jar"
+if fetch_verified_dependency "$tmp/cache/edited.jar" "$checksum" https://fixture.invalid/public.jar; then echo 'Edited cache was accepted.' >&2; exit 1; fi
+test "$(cat "$tmp/cache/edited.jar")" = 'edited cached bytes'
+test "$(wc -l < "$tmp/calls")" -eq 3
+export DIE_OFFLINE=true DEPENDENCY_FETCH_MODE=valid
+fetch_verified_dependency "$tmp/cache/dependency.jar" "$checksum" https://fixture.invalid/public.jar
+if fetch_verified_dependency "$tmp/cache/missing.jar" "$checksum" https://fixture.invalid/public.jar; then echo 'Missing offline input was accepted.' >&2; exit 1; fi
+test "$(wc -l < "$tmp/calls")" -eq 3
+printf '%s\n' 'Verified dependency acquisition: reuse, interrupted/incorrect download cleanup, unchanged edited cache and offline no-network behavior passed.'

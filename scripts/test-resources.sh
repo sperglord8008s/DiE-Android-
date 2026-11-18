@@ -11,15 +11,7 @@ source scripts/test-dependencies.sh
 load_json_test_dependency "$tmp"
 cache="${RESOURCE_DEPS_DIR:-$PWD/vendor/resource-downloads}"
 python3 tests/test-resource-source.py "$cache"
-fetch() {
-  local name="$1" digest="$2" url="$3"
-  if [[ ! -f "$cache/$name" ]]; then
-    if [[ "${DIE_OFFLINE:-false}" = true ]]; then echo "Offline resource checks need $name in RESOURCE_DEPS_DIR." >&2; exit 1; fi
-    curl --fail --location --silent --show-error --max-filesize 8388608 "$url" -o "$cache/$name.download"
-    mv "$cache/$name.download" "$cache/$name"
-  fi
-  printf '%s  %s\n' "$digest" "$cache/$name" | sha256sum -c -
-}
+fetch() { fetch_verified_dependency "$cache/$1" "$2" "$3"; }
 fetch auto-value-1.11.0.jar aaf8d637bfed3c420436b9facf1b7a88d12c8785374e4202382783005319c2c3 https://repo.maven.apache.org/maven2/com/google/auto/value/auto-value/1.11.0/auto-value-1.11.0.jar
 fetch auto-value-annotations-1.11.0.jar 5a055ce4255333b3346e1a8703da5bf8ff049532286fdcd31712d624abe111dd https://repo.maven.apache.org/maven2/com/google/auto/value/auto-value-annotations/1.11.0/auto-value-annotations-1.11.0.jar
 fetch checker-compat-qual-2.5.5.jar 11d134b245e9cacc474514d2d66b5b8618f8039a1465cdc55bbc0b34e0008b7a https://repo.maven.apache.org/maven2/org/checkerframework/checker-compat-qual/2.5.5/checker-compat-qual-2.5.5.jar

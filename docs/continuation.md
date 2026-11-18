@@ -63,6 +63,18 @@ For offline host tests, `APKSIG_JAR` and `JSON_JAR` accept cached dependencies b
 
 The workflow has separate Android/lint/package/UI, Linux JNI, APK/model, Binwalk and media jobs. The `die-android-arm64-debug` artifact contains the APK, adjacent SHA-256 file and `build-manifest.txt` with the source revision, bundled data revisions and signer identity. Packaging checks verify the APK signature, application ID/API levels, absence of INTERNET permission, bundled revision/license assets, ELF LOAD segment alignment and ZIP library placement for 16 KiB pages. Static alignment is **not** an Android 16 KiB runtime test. Debug keys, build paths and timestamps can differ between environments; bit-identical signed artifacts are not claimed. No release-signing identity was replaced. Preserve the last successful build's APK as fallback when doing device work.
 
+Host dependency acquisition now uses a shared checksum-verifying staging helper
+for DEX/runtime dependencies, host JSON, apksig and resource-test processors.
+Transient HTTP failures get bounded retries; incomplete or wrong-checksum files
+are removed before publication, while existing mismatched cache bytes fail
+without being replaced. `DIE_OFFLINE=true` refuses missing inputs without a
+download attempt. CI shares public host inputs through ignored `.ci-cache/`
+paths and an Actions cache keyed by dependency scripts/locks; every use still
+checks its pin. This prevents each test step from redownloading the same JARs.
+`bash tests/test-dependency-fetch.sh` exercises reuse, interrupted/incorrect
+downloads, edited-cache preservation and offline no-network behavior. Actual
+offline DEX, signing and required AAPT2 fixtures validate the helper's integration.
+
 Engine: `f055daa56fd3feef1db4d6dbc187cb292de24ea9`; signature data: `7ef816ee64ee36b4884da6b930a11542742affb7`. Knowledge versions remain pinned by `scripts/fetch-knowledge.sh`. No vendor checkout edits are required.
 
 ## Next priorities
