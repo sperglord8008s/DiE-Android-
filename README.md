@@ -14,6 +14,7 @@ Development alpha with host JNI, Android UI simulation and CI build checks; hand
 - Shared persisted settings between Scan and the signature laboratory; captured options are exported with the result. Searchable detection evidence is paged without discarding records.
 - **Options / laboratory → Saved scan option profiles** captures all shared flags, tags and string minimum, with named UUIDs, complete source metadata, strict catalog import/export, revision-checked atomic storage and apply/rename/update/delete. Pending exports survive catalog changes/recreation. Host and six Android/real-engine cases pass; Qt/manual-format/tool settings and handset durability remain incomplete. See [profile contracts](docs/scan-profiles.md).
 - **Scan → Batch** captures 1–64 documents for serial real CDiE/native-facts scans, whole-file identities, fixed options/database revisions and a persistent per-file outcome journal. Searchable native trees, independently owned byte views, complete staged exports and saved-batch deletion retain failed/cancelled scopes. Host and seven actual-engine Android cases cover ownership/lifecycle; directory/background jobs and real device/provider flows remain incomplete. See [batch contracts](docs/batch-scanning.md).
+- **Batch results → record Actions → Compare native report with #…** compares captured native trees with exact fields, ancestry and duplicate occurrence order. Both report identities/options/rules remain visible; failed scans stay uncompared. Original-row links and complete staged exports preserve source scope. Independent random/deep/budget fixtures and three additional real-CDiE viewer cases pass; broader semantic/package/cross-batch comparison remains incomplete. See [scan comparison contracts](docs/scan-comparison.md).
 - Offline custom-rule ZIP import, native load checks, immutable SHA-256 snapshots, activation/rollback and original archive export; helpers, tag metadata and licensing notices are retained. No automatic network database updates.
 - Versioned structured JSON reports capture content identity, original scan options, engine/database revisions, native evidence and limits before the system picker. Immutable staging survives pending-picker recreation/source expiry and preserves exact decoded Unicode, including isolated UTF-16 units. See [schema and lifecycle](docs/report-schema.md).
 - Searchable, paginated maps/imports/exports/symbols/resources/instructions with every native field, contextual explanations and explicit unsupported/errors. Navigate physical offsets or unsigned preferred VAs to hex/disassembly, retain Back context, measure range entropy/digests and export exact stored resource bytes. See [contracts and limits](docs/native-records.md).
@@ -39,6 +40,7 @@ bash scripts/test-models.sh
 bash scripts/test-profiles.sh
 bash scripts/test-batch.sh
 bash scripts/test-comparison.sh
+bash scripts/test-scan-comparison.sh
 bash scripts/test-dex.sh
 bash scripts/test-resources.sh
 bash scripts/fetch-engine.sh

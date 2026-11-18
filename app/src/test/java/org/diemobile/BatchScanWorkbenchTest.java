@@ -32,6 +32,8 @@ import java.util.concurrent.*;
 public final class BatchScanWorkbenchTest {
     private ActivityController<BatchScanActivity> controller;
     private BatchScanActivity activity;
+    private ActivityController<InvestigationActivity> comparisonController;
+    private InvestigationActivity investigation;
     private File root;
     private byte[] elf;
     private final ScanOptions captured =
@@ -56,6 +58,11 @@ public final class BatchScanWorkbenchTest {
 
     @After
     public void cleanup() throws Exception {
+        if (comparisonController != null) {
+            ExecutorService worker = ReflectionHelpers.getField(investigation, "worker");
+            comparisonController.pause().stop().destroy();
+            assertTrue(worker.awaitTermination(30, TimeUnit.SECONDS));
+        }
         if (controller != null) {
             Object state = state();
             controller.pause().stop().destroy();
@@ -385,5 +392,182 @@ public final class BatchScanWorkbenchTest {
         settle();
         assertFalse(session.directory.exists());
         assertFalse(button("results").isEnabled());
+    }
+
+    private void viewerSettle() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            ReflectionHelpers.<ExecutorService>getField(investigation, "worker")
+                    .submit(() -> {})
+                    .get(30, TimeUnit.SECONDS);
+            Shadows.shadowOf(Looper.getMainLooper()).idle();
+            if (!ReflectionHelpers.<Boolean>getField(investigation, "busy")) return;
+        }
+        fail("Comparison viewer did not settle");
+    }
+
+    private EvidenceRows viewerRows() {
+        return ReflectionHelpers.getField(investigation, "source");
+    }
+
+    private Button viewerButton(String field) {
+        return ReflectionHelpers.getField(investigation, field);
+    }
+
+    private void viewerChoose(String label) {
+        AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
+        ListView choices = dialog.getListView();
+        for (int i = 0; i < choices.getAdapter().getCount(); i++)
+            if (choices.getAdapter().getItem(i).toString().equals(label)) {
+                choices.performItemClick(null, i, i);
+                return;
+            }
+        fail("Missing native comparison action: " + label);
+    }
+
+    private void viewerRoot(String label) throws Exception {
+        viewerButton("views").performClick();
+        viewerChoose(label);
+        viewerSettle();
+    }
+
+    private void viewerAction(int position, String label) throws Exception {
+        ReflectionHelpers.<ListView>getField(investigation, "records")
+                .performItemClick(null, position, position);
+        ShadowAlertDialog.getLatestAlertDialog()
+                .getButton(AlertDialog.BUTTON_POSITIVE)
+                .performClick();
+        viewerSettle();
+        viewerChoose(label);
+        viewerSettle();
+    }
+
+    private BatchScanSession openNativeComparison() throws Exception {
+        start(input("first.bin", elf), input("second.bin", elf));
+        settle();
+        BatchScanSession captured = session();
+        button("results").performClick();
+        Intent intent = Shadows.shadowOf(activity).getNextStartedActivity();
+        comparisonController =
+                Robolectric.buildActivity(InvestigationActivity.class, intent).setup().visible();
+        investigation = comparisonController.get();
+        viewerSettle();
+        viewerAction(0, "Compare native report with #1 second.bin");
+        return captured;
+    }
+
+    @Test
+    public void actualNativeTreesCompareAndJumpToOriginalSourceOrdinals() throws Exception {
+        BatchScanSession captured = openNativeComparison();
+        JSONObject summary = viewerRows().row(0, () -> false).json();
+        assertTrue(summary.toString(), summary.getBoolean("comparisonPerformed"));
+        assertTrue(summary.toString(), summary.getInt("matched") > 0);
+        assertEquals(0, summary.getInt("leftOnly"));
+        assertEquals(0, summary.getInt("rightOnly"));
+        assertTrue(summary.getJSONObject("conditions").getBoolean("sameCapturedInputIdentity"));
+        assertFalse(summary.getJSONObject("conditions").getBoolean("configurationDiffers"));
+        assertEquals(
+                captured.entries.get(1).reportSha256,
+                summary.getJSONObject("capturedReportIdentity")
+                        .getJSONObject("right")
+                        .getString("reportSha256"));
+        viewerRoot("Native comparison • matched");
+        JSONObject pair = viewerRows().row(0, () -> false).json();
+        assertNull(viewerRows().row(0, () -> false).physicalOffset);
+        int originalIndex = pair.getInt("rightRowIndex");
+        viewerAction(0, "Original right native row #" + originalIndex);
+        JSONObject original = viewerRows().row(originalIndex, () -> false).json();
+        assertEquals(1, original.getInt("sourceIndex"));
+        assertEquals(
+                captured.report(captured.entries.get(1), () -> false)
+                        .getJSONObject("scan")
+                        .getJSONArray("rows")
+                        .getJSONObject(originalIndex)
+                        .toString(),
+                original.getJSONObject("nativeRow").toString());
+        viewerAction(0, "Exact owned input / hex / range export");
+        JSONObject origin =
+                new JSONObject(ReflectionHelpers.<String>getField(investigation, "provenance"));
+        assertEquals(1, origin.getJSONObject("byteSource").getInt("sourceIndex"));
+        assertArrayEquals(
+                elf,
+                Files.readAllBytes(
+                        ReflectionHelpers.<File>getField(investigation, "bytes").toPath()));
+        viewerButton("back").performClick();
+        viewerSettle();
+        viewerButton("back").performClick();
+        viewerSettle();
+        comparisonController.recreate();
+        investigation = comparisonController.get();
+        viewerSettle();
+        assertEquals(summary.getInt("matched"), viewerRows().size());
+    }
+
+    @Test
+    public void completeNativeComparisonExportOutlivesFilterSessionAndRecreation()
+            throws Exception {
+        BatchScanSession captured = openNativeComparison();
+        int matched = viewerRows().row(0, () -> false).json().getInt("matched");
+        viewerRoot("Native comparison • all");
+        ReflectionHelpers.<EditText>getField(investigation, "filter")
+                .setText("no-native-record-matches-this-fixture");
+        viewerButton("search").performClick();
+        viewerSettle();
+        assertEquals(
+                0, ReflectionHelpers.<EvidenceRows.Page>getField(investigation, "shown").matches);
+        viewerRoot("Preview / export complete native-tree comparison JSON");
+        ShadowAlertDialog.getLatestAlertDialog()
+                .getButton(AlertDialog.BUTTON_POSITIVE)
+                .performClick();
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+        var picker = Shadows.shadowOf(investigation).getNextStartedActivityForResult();
+        assertNotNull(picker);
+        assertEquals("application/json", picker.intent.getType());
+        PreparedExport prepared = ReflectionHelpers.getField(investigation, "prepared");
+        byte[] bytes = Files.readAllBytes(prepared.file.toPath());
+        captured.delete();
+        ScanPreferences.save(activity, new ScanOptions(0, 3, "later", ""));
+        comparisonController.recreate();
+        investigation = comparisonController.get();
+        viewerSettle();
+        Uri destination = Uri.parse("content://org.diemobile.test/native-comparison-export");
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        Shadows.shadowOf(investigation.getContentResolver())
+                .registerOutputStream(destination, output);
+        investigation.onActivityResult(1, Activity.RESULT_OK, new Intent().setData(destination));
+        viewerSettle();
+        assertArrayEquals(bytes, output.toByteArray());
+        JSONObject exported = new JSONObject(output.toString(StandardCharsets.UTF_8));
+        assertEquals(matched, exported.getJSONArray("records").length());
+        assertEquals(
+                captured.id, exported.getJSONObject("capturedReportIdentity").getString("batchId"));
+        assertEquals(
+                captured.options.flags,
+                exported.getJSONObject("left").getJSONObject("options").getInt("flags"));
+        assertFalse(prepared.file.exists());
+    }
+
+    @Test
+    public void changedStoredReportFailsRecreationWithoutInventingAnEmptyComparison()
+            throws Exception {
+        BatchScanSession captured = openNativeComparison();
+        int matched = viewerRows().row(0, () -> false).json().getInt("matched");
+        File report = new File(captured.directory, captured.entries.get(1).reportName);
+        byte[] original = Files.readAllBytes(report.toPath()), changed = original.clone();
+        changed[changed.length - 1] ^= 1;
+        Files.write(report.toPath(), changed);
+        comparisonController.recreate();
+        investigation = comparisonController.get();
+        viewerSettle();
+        assertNull(viewerRows());
+        assertTrue(
+                ReflectionHelpers.<TextView>getField(investigation, "status")
+                        .getText()
+                        .toString()
+                        .contains("SHA-256 changed"));
+        Files.write(report.toPath(), original);
+        viewerButton("reload").performClick();
+        viewerSettle();
+        assertTrue(viewerRows().row(0, () -> false).json().getBoolean("comparisonPerformed"));
+        assertEquals(matched, viewerRows().row(0, () -> false).json().getInt("matched"));
     }
 }

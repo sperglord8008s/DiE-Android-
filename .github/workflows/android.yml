@@ -112,6 +112,7 @@ jobs:
       - run: bash scripts/test-profiles.sh
       - run: bash scripts/test-batch.sh
       - run: bash scripts/test-comparison.sh
+      - run: bash scripts/test-scan-comparison.sh
       - run: bash scripts/test-dex.sh
       - run: bash scripts/test-strings.sh
       - run: bash scripts/test-metadata.sh
