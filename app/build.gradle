@@ -82,6 +82,7 @@ tasks.named('preBuild').configure { dependsOn verifyHashSources }
 dependencies {
     implementation project(':metadata-engine')
     implementation project(':resource-engine')
+    implementation project(':regex-engine')
     implementation 'com.android.tools.build:apksig:8.9.2'
     // Google's maintained BSD-3-Clause smali fork; data parsing/formatting only.
     implementation 'com.android.tools.smali:smali-dexlib2:3.0.10'

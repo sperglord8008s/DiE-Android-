@@ -26,7 +26,17 @@ def write(relative, text):
 write("AndroidManifest.xml", '''<manifest xmlns:android="http://schemas.android.com/apk/res/android"
  package="org.diemobile.resource.reference" android:versionCode="7" android:versionName="fixture">
  <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35"/>
- <application android:label="@string/title" android:debuggable="false" android:hasCode="false"/>
+ <uses-permission android:name="android.permission.INTERNET"/>
+ <application android:label="@string/title" android:debuggable="false" android:hasCode="false">
+  <uses-library android:name="com.google.android.trichromelibrary" android:required="false"/>
+  <meta-data android:name="sdk.reference.marker" android:value="fixture"/>
+  <service android:name="com.qihoo360.replugin.component.service.server.PluginPitServiceP1" android:exported="false">
+   <intent-filter><action android:name="com.baidu.action.SOFIRE.VIEW"/></intent-filter>
+  </service>
+  <activity android:name=".ReferenceActivity" android:exported="false"/>
+  <receiver android:name="ReferenceReceiver" android:exported="false"/>
+  <provider android:name=".ReferenceProvider" android:authorities="org.diemobile.reference.provider" android:exported="false"/>
+ </application>
 </manifest>''')
 write("res/values/values.xml", '''<resources>
  <string name="title">FOSS Ω 東京 😀</string><string name="styled">plain <b>bold</b> text</string>

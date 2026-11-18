@@ -33,7 +33,7 @@ javac --release 8 -cp "$dex_test_classpath:$cache/auto-value-annotations-1.11.0.
   tests/fixtures/resources/ResourceFixtureFactory.java tests/ResourceEngineTest.java
 java -cp "$tmp/classes:$dex_test_classpath" org.diemobile.ResourceEngineTest
 javac -cp "$tmp/classes:$dex_test_classpath:$json_test_jar" -d "$tmp/classes" \
-  app/src/main/java/org/diemobile/{Inspector,EvidenceJson,EvidenceRows,InputSnapshot,ArchiveStore,FileRange,RangeAnalysis,PreparedExport,InvestigationBackend,BinaryRunner,AndroidResourceFacts,AndroidResourceProbe,AndroidResourceDocument,AndroidResourceBackend}.java \
+  app/src/main/java/org/diemobile/{Inspector,EvidenceJson,EvidenceRows,InputSnapshot,ArchiveStore,FileRange,RangeAnalysis,PreparedExport,InvestigationBackend,BinaryRunner,AndroidResourceFacts,AndroidResourceProbe,AndroidResourceDocument,AndroidResourceBackend,SdkManifestNames}.java \
   tests/ResourceInvestigationTest.java
 python3 tests/generate-resource-reference.py "$tmp/reference"
 references=()

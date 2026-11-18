@@ -17,8 +17,16 @@ final class KnowledgeReport {
  static final long MAX_TOTAL_DEX=96L*1024*1024;
  static final class Output {
   StringBuilder guide=new StringBuilder(), apk=new StringBuilder();
-  void section(String s){apk.append("\n").append(s).append("\n");}
-  void item(String s){apk.append("• ").append(s).append("\n");}
+  Set<Integer> describedRules=new HashSet<>();
+  BooleanSupplier cancelled=()->false;
+  boolean clipped;
+  void append(String text){
+   if(clipped)return;
+   if(text.length()>16*1024*1024-apk.length()-256){apk.append("\nPARTIAL: APK summary exceeds its 16 Mi-character budget. The binary manifest, DEX, signing and full SDK rule tools have separate scopes and limits.\n");clipped=true;return;}
+   apk.append(text);
+  }
+  void section(String s){append("\n"+s+"\n");}
+  void item(String s){append("• "+s+"\n");}
  }
  static String read(InputStream in,int max)throws IOException{
   return new String(bytes(in,max),StandardCharsets.UTF_8);
@@ -39,6 +47,7 @@ final class KnowledgeReport {
  }
  static Output analyze(Context c,File file,Inspector.Result r,String displayName,BooleanSupplier cancelled){
   Output o=new Output();
+  o.cancelled=cancelled;
   o.guide.append("FILE 101\n\n").append(displayName).append("\n\n");
   o.guide.append("Observed format: ").append(r.type).append("\n");
   String t=r.type;
@@ -54,7 +63,7 @@ final class KnowledgeReport {
   o.guide.append("Entropy estimates how evenly byte values occur. Compression, encryption, images and random data can all produce high entropy. Low entropy may reflect repeated data or padding. Neither establishes malware or encryption. Use the graph to locate transitions, then inspect the corresponding content.\n\nSIGNATURES\nCDiE compares file structures and patterns against its database. A matching compiler, packer or SDK identifies a possible technology, not a verified author or runtime behavior. A missed match does not establish absence.\n\nSTRINGS AND HEX\nStrings are printable byte sequences and may expose names or configuration; they may also be unused or coincidental. Hex displays original bytes; an offset is a position in the file, not always a virtual memory address. Previews are bounded.\n\nLIMITS\nStatic analysis only: no app is installed, executed, or submitted online. Results are not a safety verdict. Malformed, encrypted, split or obfuscated content may be missed. Individual detection details in Scan show underlying rule output.\n");
   if(t.startsWith("ELF"))try{elf(file,o);}catch(Exception e){o.guide.append("\nELF header detail unavailable: ").append(e.getMessage()).append("\n");}
   if(t.contains("ZIP"))try{archive(c,file,o,cancelled);}catch(Exception e){o.item("Archive inspection incomplete: "+e.getMessage());}
-  else if(t.contains("DEX"))try{DexDocument document=DexDocument.read(file,cancelled);Set<String> classes=document.definedClassNames(cancelled);dexSummary(o,displayName,document);o.item("Distinct MUTF-8/Unicode defined class names inspected: "+classes.size());trackers(c,classes,o); }catch(Exception e){o.item("DEX inspection incomplete: "+e.getMessage());}
+  else if(t.contains("DEX"))try{DexDocument document=DexDocument.read(file,cancelled);Set<String> classes=document.definedClassNames(cancelled);dexSummary(o,displayName,document);o.item("Distinct MUTF-8/Unicode defined class names inspected: "+classes.size());dexLibraries(catalog(c,cancelled),classes,o,cancelled);trackers(c,classes,o); }catch(Exception e){o.item("DEX inspection incomplete: "+e.getMessage());}
   else o.apk.append("Not a recognized ZIP/APK or DEX input. Use File info / File 101 for general interpretation.\n");
   return o;
  }
@@ -126,23 +135,78 @@ final class KnowledgeReport {
   o.section(manifest?"APK structure":"ZIP structure");o.item("Entries inspected: "+Math.min(count,MAX_ENTRIES));o.item("Declared expanded bytes: "+total+" (header values, not verified decompressed size)");
   o.item("DEX files encountered in the inspected inventory: "+dexCount+"; distinct MUTF-8/Unicode defined class names inspected: "+classes.size());
   o.item("Native ABI folders: "+(abis.isEmpty()?"none seen":abis));if(partial)o.item("PARTIAL: archive/DEX limits or parser errors; results are not exhaustive.");
-  JSONObject rules=null;try{rules=asset(c,"knowledge/libchecker.json");}catch(Exception e){o.item("LibChecker rule database unavailable: "+e.getMessage());}
+  KnowledgeCatalog rules=null;try{rules=catalog(c,cancelled);o.section("LibChecker canonical matcher evidence");o.item("Catalog source "+KnowledgeCatalog.SOURCE+"; SHA-256 "+rules.sha256+"; active matchers="+rules.matcher.rules.size()+"; unsupported regex="+rules.matcher.unsupported.size()+". Exact equality precedes priority-ordered whole-string regex; names alone do not verify code identity.");}catch(Exception e){o.item("LibChecker canonical database unavailable: "+e.getMessage());}
   o.section("Native libraries — machine-code modules loaded by applications");
-  for(String n:nativeNames){o.item(n);match(o,rules,"native-libs",n);}
+  for(String n:nativeNames){EvidenceRows.check(cancelled);if(o.clipped)break;o.item(n);match(o,rules,"native-libs",n);}
   if(nativeNames.isEmpty())o.item("No conventional lib/<ABI>/*.so entries seen; code could be stored elsewhere.");
-  if(manifest){o.guide.append("\nAPK FOUND\nThis archive contains AndroidManifest.xml. See APK / SDKs for package identity, permissions, exposed components, library evidence and community package guidance. The report describes requested capabilities, not actions observed in use.\n");o.apk.append(ApkSigningReport.analyze(file));pkg(c,file,o,rules);}
+  if(manifest){o.guide.append("\nAPK FOUND\nThis archive contains AndroidManifest.xml. See APK / SDKs for package identity, permissions, exposed components, library evidence and community package guidance. The report describes requested capabilities, not actions observed in use.\n");o.append(ApkSigningReport.analyze(file));pkg(c,file,o,rules);manifestLibraries(c,file,o,rules,cancelled);}
+  if(dexCount>0&&rules!=null)dexLibraries(rules,classes,o,cancelled);
   if(dexCount>0)trackers(c,classes,o);
   o.section("Archive inventory (first 1,000 entries; no extraction)");for(String n:entries)o.item(n);
   if(count>entries.size())o.item("Inventory truncated.");
  }
- static void match(Output o,JSONObject rules,String kind,String evidence){
-  if(rules==null)return;JSONObject m=rules.optJSONObject(kind+":"+evidence);if(m==null)return;
-  o.item("LibChecker exact-name match: "+m.optString("label","Unnamed rule")+" — "+m.optString("dev_team","Unknown team"));
-  String desc=m.optString("description");if(!desc.isEmpty())o.item(desc);
-  String link=m.optString("source_link");if(!link.isEmpty())o.item("Source: "+link);
-  o.item("Evidence: "+kind+" / "+evidence+"; name matching only, not verified code identity.");
+ static KnowledgeCatalog catalog(Context c,BooleanSupplier stop)throws Exception{
+  try(InputStream input=c.getAssets().open("knowledge/libchecker-v5.json")){return KnowledgeCatalog.read(input,stop);}
  }
- static void pkg(Context c,File f,Output o,JSONObject rules){
+ static void match(Output o,KnowledgeCatalog rules,String kind,String evidence){
+  if(rules==null)return;
+  int type=kind.equals("native-libs")?0:kind.equals("services-libs")?1:kind.equals("activities-libs")?2:kind.equals("receivers-libs")?3:kind.equals("providers-libs")?4:-1;
+  if(type<0){o.item("Unsupported library evidence type: "+kind);return;}
+  match(o,rules,type,evidence,kind,()->Thread.currentThread().isInterrupted()||o.cancelled.getAsBoolean());
+ }
+ static void match(Output o,KnowledgeCatalog rules,int type,String evidence,String origin,BooleanSupplier cancelled){
+  if(rules==null)return;
+  try{
+   NameMatcher.Match hit=rules.matcher.match(type,evidence,cancelled);if(hit==null)return;
+   NameMatcher.Rule rule=hit.rule;JSONObject description=rules.english(rule);
+   o.item("LibChecker "+hit.method+": "+rules.label(rule)+" [matcher "+rule.id+", UUID "+rule.original.getString("uuid")+", priority "+rule.priority+"]");
+   o.item("Evidence: "+origin+" / "+evidence+"; original pattern/name: "+rule.name);
+   if(o.describedRules.add(rule.id)){
+    String team=description.optString("dev_team");if(!team.isEmpty())o.item("Development team: "+team);
+    String text=description.optString("description");if(!text.isEmpty())o.item(text);
+    String link=description.optString("source_link");if(!link.isEmpty())o.item("Source: "+link);
+    o.item("Name association only; code identity, loading and use are not established. The complete effective locale payload is available in the SDK rule catalog.");
+   }
+  }catch(Exception error){o.item("Library matching incomplete: "+error.getMessage());}
+ }
+ static void dexLibraries(KnowledgeCatalog rules,Set<String> classes,Output output,BooleanSupplier stop)throws Exception{
+  output.section("LibChecker DEX package-name evidence");Set<String> seen=new HashSet<>();long units=0;int matches=0;
+  for(String name:classes){
+   EvidenceRows.check(stop);int dot=name.lastIndexOf('.');
+   for(int depth=0;dot>0;depth++){
+    if(depth>=64)throw new IOException("DEX package hierarchy exceeds 64 levels; library-name matching incomplete");
+    String prefix=name.substring(0,dot);
+    if(seen.add(prefix)){
+     units+=prefix.length();if(seen.size()>250000||units>16L*1024*1024)throw new IOException("DEX package-name evidence exceeds count/text budgets; no exhaustive SDK result");
+     NameMatcher.Match hit=rules.matcher.match(5,prefix,stop);
+     if(hit!=null){matches++;match(output,rules,5,prefix,"derived package ancestor of defined class "+name,stop);}
+    }
+    dot=name.lastIndexOf('.',dot-1);
+   }
+  }
+  output.item(seen.size()+" distinct package ancestors inspected; "+matches+" name associations. Class names are defined-class metadata, not evidence of calls or SDK invocation.");
+ }
+ static void manifestLibraries(Context context,File input,Output output,KnowledgeCatalog rules,BooleanSupplier stop){
+  if(rules==null)return;ArchiveStore.Extracted extracted=null;
+  try{
+   ArchiveStore.Inventory archive=ArchiveStore.read(input,stop);ArchiveStore.Member selected=null;
+   for(ArchiveStore.Member member:archive.members)if(member.name.equals("AndroidManifest.xml")){if(selected!=null)throw new IOException("Duplicate binary manifest names");selected=member;}
+   if(selected==null)return;if(selected.size<0||selected.size>64L*1024*1024)throw new IOException("Compiled manifest exceeds 64 MiB or has unknown length");
+   extracted=ArchiveStore.extract(archive,selected,new File(context.getCacheDir(),"sdk-manifest-inputs"),stop);
+   try(BinaryWorkerClient runner=new BinaryWorkerClient(context,"resources")){
+    AndroidResourceDocument document=new AndroidResourceDocument(extracted.file,"AndroidManifest.xml",extracted.sha256,runner.scan(extracted.file,stop),stop);
+    SdkManifestNames names=new SdkManifestNames(document,stop);
+    output.section("SDK names from the original compiled manifest");output.item("CRC/size-verified expanded manifest SHA-256 "+extracted.sha256+"; declared package "+names.packageName+"; "+names.facts.size()+" literal name records. Offsets below refer to the uncompressed manifest, not its parent APK.");
+    for(SdkManifestNames.Fact fact:names.facts){
+     EvidenceRows.check(stop);match(output,rules,fact.type,fact.value,"compiled "+fact.element+" attribute "+fact.attributeIndex+" @0x"+Long.toHexString(fact.physicalOffset)+"; original="+fact.original+"; "+fact.selection,stop);
+    }
+    for(String diagnostic:names.diagnostics)output.item("INCOMPLETE name resolution: "+diagnostic);
+    output.item("Shared/static libraries, permissions, metadata and intent actions are declarations. Referenced strings, split/framework resolution and platform acceptance can remain incomplete; no component is executed.");
+   }
+  }catch(Exception error){output.item("Compiled manifest SDK-name inspection incomplete: "+error.getMessage());}
+  finally{if(extracted!=null)extracted.file.delete();}
+ }
+ static void pkg(Context c,File f,Output o,KnowledgeCatalog rules){
   try{
    int flags=PackageManager.GET_ACTIVITIES|PackageManager.GET_SERVICES|PackageManager.GET_RECEIVERS|PackageManager.GET_PROVIDERS|PackageManager.GET_PERMISSIONS;
    flags|=Build.VERSION.SDK_INT>=28?PackageManager.GET_SIGNING_CERTIFICATES:PackageManager.GET_SIGNATURES;
@@ -167,10 +231,11 @@ final class KnowledgeReport {
    try{JSONObject d=asset(c,"knowledge/uad.json").optJSONObject(p.packageName);if(d==null)o.item("No exact package ID match in this pinned catalog. Absence is not a removal recommendation.");else{for(String k:new String[]{"list","description","removal","dependencies","neededBy","needed_by","labels"})if(d.has(k)&&!d.isNull(k))o.item(k+": "+d.optString(k));o.item("Community guidance, not a tested result on this device. Package IDs can be reused; removal can break boot, calls, updates or data. No removal action is provided.");}}catch(Exception e){o.item("UAD database unavailable: "+e.getMessage());}
   }catch(Exception e){o.item("Package metadata incomplete: "+e.getMessage());}
  }
- static void components(Output o,JSONObject rules,String kind,String label,ComponentInfo[] a){
+ static void components(Output o,KnowledgeCatalog rules,String kind,String label,ComponentInfo[] a){
   o.section(label);if(a==null||a.length==0){o.item("None returned.");return;}
   o.item(a.length+" declared entries. Exported means other apps may be able to address the component, subject to permission and platform restrictions.");
   for(int i=0;i<Math.min(a.length,500);i++){ComponentInfo v=a[i];String protection="";
+   if(o.cancelled.getAsBoolean()||o.clipped){o.item("Component matching cancelled or summary budget reached; remaining names were not summarized.");return;}
    if(v instanceof ActivityInfo)protection=((ActivityInfo)v).permission;
    if(v instanceof ServiceInfo)protection=((ServiceInfo)v).permission;
    if(v instanceof ProviderInfo){ProviderInfo p=(ProviderInfo)v;protection="read="+p.readPermission+", write="+p.writePermission+", authority="+p.authority;}

@@ -1,0 +1,28 @@
+{
+  "version": "1.8",
+  "sourceRevision": "57278921a609461c14d9cdb057d7aa9511c8f7ac",
+  "sourceJarSha256": "4378db846db2d91c8028fe32efcb183a1f1b4157339d0a3b4c46b2c6b0655d7c",
+  "license": "BSD-3-Clause",
+  "files": {
+    "LICENSE": "26a6133577cc8e48d7c002ac4d4a554786e7c0e1732e10f2db205e5e494c411b",
+    "com/google/re2j/CharClass.java": "404a651e617554a6e47f0070a9b0006591f2f2bfe5f2a95ff0a7858290e7ceba",
+    "com/google/re2j/CharGroup.java": "153577d6ed39fa0d740ea98c4b7abab0bb3cc51b48e1ae06a35b67d09dc9c565",
+    "com/google/re2j/Characters.java": "63578c3e57b4d7e861bcd0281f77077c72c9d5d88e322c595a7edec3f9afd62c",
+    "com/google/re2j/Compiler.java": "44ff94d6a052c59ba2d03b697a8c74c8501642b32333e86c14335bfec7921fef",
+    "com/google/re2j/Inst.java": "e718facb35222816ca50716a8358476e91131f30daca09743e0d993f10078a74",
+    "com/google/re2j/Machine.java": "3f0a6cda8feea6e4d3ca7556908d36a55fb2ebdea992a47545d83c4275cb8721",
+    "com/google/re2j/MachineInput.java": "d77d3c1d7896c084599bf37f6014c5cb9788383537d468e191dee815f8a4a210",
+    "com/google/re2j/Matcher.java": "b1d580732a737219d3f5647c859f112e9baaf5c2eaf123747cd53dbbd99ff508",
+    "com/google/re2j/MatcherInput.java": "9214886873e122df71f83cb3829b588f84c483e7979efec008e9eaca0637e794",
+    "com/google/re2j/Parser.java": "238c07b246d9eaa167eae0c79afb51c67ef5258e8519fecd93e36797fd1afa31",
+    "com/google/re2j/Pattern.java": "1b98dfb91581757be82dec2e14b6ba97a97f03d833bdf40eabdb3489e00063c2",
+    "com/google/re2j/PatternSyntaxException.java": "88deae711135ed75f72901b2509b90c89dc5903de549eeac1e813699e1399001",
+    "com/google/re2j/Prog.java": "095d0de6f5a51a05de6fa7be93c4bb23de9ace8a1d2c6ea1899f7a8e6f239cbd",
+    "com/google/re2j/RE2.java": "284bca25f5ec26f8d2659029d60f3b141890b26e1f0c8745a0a1c4b750439bb7",
+    "com/google/re2j/Regexp.java": "74310991c3dad2a89eab920c0be27b4cb21c034b92b20bfa2623e5ce51fe2989",
+    "com/google/re2j/Simplify.java": "c6282dae0f436ab082fb9da8ae7c87cf7d7adbf469dc12474026e5ebf15f69bc",
+    "com/google/re2j/Unicode.java": "965e77ac74b8396b4b32fc5e15161b55a9949e3f5707b77393b58048e26e276b",
+    "com/google/re2j/UnicodeTables.java": "c87c1b5ec28c0353b4d852a46f92d0b8ea217c3c8f7f415fb5feca5c00977559",
+    "com/google/re2j/Utils.java": "7f6556ea3d892bd81fab565edcbcbfe6451b0895ca88ccb0399750454d325932"
+  }
+}

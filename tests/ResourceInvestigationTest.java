@@ -204,6 +204,19 @@ public final class ResourceInvestigationTest {
                         require(sparse,"AAPT2 sparse optimizer fixture did not produce sparse entries");
                     }
                 } else {
+                    if(name.equals("AndroidManifest.xml")) {
+                        AndroidResourceDocument document=document(path.getParent(),bytes);
+                        SdkManifestNames names=new SdkManifestNames(document,RUN);
+                        require(names.facts.size()==8&&names.diagnostics.isEmpty(),"Compiled SDK manifest name coverage differs");
+                        boolean relativeActivity=false,relativeReceiver=false,action=false,permission=false,metadata=false,library=false;
+                        for(SdkManifestNames.Fact fact:names.facts) {
+                            require(fact.selection.equals("compiled android:name resource ID 0x01010003"),"AAPT2 android:name did not resolve through its original resource map");
+                            if(fact.type==2) relativeActivity=fact.value.equals("org.diemobile.resource.reference.ReferenceActivity")&&fact.original.equals(".ReferenceActivity");
+                            if(fact.type==3) relativeReceiver=fact.value.equals("org.diemobile.resource.reference.ReferenceReceiver")&&fact.original.equals("ReferenceReceiver");
+                            action|=fact.type==9;permission|=fact.type==7;metadata|=fact.type==8;library|=fact.type==6;
+                        }
+                        require(relativeActivity&&relativeReceiver&&action&&permission&&metadata&&library,"Manifest class/action/permission/metadata/library inputs omitted");
+                    }
                     JSONObject expected=reference.getJSONObject(name);
                     JSONArray events=report.getJSONObject("tables").getJSONArray("xml-events");int starts=0;
                     for(int i=0;i<events.length();i++) if(events.getJSONObject(i).getInt("chunkType")==0x102) starts++;

@@ -79,6 +79,8 @@ jobs:
       - run: bash scripts/test-strings.sh
       - run: bash scripts/test-metadata.sh
       - run: bash scripts/test-resources.sh
+      - run: bash scripts/fetch-knowledge.sh
+      - run: bash scripts/test-knowledge.sh
 
   binary-integration:
     runs-on: ubuntu-latest

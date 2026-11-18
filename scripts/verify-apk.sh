@@ -77,6 +77,8 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
     assert 'lib/arm64-v8a/libplayer.so' not in names,'Unneeded upstream player JNI was packaged'
     assert archive.read('mpv-properties.json')==Path('app/src/main/resources/mpv-properties.json').read_bytes(),'Offline MPV property reference missing/changed'
     print('Nine packaged official MPV runtime libraries and offline property references match their pinned inputs.')
+    catalog=archive.read('assets/knowledge/libchecker-v5.json')
+    assert hashlib.sha256(catalog).hexdigest()==archive.read('assets/knowledge/libchecker-v5.json.sha256').decode('ascii').strip(),'Canonical SDK catalog checksum differs from its complete payload'
 PY
 
 unzip -p "$apk" assets/engine-revisions.properties | cmp - generated-assets/engine-revisions.properties
@@ -95,6 +97,9 @@ unzip -p "$apk" assets/notices/rust-stdlib-1.90.0.html | cmp - app/src/main/asse
 unzip -p "$apk" assets/notices/mpv-runtime.txt | cmp - app/src/main/assets/notices/mpv-runtime.txt
 unzip -p "$apk" assets/notices/android-resources-32.5.1.txt | cmp - app/src/main/assets/notices/android-resources-32.5.1.txt
 unzip -p "$apk" assets/notices/rhash-md4-1.4.5.txt | cmp - app/src/main/assets/notices/rhash-md4-1.4.5.txt
+unzip -p "$apk" assets/notices/re2j-1.8.txt | cmp - app/src/main/assets/notices/re2j-1.8.txt
+unzip -p "$apk" assets/knowledge/libchecker-v5.json | cmp - generated-assets/knowledge/libchecker-v5.json
+unzip -p "$apk" assets/knowledge/libchecker-v5.json.sha256 | cmp - generated-assets/knowledge/libchecker-v5.json.sha256
 unzip -p "$apk" assets/db/_init > "$tmp/db-init"
 test -s "$tmp/db-init"
 
@@ -110,6 +115,8 @@ manifest="$(dirname "$apk")/build-manifest.txt"
   sha256sum media-engine/runtime-lock.json media-engine/source-lock.json
   sha256sum patches/android-resource-engine.patch
   sha256sum hash-engine/source-lock.json
+  sha256sum regex-engine/source-lock.json
+  echo "Canonical LibChecker catalog SHA-256: $(cat generated-assets/knowledge/libchecker-v5.json.sha256)"
   cat generated-assets/engine-revisions.properties generated-assets/knowledge/revisions.txt
   cat app/src/main/assets/analysis-engines.properties
   echo 'Verification: APK signature, ZIP alignment, ELF 16 KiB alignment, application identity/API levels, no INTERNET permission, bundled revision/license assets'
