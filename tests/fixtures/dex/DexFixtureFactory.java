@@ -19,6 +19,7 @@ import java.util.zip.Adler32;
 /** Builds data only. No test installs/loads/executes the generated classes. */
 public final class DexFixtureFactory {
     public static final String OWNER = "Lorg/diemobile/fixture/研究;";
+    public static final String SHARED_OWNER="Lfixture/shared/Owner;",CONSUMER="Lfixture/consumer/Use;";
     public static final String TEXT = "hello\0é\uD83D\uDE00\uD800", ENDPOINT = "https://fixture.invalid/api/v1?token=test";
     private static final int PUBLIC = AccessFlags.PUBLIC.getValue(), STATIC = AccessFlags.STATIC.getValue();
     private DexFixtureFactory() {}
@@ -102,6 +103,63 @@ public final class DexFixtureFactory {
         body.addInstruction(new BuilderInstruction10x(Opcode.RETURN_VOID));
         return write(Collections.singletonList(new ImmutableClassDef(OWNER,PUBLIC,"Ljava/lang/Object;",Collections.emptyList(),null,Collections.emptySet(),
             Collections.emptyList(),Collections.singletonList(method("literal",body.getMethodImplementation())))));
+    }
+    /** References and declarations intentionally live in different serialized DEX files. */
+    public static byte[] definitionConsumer() throws Exception {
+        MethodImplementationBuilder body=new MethodImplementationBuilder(2);
+        body.addInstruction(new BuilderInstruction11n(Opcode.CONST_4,0,1));
+        ImmutableMethodReference target=new ImmutableMethodReference(SHARED_OWNER,"value",Arrays.asList("I"),"I");
+        body.addInstruction(new BuilderInstruction35c(Opcode.INVOKE_STATIC,1,0,0,0,0,0,target));
+        body.addInstruction(new BuilderInstruction21c(Opcode.SGET,0,new ImmutableFieldReference(SHARED_OWNER,"VALUE","I")));
+        body.addInstruction(new BuilderInstruction21c(Opcode.CONST_CLASS,0,new ImmutableTypeReference(SHARED_OWNER)));
+        body.addInstruction(new BuilderInstruction21c(Opcode.CONST_CLASS,0,new ImmutableTypeReference("["+SHARED_OWNER)));
+        body.addInstruction(new BuilderInstruction21c(Opcode.CONST_METHOD_HANDLE,0,new ImmutableMethodHandleReference(MethodHandleType.INVOKE_STATIC,target)));
+        body.addInstruction(new BuilderInstruction21c(Opcode.CONST_METHOD_HANDLE,0,new ImmutableMethodHandleReference(MethodHandleType.STATIC_GET,new ImmutableFieldReference(SHARED_OWNER,"VALUE","I"))));
+        body.addInstruction(new BuilderInstruction35c(Opcode.INVOKE_STATIC,0,0,0,0,0,0,new ImmutableMethodReference("Ljava/lang/System;","currentTimeMillis",Collections.emptyList(),"J")));
+        body.addInstruction(new BuilderInstruction11n(Opcode.CONST_4,0,1));
+        body.addInstruction(new BuilderInstruction35c(Opcode.INVOKE_STATIC,1,0,0,0,0,0,new ImmutableMethodReference(CONSUMER,"value",Arrays.asList("I"),"I")));
+        body.addInstruction(new BuilderInstruction10x(Opcode.RETURN_VOID));
+        ImmutableMethod use=new ImmutableMethod(CONSUMER,"use",Collections.emptyList(),"V",PUBLIC|STATIC,Collections.emptySet(),Collections.emptySet(),body.getMethodImplementation());
+        return write(Collections.singletonList(new ImmutableClassDef(CONSUMER,PUBLIC,SHARED_OWNER,Collections.emptyList(),"Use.smali",Collections.emptySet(),Collections.emptyList(),Collections.singletonList(use))));
+    }
+    public static byte[] definitionOwner(String sourceLabel) throws Exception {
+        MethodImplementationBuilder body=new MethodImplementationBuilder(1);
+        body.addInstruction(new BuilderInstruction11n(Opcode.CONST_4,0,sourceLabel.hashCode()&7));body.addInstruction(new BuilderInstruction11x(Opcode.RETURN,0));
+        List<Method> methods=Arrays.asList(
+            new ImmutableMethod(SHARED_OWNER,"value",Arrays.asList(new ImmutableMethodParameter("I",Collections.emptySet(),"input")),"I",PUBLIC|STATIC,Collections.emptySet(),Collections.emptySet(),body.getMethodImplementation()),
+            new ImmutableMethod(SHARED_OWNER,"value",Arrays.asList(new ImmutableMethodParameter("J",Collections.emptySet(),"input")),"I",PUBLIC|STATIC|AccessFlags.NATIVE.getValue(),Collections.emptySet(),Collections.emptySet(),(MethodImplementation)null),
+            new ImmutableMethod(SHARED_OWNER,"value",Arrays.asList(new ImmutableMethodParameter("I",Collections.emptySet(),"input")),"J",PUBLIC|STATIC|AccessFlags.NATIVE.getValue(),Collections.emptySet(),Collections.emptySet(),(MethodImplementation)null));
+        List<Field> fields=Arrays.asList(
+            new ImmutableField(SHARED_OWNER,"VALUE","I",PUBLIC|STATIC,new ImmutableIntEncodedValue(7),Collections.emptySet(),Collections.emptySet()),
+            new ImmutableField(SHARED_OWNER,"VALUE","J",PUBLIC|STATIC,new ImmutableLongEncodedValue(8),Collections.emptySet(),Collections.emptySet()));
+        return write(Collections.singletonList(new ImmutableClassDef(SHARED_OWNER,PUBLIC,"Ljava/lang/Object;",Collections.emptyList(),sourceLabel,Collections.emptySet(),fields,methods)));
+    }
+    /** Keep valid bounds/integrity while making a class_data member point to a foreign owner. */
+    public static byte[] foreignMethodOwner(byte[] source) throws Exception {
+        byte[] bytes=source.clone();com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile dex=new com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile(Opcodes.forApi(28),bytes);
+        int foreign=-1;
+        for(int i=0;i<dex.getTypeSection().size();i++) if(dex.getTypeSection().get(i).equals("Ljava/lang/Object;")) foreign=i;
+        if(foreign<0) throw new IllegalArgumentException("Fixture has no foreign type");
+        for(int i=0;i<dex.getMethodSection().size();i++) {
+            var method=dex.getMethodSection().get(i);
+            if(method.getDefiningClass().equals(SHARED_OWNER)&&method.getName().equals("value")&&method.getReturnType().equals("I")&&method.getParameterTypes().equals(Arrays.asList("I"))) {
+                int at=dex.getMethodSection().getOffset(i);bytes[at]=(byte)foreign;bytes[at+1]=(byte)(foreign>>>8);integrity(bytes,0,bytes.length);return bytes;
+            }
+        }
+        throw new IllegalArgumentException("Fixture has no selected method");
+    }
+    /** Duplicate a raw class_data method entry without changing its encoded footprint. */
+    public static byte[] duplicateMethodDefinition(byte[] source) throws Exception {
+        byte[] bytes=source.clone();var dex=new com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile(Opcodes.forApi(28),bytes);
+        int at=dex.getClassSection().getOffset(0),data=dex.getBuffer().readSmallUint(at+24);var reader=dex.getDataBuffer().readerAt(data);
+        int fields=reader.readSmallUleb128()+reader.readSmallUleb128(),direct=reader.readSmallUleb128();reader.readSmallUleb128();
+        if(direct<2) throw new IllegalArgumentException("Fixture needs two direct declarations");
+        for(int i=0;i<fields;i++) { reader.readSmallUleb128();reader.readSmallUleb128(); }
+        int first=reader.readSmallUleb128();reader.readSmallUleb128();reader.readSmallUleb128();
+        var method=dex.getMethodSection().get(first);
+        if(!method.getName().equals("value")||!method.getReturnType().equals("I")||!method.getParameterTypes().equals(Arrays.asList("I"))) throw new IllegalArgumentException("Unexpected fixture declaration order");
+        int delta=reader.getOffset();reader.readSmallUleb128();if(reader.getOffset()!=delta+1) throw new IllegalArgumentException("Fixture delta is not one byte");
+        bytes[delta]=0;integrity(bytes,0,bytes.length);return bytes;
     }
     public static byte[] simpleVersion(int api) throws Exception {
         DexPool pool = new DexPool(Opcodes.forApi(api));

@@ -25,6 +25,13 @@ Debug and exception tables preserve line/source/local events, associated code ad
 
 Reference scans inspect explicit encoded references in all decoded method bodies of the selected entry, including second references in 45cc/4rcc instructions. They retain caller definition/instruction indices and physical offsets. They do not resolve reflection, dynamic dispatch, other DEX entries/splits or runtime reachability. Unknown opcode coverage is reported. A budget or malformed-body failure does not return a successful partial/empty reference table.
 
+A separate [captured multidex definition index](dex-definitions.md) now links
+exact type/method/field identifiers and method-handle members to every observed
+declaration across selected APK DEX members and 041 container entries. It owns
+checked source snapshots, retains duplicates and partial-source diagnostics,
+and opens the correct target table before physical byte actions. This does not
+expand encoded-use scans into a linker or infer inheritance/framework/split use.
+
 `DexSmali` uses upstream baksmali for method declarations, labels, directives, parameters, annotations, debug items, payloads and exception regions. It supplies a bounded method-only context, with no bootclasspath/deodex execution. Native/abstract declarations have no invented frame/body. The renderer can normalize labels/shared payload representation; original structured offsets and source bytes remain authoritative. The pinned writer cannot emit SET_SOURCE_FILE debug events and still uses a classic-sized header when asked to write 041: fixtures avoid these writer limitations and explicitly construct the tested 041 shared-table container. These are writer limitations, not claims of handset validation.
 
 ## Paging, export and budgets

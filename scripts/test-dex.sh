@@ -9,7 +9,10 @@ load_json_test_dependency "$tmp"
 source scripts/test-dex-dependencies.sh
 load_dex_test_dependencies "$tmp"
 javac -cp "$dex_test_classpath:$json_test_jar" -d "$tmp/classes" \
-  app/src/main/java/org/diemobile/{Inspector,FileRange,RangeAnalysis,PreparedExport,EvidenceRows,InputSnapshot,DexQuery,DexDocument,DexValues,DexTables,DexCode,DexSmali,ArchiveStore,InvestigationBackend,DexBackend,StringClassifier,StringDocument,DexStringIndex}.java \
-  tests/fixtures/dex/DexFixtureFactory.java tests/DexInvestigationTest.java tests/DexBackendTest.java
+  app/src/main/java/org/diemobile/{Inspector,EvidenceJson,FileRange,RangeAnalysis,PreparedExport,EvidenceRows,InputSnapshot,DexQuery,DexDocument,DexValues,DexTables,DexCode,DexSmali,DexDefinitionIndex,DexDefinitionLookup,ArchiveStore,InvestigationBackend,DexBackend,StringClassifier,StringDocument,DexStringIndex}.java \
+  tests/fixtures/dex/DexFixtureFactory.java tests/DexInvestigationTest.java tests/DexBackendTest.java tests/DexDefinitionsTest.java
 java -cp "$tmp/classes:$dex_test_classpath:$json_test_jar" org.diemobile.DexInvestigationTest "$tmp"
 java -cp "$tmp/classes:$dex_test_classpath:$json_test_jar" org.diemobile.DexBackendTest "$tmp"
+dex_reference=()
+if [[ -n "${DEX_REFERENCE_APK:-}" ]]; then dex_reference+=("$DEX_REFERENCE_APK"); fi
+java -cp "$tmp/classes:$dex_test_classpath:$json_test_jar" org.diemobile.DexDefinitionsTest "$tmp" "${dex_reference[@]}"

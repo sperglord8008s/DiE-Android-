@@ -63,6 +63,11 @@ Upstream: https://github.com/horsicq/CDiE and https://github.com/horsicq/Detect-
 ## Analysis workbench (0.3)
 File 101, APK metadata and permission explanations, exported components, signing identity, archive inventory, canonical LibChecker exact/regex rules and UAD-NG package knowledge. Optional offline Exodus JSON import now supports bounded regex search over original slash class names, a shared required-literal index with exact regex verification, frozen Unicode 15 character classes, complete inspectable metadata/diagnostics and exact snapshot export. See [tracker evidence and limits](docs/tracker-investigation.md). See [integration scope and limitations](docs/analysis-workbench.md).
 
+DEX identifiers now navigate to every exact captured class/method/field
+declaration across APK DEX members and 041 entries. Owned CRC/SHA-256-checked
+snapshots keep target bytes/smali available after parent expiry; duplicate and
+failed scopes stay explicit. See [multidex evidence and limits](docs/dex-definitions.md).
+
 ### Expert-first interface
 Technical detail is the default. Contextual help explains the actual data without replacing it with a simplified view. Raw evidence remains accessible.
 

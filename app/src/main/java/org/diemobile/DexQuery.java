@@ -12,7 +12,7 @@ final class DexQuery {
     final String kind;
     DexQuery(int entry, String kind, int owner, int member, int referenceType, int referenceIndex) {
         if (entry < 0 || entry >= DexDocument.MAX_ENTRIES || owner < -1 || member < -1 || referenceType < -1 || referenceIndex < -1
-            || !(Arrays.asList(ROOT_KINDS).contains(kind) || Arrays.asList("fields", "methods", "code", "debug", "tries", "array", "switch", "xrefs", "classified-strings", "classifier-rules").contains(kind))) {
+            || !(Arrays.asList(ROOT_KINDS).contains(kind) || Arrays.asList("fields", "methods", "code", "debug", "tries", "array", "switch", "xrefs", "classified-strings", "classifier-rules", "definitions").contains(kind))) {
             throw new IllegalArgumentException("Invalid DEX query");
         }
         this.entry = entry; this.kind = kind; this.owner = owner; this.member = member;
@@ -21,6 +21,7 @@ final class DexQuery {
     static DexQuery root(int entry, String kind) { return new DexQuery(entry, kind, -1, -1, -1, -1); }
     DexQuery child(String kind, int owner, int member) { return new DexQuery(entry, kind, owner, member, -1, -1); }
     DexQuery references(int type, int index) { return new DexQuery(entry, "xrefs", -1, -1, type, index); }
+    DexQuery definitions(int type,int index) { return new DexQuery(entry,"definitions",-1,-1,type,index); }
     JSONObject json() throws JSONException {
         return new JSONObject().put("entry", entry).put("kind", kind).put("owner", owner).put("member", member)
             .put("referenceType", referenceType).put("referenceIndex", referenceIndex);
