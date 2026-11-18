@@ -9,7 +9,7 @@ if [[ ! -f app/build/generated-binwalk-jni/arm64-v8a/libdiebinwalk.so ]]; then b
 build="${NATIVE_BUILD_DIR:-$PWD/app/build/host-native}"
 fixtures="$PWD/app/build/host-ui-fixtures"
 cmake -S app/src/main/cpp -B "$build" -DCMAKE_BUILD_TYPE=Release
-cmake --build "$build" --target diemobile --parallel 4
+cmake --build "$build" --target diemobile diehash --parallel 4
 build=$(cd "$build" && pwd)
 python3 tests/generate-native-fixtures.py "$fixtures"
 cc -O0 -g -Wl,--export-dynamic tests/native_fixture.c -o "$fixtures/elf-fixture"

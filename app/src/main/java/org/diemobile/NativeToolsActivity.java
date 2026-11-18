@@ -21,6 +21,7 @@ public final class NativeToolsActivity extends Activity {
     private final ToolHistory history = new ToolHistory();
     private File file, exportDirectory;
     private String inputName, inputSha256, engineRevision = "", raw = "";
+    private String measuredHashInputSha;
     private long initialSize, producedSize, elapsedMs, lastOffset, nextOffset = -1;
     private NativeTable table, mapCache;
     private ToolRequest produced;
@@ -181,7 +182,7 @@ public final class NativeToolsActivity extends Activity {
         offset.setVisibility(currentTool == 6 || currentTool == 9 ? View.VISIBLE : View.GONE);
         minimum.setVisibility(currentTool == 8 ? View.VISIBLE : View.GONE);
         selector.setText(request.selector); selector.setVisibility(currentTool == 0 || currentTool == 7 ? View.VISIBLE : View.GONE);
-        selector.setHint(currentTool == 0 ? "NAME[#FIELD] (blank = all)" : "CRC32 / MD5 / SHA1 / SHA256");
+        selector.setHint(currentTool == 0 ? "NAME[#FIELD] (blank = all)" : "CRC32 / MD4 / MD5 / SHA1 / SHA224 / SHA256 / SHA384 / SHA512");
         json.setChecked(request.json); json.setVisibility(currentTool == 0 || currentTool == 7 || currentTool == 8 || currentTool == 10 ? View.VISIBLE : View.GONE);
         att.setChecked(request.attSyntax); att.setVisibility(currentTool == 6 ? View.VISIBLE : View.GONE);
         filter.setText(location.filter); back.setEnabled(history.hasBack()); binding = false;
@@ -226,22 +227,29 @@ public final class NativeToolsActivity extends Activity {
         final int ticket = beginTask("Reading " + ToolReference.TITLES[request.tool] + "…");
         final AtomicBoolean stop = cancellation;
         final long started = SystemClock.elapsedRealtime(), size = file.length();
-        table = null; raw = ""; produced = null; metadata.setText(""); records.setVisibility(View.GONE); textScroll.setVisibility(View.VISIBLE); output.setText("Analyzing on worker…");
+        table = null; raw = ""; measuredHashInputSha = null; produced = null; metadata.setText(""); records.setVisibility(View.GONE); textScroll.setVisibility(View.VISIBLE); output.setText("Analyzing on worker…");
         worker.execute(() -> {
-            NativeTable parsed = null; String result = "", revision = "";
+            NativeTable parsed = null; String result = "", revision = "", hashSource = null; long resultSize = size;
             try {
                 if (stop.get() || ticket != generation) throw new InterruptedIOException("Analysis cancelled");
-                if (request.records()) parsed = NativeTable.parse(Engine.records(file.getAbsolutePath(), request.tool, request.mode, request.offset, request.attSyntax, stop::get));
+                if (request.tool == 7) {
+                    try (BinaryWorkerClient client = new BinaryWorkerClient(this,"hashes");
+                         HashDocument hashes = HashDocument.read(file,new File(getCacheDir(),"hash-snapshots"),inputName,client,stop::get)) {
+                        result = hashes.legacyReport(request.selector,request.json);
+                        hashSource = hashes.snapshot.sha256; resultSize = hashes.snapshot.size;
+                    }
+                } else if (request.records()) parsed = NativeTable.parse(Engine.records(file.getAbsolutePath(), request.tool, request.mode, request.offset, request.attSyntax, stop::get));
                 else result = request.tool == 9 ? hex(file, Math.max(0, request.offset)) : Engine.tool(file.getAbsolutePath(), request.tool, request.offset,
                     request.mode, request.minimum, request.selector, request.json, request.attSyntax);
                 Properties properties = new Properties();
                 try (InputStream in = getAssets().open("engine-revisions.properties")) { properties.load(in); revision = properties.getProperty("cdie", ""); }
                 catch (IOException ignored) { /* An unbundled inspector has no engine provenance. */ }
+                if (request.tool == 7) revision = "xxfclib@" + HashDocument.XXFCLIB_SOURCE + ";RHash@" + HashDocument.RHASH_SOURCE;
             } catch (Exception | LinkageError e) { result = "ERROR: " + e; }
-            final NativeTable snapshot = parsed; final String text = result, engine = revision;
+            final NativeTable snapshot = parsed; final String text = result, engine = revision, hashIdentity = hashSource; final long measuredSize = resultSize;
             runOnUiThread(() -> {
                 if (isDestroyed() || ticket != generation) return;
-                settled(); produced = request; elapsedMs = SystemClock.elapsedRealtime() - started; producedSize = snapshot != null && snapshot.ok ? snapshot.fileSize : size;
+                settled(); produced = request; elapsedMs = SystemClock.elapsedRealtime() - started; producedSize = snapshot != null && snapshot.ok ? snapshot.fileSize : measuredSize; measuredHashInputSha = hashIdentity;
                 engineRevision = engine; table = stop.get() ? null : snapshot; raw = stop.get() ? "ERROR: Analysis cancelled" : text;
                 lastOffset = Math.max(0, request.offset); nextOffset = -1;
                 if (table != null && table.ok && request.tool == 6) try {
@@ -479,7 +487,7 @@ public final class NativeToolsActivity extends Activity {
     private void exportReport() {
         if (busy || produced == null) return;
         final ToolRequest request = produced; final NativeTable snapshot = table; final String text = raw, revision = engineRevision;
-        final String query = filter.getText().toString(), digest = producedSize == initialSize ? inputSha256 : null; final int currentPage = page;
+        final String query = filter.getText().toString(), digest = request.tool == 7 ? measuredHashInputSha : producedSize == initialSize ? inputSha256 : null; final int currentPage = page;
         final long duration = elapsedMs, size = producedSize;
         prepareExport(stop -> PreparedExport.text(exportDirectory, "die-" + ToolReference.TITLES[request.tool].toLowerCase(Locale.ROOT).replace(' ', '-') + ".json",
             ToolReport.encode(inputName, digest, size, revision, request, snapshot, text, duration, query, currentPage)));

@@ -53,6 +53,8 @@ jobs:
 
   native-integration:
     runs-on: ubuntu-latest
+    env:
+      NATIVE_BUILD_DIR: ${{ github.workspace }}/app/build/host-native
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -61,6 +63,7 @@ jobs:
           java-version: '17'
       - run: bash scripts/fetch-engine.sh
       - run: bash scripts/test-native.sh
+      - run: bash scripts/test-hashes.sh
 
   apk-signatures:
     runs-on: ubuntu-latest

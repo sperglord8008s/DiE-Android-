@@ -24,7 +24,7 @@ public final class BinaryWorkerService extends Service {
             ParcelFileDescriptor input=data.getParcelable("input"),output=data.getParcelable("output");
             if(input==null||output==null||token==null){close(input);close(output);return true;}
             String engine=data.getString("engine","binwalk");
-            String rejection=!isolated?"The binary worker does not have an isolated UID; in-process fallback is prohibited":!engine.equals("binwalk")&&!engine.equals("mpv")&&!engine.equals("resources")?"Unsupported worker engine":activeToken!=null?"Binary worker is already serving another request":null;
+            String rejection=!isolated?"The binary worker does not have an isolated UID; in-process fallback is prohibited":!engine.equals("binwalk")&&!engine.equals("mpv")&&!engine.equals("resources")&&!engine.equals("hashes")?"Unsupported worker engine":activeToken!=null?"Binary worker is already serving another request":null;
             if(rejection==null)activeToken=token;
             // A rejected second client must not queue behind a slow first job.
             // Its small error envelope fits a fresh pipe and needs no native call.
@@ -36,7 +36,10 @@ public final class BinaryWorkerService extends Service {
             String result;
             try{
                 if(rejection!=null)throw new IOException(rejection);
-                if(engine.equals("resources")){
+                if(engine.equals("hashes")){
+                    if(!HashEngine.AVAILABLE)throw new IOException("Native whole-file hash engine unavailable: "+HashEngine.ERROR);
+                    result=HashEngine.scanFd(source.getFd());
+                }else if(engine.equals("resources")){
                     long deadline=SystemClock.elapsedRealtime()+25000;
                     try(InputStream reader=new ParcelFileDescriptor.AutoCloseInputStream(ParcelFileDescriptor.dup(source.getFileDescriptor()))){
                         result=AndroidResourceProbe.scan(reader,source.getStatSize(),()->Thread.currentThread().isInterrupted()||SystemClock.elapsedRealtime()>deadline);

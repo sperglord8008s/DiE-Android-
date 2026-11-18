@@ -9,6 +9,7 @@ There is no beginner/advanced/expert gating. The default Scan view exposes techn
 ## Integration map
 
 - CDiE: existing native signature engine.
+- Whole-file digests: pinned xxfclib contexts plus unmodified 0BSD RHash 1.4.5 MD4, isolated descriptor adapter and eight typed CRC32/MD4/MD5/SHA1/SHA224/SHA256/SHA384/SHA512 records. Both the File info viewer and Native Tools use complete checked input coverage and independently cross-check native SHA-256 against acquisition. RFC/JCA/OpenSSL/descriptor/budget fixtures and three API 28 actual-JNI cases pass; OS transport/device behavior remains unverified. See [hash contracts](hash-investigation.md).
 - LibChecker-Rules: pinned Apache-2.0 English data; exact native filenames and manifest class names initially. Not equivalent to LibChecker's complete matcher.
 - Universal Android Debloater NG: pinned GPL-3.0 package catalog. Exact package ID lookup, read-only. Recommendations are contextual.
 - Exodus: local import of a lawfully obtained tracker API snapshot; ODbL 1.0 / DbCL 1.0. No network or API credentials in the app. Literal DEX defined-class prefix matching only, not full regular-expression coverage; report skipped rules.

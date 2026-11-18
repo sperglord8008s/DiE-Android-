@@ -20,7 +20,7 @@ final class BinaryWorkerClient implements BinaryRunner {
     private final AtomicBoolean closed=new AtomicBoolean();
     BinaryWorkerClient(Context context){this(context,"binwalk");}
     BinaryWorkerClient(Context context,String engine){
-        if(!engine.equals("binwalk")&&!engine.equals("mpv")&&!engine.equals("resources"))throw new IllegalArgumentException("Unknown binary worker engine");
+        if(!engine.equals("binwalk")&&!engine.equals("mpv")&&!engine.equals("resources")&&!engine.equals("hashes"))throw new IllegalArgumentException("Unknown binary worker engine");
         this.context=context.getApplicationContext();this.engine=engine;
     }
     @Override public String scan(File input,BooleanSupplier stop)throws Exception {

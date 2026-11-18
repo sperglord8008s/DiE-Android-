@@ -55,7 +55,7 @@ import sys
 import zipfile
 with zipfile.ZipFile(sys.argv[1]) as archive:
     names=[name for name in archive.namelist() if name.startswith('lib/') and name.endswith('.so')]
-    assert {'lib/arm64-v8a/libdiemobile.so','lib/arm64-v8a/libdiebinwalk.so','lib/arm64-v8a/libdiempv.so'} <= set(names), 'Required native engine library missing'
+    assert {'lib/arm64-v8a/libdiemobile.so','lib/arm64-v8a/libdiebinwalk.so','lib/arm64-v8a/libdiempv.so','lib/arm64-v8a/libdiehash.so'} <= set(names), 'Required native engine library missing'
     for name in names:
         assert name.startswith('lib/arm64-v8a/'), 'Unexpected native ABI: '+name
         data=archive.read(name);header=data[:20]
@@ -94,6 +94,7 @@ unzip -p "$apk" assets/notices/binary-dependencies.txt | cmp - app/src/main/asse
 unzip -p "$apk" assets/notices/rust-stdlib-1.90.0.html | cmp - app/src/main/assets/notices/rust-stdlib-1.90.0.html
 unzip -p "$apk" assets/notices/mpv-runtime.txt | cmp - app/src/main/assets/notices/mpv-runtime.txt
 unzip -p "$apk" assets/notices/android-resources-32.5.1.txt | cmp - app/src/main/assets/notices/android-resources-32.5.1.txt
+unzip -p "$apk" assets/notices/rhash-md4-1.4.5.txt | cmp - app/src/main/assets/notices/rhash-md4-1.4.5.txt
 unzip -p "$apk" assets/db/_init > "$tmp/db-init"
 test -s "$tmp/db-init"
 
@@ -108,6 +109,7 @@ manifest="$(dirname "$apk")/build-manifest.txt"
   sha256sum binary-engine/Cargo.lock
   sha256sum media-engine/runtime-lock.json media-engine/source-lock.json
   sha256sum patches/android-resource-engine.patch
+  sha256sum hash-engine/source-lock.json
   cat generated-assets/engine-revisions.properties generated-assets/knowledge/revisions.txt
   cat app/src/main/assets/analysis-engines.properties
   echo 'Verification: APK signature, ZIP alignment, ELF 16 KiB alignment, application identity/API levels, no INTERNET permission, bundled revision/license assets'

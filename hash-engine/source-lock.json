@@ -1,0 +1,15 @@
+{
+  "rhashVersion": "1.4.5",
+  "rhashSource": "6ea6791024499524cf41f9e0b6b08d456bf4a5e2",
+  "rhashLicense": "0BSD",
+  "xxfclibSource": "0fc8b4fa12c2c9c97d79fa3a3806667fc1da9b9d",
+  "adapterVersion": 1,
+  "files": {
+    "COPYING": "953e55838353335148c90b5a38a4894292680b1d4c37228ffddddbf18ce54bf5",
+    "byte_order.c": "bf4d6757b834a1f9a7e13e161945c5f81636ea835876ea04999acef75184c5e3",
+    "byte_order.h": "39c850512055312c42c0a0f19368bf2c8586d82da2e22e0003ee00b1303e2d1d",
+    "md4.c": "8a441065f6b64b259e390c4bb84352fce1fc3776eaf1904240fa313a47ae327e",
+    "md4.h": "63fc163f25610fb720c48b6e9a480bfc7945eb9f9108a13c7bd7ed9c5872767c",
+    "ustd.h": "d0499fb04b23eb2f449621db0df09bd4b3d35299960b0f701bc4ccff623a24ac"
+  }
+}

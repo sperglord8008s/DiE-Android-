@@ -53,3 +53,11 @@ modification details are in android-resources-32.5.1.txt. resource-engine and
 scripts/fetch-resources.sh reproduce the source acquisition and build. Guava
 Android runtime notices are already retained in dex-dependencies.txt; AutoValue
 and annotation dependencies are build-only, not shipped parser engines.
+
+Whole-file hashing adds unmodified RHash 1.4.5 MD4 and byte-order support at
+6ea6791024499524cf41f9e0b6b08d456bf4a5e2 under the BSD Zero Clause license.
+Original source, full COPYING/header notices and per-file SHA-256 values are
+retained in hash-engine/third_party/rhash, hash-engine/source-lock.json and
+rhash-md4-1.4.5.txt. Other digests reuse the pinned MIT xxfclib contexts,
+including its SHA-224/SHA-384/SHA-512 implementation. The descriptor adapter,
+evidence model and Android integration are GPL-3.0-only.

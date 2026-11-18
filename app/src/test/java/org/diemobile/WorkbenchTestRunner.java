@@ -13,6 +13,7 @@ public final class WorkbenchTestRunner extends RobolectricTestRunner {
         return new InstrumentationConfiguration.Builder(super.createClassLoaderConfig(method))
             .doNotInstrumentClass("org.diemobile.Engine")
             .doNotInstrumentClass("org.diemobile.BinwalkEngine")
-            .doNotInstrumentClass("org.diemobile.MpvEngine").build();
+            .doNotInstrumentClass("org.diemobile.MpvEngine")
+            .doNotInstrumentClass("org.diemobile.HashEngine").build();
     }
 }
