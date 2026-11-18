@@ -67,7 +67,8 @@ public final class InvestigationActivity extends Activity {
         File root = new File(path); inputName = getIntent().getStringExtra("name"); if (inputName == null) inputName = root.getName();
         if(state!=null) { retentionState=state.getString("providerState");pendingInputRequest=state.getString("pendingInputRequest");if(pendingInputRequest!=null)pickerOpen=true; }
         exportDirectory = new File(getCacheDir(), "tool-exports");
-        if ("binwalk".equals(getIntent().getStringExtra("provider"))) backend = new BinwalkBackend(root,new File(getCacheDir(),"binary-snapshots"),inputName,new BinaryWorkerClient(this));
+        if ("desktop-batch".equals(getIntent().getStringExtra("provider"))) backend = new BatchScanBackend(new File(getFilesDir(),"desktop-batches"),new File(getCacheDir(),"batch-view-snapshots"),getIntent().getStringExtra("batchId"));
+        else if ("binwalk".equals(getIntent().getStringExtra("provider"))) backend = new BinwalkBackend(root,new File(getCacheDir(),"binary-snapshots"),inputName,new BinaryWorkerClient(this));
         else if ("photorec".equals(getIntent().getStringExtra("provider"))) backend = new PhotoRecBackend(root,new File(getCacheDir(),"carving-snapshots"),inputName,new BinaryWorkerClient(this,"photorec"));
         else if ("mpv".equals(getIntent().getStringExtra("provider"))) backend = new MpvBackend(root,new File(getCacheDir(),"media-snapshots"),inputName,new BinaryWorkerClient(this,"mpv"));
         else if ("resources".equals(getIntent().getStringExtra("provider"))) backend = new AndroidResourceBackend(root,new File(getCacheDir(),"resource-snapshots"),inputName,new BinaryWorkerClient(this,"resources"));
@@ -95,7 +96,7 @@ public final class InvestigationActivity extends Activity {
             } catch (IOException e) { status.setText("Prepared export expired; prepare it again"); }
         }
         bind(location);
-        if (root.isFile()||"package-set".equals(getIntent().getStringExtra("provider"))||"apk-signing".equals(getIntent().getStringExtra("provider"))&&retentionState!=null||"sdk-rules".equals(getIntent().getStringExtra("provider"))||"tracker-rules".equals(getIntent().getStringExtra("provider"))) load(location, false);
+        if (root.isFile()||"desktop-batch".equals(getIntent().getStringExtra("provider"))||"package-set".equals(getIntent().getStringExtra("provider"))||"apk-signing".equals(getIntent().getStringExtra("provider"))&&retentionState!=null||"sdk-rules".equals(getIntent().getStringExtra("provider"))||"tracker-rules".equals(getIntent().getStringExtra("provider"))) load(location, false);
         else { status.setText("Input snapshot expired; reopen it from Scan. An available prepared export can still finish."); controls(); }
     }
     private void createViews() {

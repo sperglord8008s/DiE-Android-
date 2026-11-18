@@ -77,7 +77,7 @@ public class MainActivity extends Activity {
   LinearLayout titlebar=new LinearLayout(this);titlebar.setGravity(Gravity.CENTER_VERTICAL);
   TextView title=txt("DiE Android",18);title.setTypeface(null,Typeface.BOLD);
   titlebar.addView(title,new LinearLayout.LayoutParams(0,-2,1));
-  titlebar.addView(btn("Explore",()->startActivityForResult(new Intent(this,SystemExplorerActivity.class),4)));titlebar.addView(btn("Options",()->optionsDialog()));root.addView(titlebar);
+  titlebar.addView(btn("Batch",()->startActivity(new Intent(this,BatchScanActivity.class))));titlebar.addView(btn("Explore",()->startActivityForResult(new Intent(this,SystemExplorerActivity.class),4)));titlebar.addView(btn("Options",()->optionsDialog()));root.addView(titlebar);
   fileLabel=mono("No file selected");fileLabel.setTextSize(13);fileLabel.setPadding(dp(6),dp(8),dp(6),dp(8));fileLabel.setBackgroundColor(0xff222a31);fileLabel.setMaxLines(2);
   LinearLayout fileRow=new LinearLayout(this);fileRow.setGravity(Gravity.CENTER_VERTICAL);fileRow.addView(fileLabel,new LinearLayout.LayoutParams(0,-2,1));
   open=btn("…",()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);startActivityForResult(i,1);});open.setContentDescription("Browse for a file");fileRow.addView(open);root.addView(fileRow);

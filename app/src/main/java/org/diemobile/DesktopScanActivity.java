@@ -102,6 +102,7 @@ public final class DesktopScanActivity extends Activity {
         more.addView(button("Export",()->exportReport()));
         root.addView(more);
         root.addView(button("Offline custom databases",()->startActivity(new Intent(this,RuleDatabaseActivity.class))));
+        root.addView(button("Desktop batch scanning",()->startActivity(new Intent(this,BatchScanActivity.class))));
         root.addView(button("Saved scan option profiles",()->startActivity(new Intent(this,ScanProfilesActivity.class))));
         status=text("Initializing bundled desktop database…",12);root.addView(status);
         filter=new EditText(this);filter.setSingleLine();filter.setHint("Filter results or signatures");
