@@ -104,6 +104,7 @@ jobs:
       - run: bash scripts/test-apk.sh
       - run: bash tests/test-dependency-fetch.sh
       - run: bash scripts/test-models.sh
+      - run: bash scripts/test-profiles.sh
       - run: bash scripts/test-dex.sh
       - run: bash scripts/test-strings.sh
       - run: bash scripts/test-metadata.sh

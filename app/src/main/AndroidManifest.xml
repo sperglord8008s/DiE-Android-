@@ -5,6 +5,7 @@
     <application android:label="DiE Android" android:theme="@style/AppTheme" android:allowBackup="false" android:supportsRtl="true">
         <service android:name=".BinaryWorkerService" android:exported="false" android:isolatedProcess="true" android:process=":binary_worker" android:stopWithTask="true"/>
         <activity android:name=".RuleDatabaseActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
+        <activity android:name=".ScanProfilesActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
         <activity android:name=".DesktopScanActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
         <activity android:name=".ArchiveExplorerActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
         <activity android:name=".NativeToolsActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>

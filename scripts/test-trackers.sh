@@ -13,7 +13,7 @@ if command -v rg >/dev/null; then rg --files regex-engine/third_party/re2j -g '*
 else find regex-engine/third_party/re2j -name '*.java' > "$tmp/sources"; fi
 javac --release 8 -d "$tmp/engine" @"$tmp/sources"
 javac -cp "$json_test_jar:$tmp/engine" -d "$tmp/classes" \
-  app/src/main/java/org/diemobile/{Inspector,EvidenceJson,EvidenceRows,InvestigationBackend,TrackerJson,TrackerUnicode,TrackerRegex,TrackerPrefilter,TrackerCatalog,TrackerCatalogBackend}.java tests/TrackerCatalogTest.java tests/TrackerPrefilterTest.java
+  app/src/main/java/org/diemobile/{Inspector,EvidenceJson,EvidenceRows,InvestigationBackend,CatalogJson,TrackerJson,TrackerUnicode,TrackerRegex,TrackerPrefilter,TrackerCatalog,TrackerCatalogBackend}.java tests/TrackerCatalogTest.java tests/TrackerPrefilterTest.java
 tracker_audit=()
 if [[ -n "${TRACKER_SNAPSHOT:-}" ]]; then tracker_audit+=("$TRACKER_SNAPSHOT"); fi
 java -cp "$tmp/classes:$tmp/engine:$json_test_jar" org.diemobile.TrackerCatalogTest "$tmp/reference.json" "${TRACKER_DEPS_DIR:-app/build/tracker-deps}/UnicodeData-15.0.0.txt" "$tmp" "${tracker_audit[@]}"

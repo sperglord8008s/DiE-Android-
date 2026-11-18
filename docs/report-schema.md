@@ -106,3 +106,5 @@ Row order is unchanged. Reconstruct the native packet by combining metadata
 with the three arrays. Expanded evidence-table exports retain all named fields.
 Both forms preserve every occurrence; capture staging is independent of
 filter/page and survives pending-picker recreation/source expiry.
+
+Saved option catalogs use `org.diemobile.scan-profiles` version 1 and `org.diemobile.cdie-options/v1`. UUID-keyed records retain original metadata and exact numeric/UTF-16 values; effective settings follow the existing ScanOptions contract. Catalog exports preserve captured source bytes/SHA-256 identity across later edits and picker recreation. A scan report still records its actual captured options and engine/database identities; it does not yet attribute a named profile ID. See [profile contracts](scan-profiles.md).

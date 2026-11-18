@@ -47,9 +47,15 @@ final class EngineDatabase {
         if (children != null && children.length > 0) {
             if (!destination.isDirectory() && !destination.mkdirs()) throw new IOException("Cannot create database directory");
             for (String child : children) copyAssets(assets, path + "/" + child, new File(destination, child));
-        } else try (InputStream in = assets.open(path); OutputStream out = new FileOutputStream(destination)) {
-            byte[] buffer = new byte[32768]; int count;
-            while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+        } else {
+            // Asset implementations can return nested relative leaf names.
+            // Create their complete parent path before opening the output.
+            File parent=destination.getParentFile();
+            if(parent!=null&&!parent.isDirectory()&&!parent.mkdirs())throw new IOException("Cannot create database file parent");
+            try (InputStream in = assets.open(path); OutputStream out = new FileOutputStream(destination)) {
+                byte[] buffer = new byte[32768]; int count;
+                while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+            }
         }
     }
 

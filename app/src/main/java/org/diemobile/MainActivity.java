@@ -28,6 +28,7 @@ public class MainActivity extends Activity {
  private Button nativeTools,archiveTools;
  private long elapsedMs;
  private boolean settingsDirty,loadingSettings;
+ private AlertDialog scanOptionsDialog;
  private ScanOptions scannedOptions;
  private ScanEvidence evidence;
  private JSONObject nativeFacts;
@@ -103,7 +104,30 @@ public class MainActivity extends Activity {
  @Override protected void onResume(){super.onResume();if(deep==null)return;loadingSettings=true;ScanOptions o=ScanPreferences.load(this);deep.setChecked((o.flags&1)!=0);heuristic.setChecked((o.flags&2)!=0);all.setChecked((o.flags&4)!=0);recursive.setChecked((o.flags&8)!=0);aggressive.setChecked((o.flags&32)!=0);min.setText(""+o.minimumStringLength);loadingSettings=false;settingsChanged();}
  private int minLength(){try{return Math.max(3,Math.min(64,Integer.parseInt(min.getText().toString())));}catch(Exception e){return 4;}}
  private void settingsChanged(){if(loadingSettings)return;ScanPreferences.save(this,currentOptions());settingsDirty=scannedOptions!=null&&!currentOptions().sameAs(scannedOptions);if(!busy&&selectedUri!=null&&settingsDirty){status.setText("Settings changed • press Scan / Rescan");}else if(!busy&&result!=null)finishedStatus();}
- private void optionsDialog(){LinearLayout form=vertical();form.setPadding(dp(18),dp(8),dp(18),dp(8));TextView desc=txt("Deep: additional signature rules.\nHeuristic: infer probable matches.\nRecursive: inspect embedded files.\nAggressive: additional speculative checks.\nAll types: also scan compatible parent formats.\n\nMinimum ASCII string length (3–64)",14);form.addView(desc);EditText entry=new EditText(this);entry.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);entry.setText(min.getText());form.addView(entry);form.addView(btn("Import Exodus database (JSON)",()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");startActivityForResult(i,3);}));form.addView(btn("Inspect imported Exodus rules / metadata",this::openTrackerCatalog));new AlertDialog.Builder(this).setTitle("Scan options").setView(form).setNegativeButton("Cancel",null).setPositiveButton("Apply",(d,w)->{min.setText(entry.getText());min.setText(""+minLength());settingsChanged();}).show();}
+ private void optionsDialog() {
+  LinearLayout form=vertical();
+  form.setPadding(dp(18),dp(8),dp(18),dp(8));
+  form.addView(txt("Deep: additional signature rules.\nHeuristic: infer probable matches.\nRecursive: inspect embedded files.\nAggressive: additional speculative checks.\nAll types: also scan compatible parent formats.\n\nMinimum ASCII string length (3–64)",14));
+  EditText entry=new EditText(this);
+  entry.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+  entry.setText(min.getText());
+  form.addView(entry);
+  form.addView(btn("Saved scan option profiles",()->{
+   // The old minimum editor must not overwrite a subsequently applied profile.
+   if(scanOptionsDialog!=null)scanOptionsDialog.dismiss();
+   startActivity(new Intent(this,ScanProfilesActivity.class));
+  }));
+  form.addView(btn("Import Exodus database (JSON)",()->{
+   Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+   intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType("*/*");
+   startActivityForResult(intent,3);
+  }));
+  form.addView(btn("Inspect imported Exodus rules / metadata",this::openTrackerCatalog));
+  scanOptionsDialog=new AlertDialog.Builder(this).setTitle("Scan options").setView(form)
+   .setNegativeButton("Cancel",null).setPositiveButton("Apply",(dialog,which)->{
+    min.setText(entry.getText());min.setText(""+minLength());settingsChanged();
+   }).show();
+ }
  private void finishedStatus(){status.setText(String.format(Locale.ROOT,"%s • %d ms%s",error.isEmpty()?"Scan complete":"Local scan / engine error",elapsedMs,settingsDirty?" • settings changed":""));}
  private void receive(Intent i){if(i==null)return;Uri u=null;if(Intent.ACTION_VIEW.equals(i.getAction()))u=i.getData();else if(Intent.ACTION_SEND.equals(i.getAction()))u=i.getParcelableExtra(Intent.EXTRA_STREAM);if(u!=null&&"content".equals(u.getScheme()))scan(u);}
  @Override protected void onActivityResult(int req,int code,Intent data){super.onActivityResult(req,code,data);if(req==2){finishReport(code,data);return;}if((req==4||req==5)&&code==RESULT_OK&&data!=null){String p=data.getStringExtra("path");if(p!=null){if(req==5){if(ownedMember!=null)ownedMember.delete();ownedMember=new File(p);selectedDisplayName=data.getStringExtra("display");}scan(Uri.fromFile(new File(p)));}return;}if(code==RESULT_OK&&data!=null&&data.getData()!=null){if(req==1){try{if((data.getFlags()&Intent.FLAG_GRANT_READ_URI_PERMISSION)!=0)getContentResolver().takePersistableUriPermission(data.getData(),Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException ignored){}scan(data.getData());}if(req==3)importExodus(data.getData());}}

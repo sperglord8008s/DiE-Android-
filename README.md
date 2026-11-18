@@ -11,6 +11,7 @@ Development alpha with host JNI, Android UI simulation and CI build checks; hand
 - **File info → Whole-file hashes** exposes complete CRC32/MD4/MD5/SHA1/SHA224/SHA256/SHA384/SHA512 records with exact values, mechanisms, source revisions and complete exports. Native Tools uses the same expanded worker path. Pinned xxfclib and unmodified 0BSD RHash MD4 supply the computations; native SHA-256 is independently checked against acquisition. Host/JCA/OpenSSL/RFC fixtures and three Android cases pass. See [hash contracts](docs/hash-investigation.md).
 - Primary scanning reuses the CDiE desktop backend: exact signature source paths, format facts, hierarchy, diagnostics, deep/heuristic/recursive/aggressive/parent-format flags, overlays/resources/archives and tag filters. Calls are serialized. Full Qt engine parity is unverified.
 - Shared persisted settings between Scan and the signature laboratory; captured options are exported with the result. Searchable detection evidence is paged without discarding records.
+- **Options / laboratory → Saved scan option profiles** captures all shared flags, tags and string minimum, with named UUIDs, complete source metadata, strict catalog import/export, revision-checked atomic storage and apply/rename/update/delete. Pending exports survive catalog changes/recreation. Host and six Android/real-engine cases pass; Qt/manual-format/tool settings and handset durability remain incomplete. See [profile contracts](docs/scan-profiles.md).
 - Offline custom-rule ZIP import, native load checks, immutable SHA-256 snapshots, activation/rollback and original archive export; helpers, tag metadata and licensing notices are retained. No automatic network database updates.
 - Versioned structured JSON reports capture content identity, original scan options, engine/database revisions, native evidence and limits before the system picker. Immutable staging survives pending-picker recreation/source expiry and preserves exact decoded Unicode, including isolated UTF-16 units. See [schema and lifecycle](docs/report-schema.md).
 - Searchable, paginated maps/imports/exports/symbols/resources/instructions with every native field, contextual explanations and explicit unsupported/errors. Navigate physical offsets or unsigned preferred VAs to hex/disassembly, retain Back context, measure range entropy/digests and export exact stored resource bytes. See [contracts and limits](docs/native-records.md).
@@ -33,6 +34,7 @@ JDK 17, Gradle 8.11.1, Android platform 35, CMake 3.22.1, NDK 28.2.13676358. API
 bash scripts/test.sh
 bash scripts/test-apk.sh
 bash scripts/test-models.sh
+bash scripts/test-profiles.sh
 bash scripts/test-dex.sh
 bash scripts/test-resources.sh
 bash scripts/fetch-engine.sh

@@ -8,6 +8,8 @@ import org.json.*;
 
 /** Streaming JSON for full engine values; preserves every UTF-16 code unit. */
 final class EvidenceJson {
+    /** Implemented only by grammar-validated source numeric tokens. */
+    interface RawNumber { String literal(); }
     private static final char[] HEX="0123456789ABCDEF".toCharArray();
     private final Writer output;
     private final BooleanSupplier cancelled;
@@ -45,6 +47,7 @@ final class EvidenceJson {
             output.write(']');
         } else if (value instanceof String) quoted(output,(String)value,cancelled);
         else if (value instanceof Boolean) output.write(value.toString());
+        else if (value instanceof RawNumber) output.write(((RawNumber)value).literal());
         else if (value instanceof Number) output.write(JSONObject.numberToString((Number)value));
         else throw new IOException("Unrecognized JSON value class: "+value.getClass().getName());
     }
