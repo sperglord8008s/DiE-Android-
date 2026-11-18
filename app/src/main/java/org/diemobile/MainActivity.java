@@ -20,6 +20,7 @@ public class MainActivity extends Activity {
  private LinearLayout root,pane,tabs;
  private TextView status,fileLabel;
  private Button open,rescan,export,cancel;
+ private final ArrayList<Button> reportFormatButtons=new ArrayList<>();
  private Engine.Cancellation scanCancellation;
  private ProgressBar progress;
  private Uri selectedUri;
@@ -93,7 +94,7 @@ public class MainActivity extends Activity {
   min=new EditText(this);min.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);min.setText(""+prefs.minimumStringLength);
   for(CheckBox c:new CheckBox[]{deep,heuristic,recursive,aggressive,all})c.setOnCheckedChangeListener((b,v)->settingsChanged());
   tabs=new LinearLayout(this);HorizontalScrollView hs=new HorizontalScrollView(this);hs.setHorizontalScrollBarEnabled(false);hs.addView(tabs);root.addView(hs);
-  String[] labels={"Scan","File info","Reference","APK / SDKs","Entropy","Strings","Hex","Log / JSON"};for(int i=0;i<labels.length;i++){final int p=i;tabs.addView(btn(labels[i],()->{page=p;show();}));}
+  String[] labels={"Scan","File info","Reference","APK / SDKs","Entropy","Strings","Hex","Reports / Log"};for(int i=0;i<labels.length;i++){final int p=i;tabs.addView(btn(labels[i],()->{page=p;show();}));}
   View line=new View(this);line.setBackgroundColor(0xff44525e);root.addView(line,new LinearLayout.LayoutParams(-1,dp(1)));
   ScrollView sc=new ScrollView(this);pane=vertical();sc.addView(pane);root.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
   progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setMax(100);progress.setProgress(0);root.addView(progress,new LinearLayout.LayoutParams(-1,dp(5)));
@@ -188,7 +189,7 @@ public class MainActivity extends Activity {
  }
  private String pretty(String s){try{return new JSONObject(s).toString(2);}catch(JSONException e){try{return new JSONArray(s).toString(2);}catch(JSONException ignored){return s;}}}
  private void show(){
-  pane.removeAllViews();for(int i=0;i<tabs.getChildCount();i++){Button b=(Button)tabs.getChildAt(i);b.setEnabled(i!=page);b.setTextColor(i==page?0xff80cbc4:0xffe5eaf0);}
+  pane.removeAllViews();reportFormatButtons.clear();for(int i=0;i<tabs.getChildCount();i++){Button b=(Button)tabs.getChildAt(i);b.setEnabled(i!=page);b.setTextColor(i==page?0xff80cbc4:0xffe5eaf0);}
   if(result==null){pane.addView(txt(busy?"Scan running on worker thread.":"Open or share a file to inspect it. No root or internet access required.",16));return;}
   switch(page){
    case 0:field("Type",evidence!=null&&evidence.ok?evidence.type:result.type,"Desktop parser interpretation when available; the local header identification is retained in File info and exported reports. Recognition does not validate every structure.");showNativeFacts();field("Size",String.format(Locale.ROOT,"%,d bytes (0x%X)",result.size,result.size),"Exact input length in decimal and hexadecimal. Offsets refer to byte positions within that length.");field("Entropy",String.format(Locale.ROOT,"%.4f / 8",result.entropy),"Shannon entropy of the observed byte histogram, from 0 to 8 bits per byte. Compression, encryption and ordinary media can all produce high entropy; this is not a packing or malware verdict.");heading("Detection results • desktop CDiE");pane.addView(btn("Desktop scan laboratory / signature editor",()->openDesktopScan()));showDetections();heading("Content identity");field("SHA-256",result.sha256,"A 256-bit digest of the exact bytes analyzed. Compare against a trusted digest to identify matching content; it is not a publisher signature.");field("Flags",String.format(Locale.ROOT,"0x%04X",scannedFlags),"Actual desktop-backend flags captured when the scan began. Laboratory options and tag filters apply here too. The export preserves their names and values.");field("Time",elapsedMs+" ms","Elapsed wall-clock time including local copying, file inspection, knowledge lookup and signature scanning.");heading("Technical interpretation");pane.addView(btn("File structure and interpretation",()->{page=1;show();}));if(result.type.contains("ZIP")||result.type.contains("DEX"))pane.addView(btn("APK / DEX evidence and SDK details",()->{page=3;show();}));break;
@@ -198,7 +199,7 @@ public class MainActivity extends Activity {
    case 4:pane.addView(txt(String.format(Locale.ROOT,"Whole-file entropy: %.3f / 8",result.entropy),17));TextView detail=txt("Touch graph to inspect a block.",14);pane.addView(new Graph(result,detail),new LinearLayout.LayoutParams(-1,dp(230)));pane.addView(detail);pane.addView(txt("High entropy can indicate compression, encryption or randomness; not proof of packing.",14));break;
    case 5:pane.addView(btn("Grouped string classifier / endpoints / risk indicators",()->openInvestigation("strings")));pane.addView(txt("Whole-input UTF-8 and anchored UTF-16 candidate scanning, physical offsets, inspectable rules and complete group exports. Risk groups are observations requiring corroboration.",13));EditText q=new EditText(this);q.setSingleLine(true);q.setHint("Filter quick ASCII preview");pane.addView(q);pane.addView(txt("Quick preview limited to ~200k characters and 4096 characters per run; the classifier above has separate disclosed budgets.",12));TextView lines=mono(result.strings);pane.addView(lines);final String source=result.strings;q.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int a,int b,int c){}public void onTextChanged(CharSequence s,int a,int b,int c){StringBuilder o=new StringBuilder();String term=s.toString().toLowerCase(Locale.ROOT);for(String line:source.split("\n"))if(line.toLowerCase(Locale.ROOT).contains(term))o.append(line).append('\n');lines.setText(o.length()==0?"No matches":o.toString());}public void afterTextChanged(android.text.Editable e){}});break;
    case 6:pane.addView(txt("First 4096 bytes • hex / ASCII",14));HorizontalScrollView hs=new HorizontalScrollView(this);hs.addView(mono(result.hex));pane.addView(hs);break;
-   case 7:heading("Engine log / raw JSON");pane.addView(mono(error.isEmpty()?pretty(report):error+"\n"+pretty(report)));break;
+   case 7:heading("Captured report exports / engine log");addReportFormat("Export complete XML report",ScanReportFormats.Format.XML);addReportFormat("Export complete CSV report",ScanReportFormats.Format.CSV);addReportFormat("Export complete TSV report",ScanReportFormats.Format.TSV);pane.addView(txt("Complete captures, independent of page/filter. XML and tabular string values use explicit JSON encoding to preserve every UTF-16 unit; tabular metadata retains diagnostics and unknown fields.",13));pane.addView(mono(error.isEmpty()?pretty(report):error+"\n"+pretty(report)));break;
   }
  }
  private void heading(String title){TextView h=txt(title,14);h.setTypeface(null,Typeface.BOLD);h.setTextColor(0xff80cbc4);h.setBackgroundColor(0xff26323a);h.setPadding(dp(8),dp(6),dp(8),dp(6));pane.addView(h,new LinearLayout.LayoutParams(-1,-2));}
@@ -241,8 +242,10 @@ public class MainActivity extends Activity {
   Button next=btn("Next 50",()->renderEvidence(target,query,page+1));next.setEnabled(page+1<pages);navigation.addView(next);target.addView(navigation);
  }
  private File scanExportDirectory(){return new File(getCacheDir(),"scan-exports");}
- private void reportControls(){export.setEnabled(!busy&&result!=null&&scannedOptions!=null&&!preparingReport&&!reportPickerOpen&&!writingReport);}
- private void prepareReport(){
+ private void reportControls(){boolean available=!busy&&result!=null&&scannedOptions!=null&&!preparingReport&&!reportPickerOpen&&!writingReport;export.setEnabled(available);for(Button button:reportFormatButtons)button.setEnabled(available);}
+ private void addReportFormat(String label,ScanReportFormats.Format format){Button button=btn(label,()->prepareReport(format));reportFormatButtons.add(button);button.setEnabled(export.isEnabled());pane.addView(button);}
+ private void prepareReport(){prepareReport(ScanReportFormats.Format.JSON);}
+ private void prepareReport(ScanReportFormats.Format format){
   if(result==null||scannedOptions==null||busy||preparingReport||reportPickerOpen||writingReport)return;
   final Inspector.Result source=result;final ScanOptions options=scannedOptions;final ScanEvidence scan=evidence;
   final JSONObject facts=nativeFacts;final EngineDatabase db=database;final String inputName=name,explanation=guide,apk=apkReport,engineError=error;
@@ -252,7 +255,7 @@ public class MainActivity extends Activity {
    PreparedExport staged=null;
    try{
     JSONObject output=ScanReport.create(inputName,source,options,scan,facts,db==null?"":db.engineRevision,db==null?"":db.signatureRevision,db==null?"":db.customDigest,duration,explanation,apk,engineError);
-    staged=PreparedExport.stream(scanExportDirectory(),"die-android-report-"+source.sha256.substring(0,12)+".json","application/json",writer->EvidenceJson.write(writer,output,this::isDestroyed),this::isDestroyed);
+    staged=PreparedExport.stream(scanExportDirectory(),"die-android-report-"+source.sha256.substring(0,12)+"."+format.extension,format.mime,writer->ScanReportFormats.write(writer,output,format,this::isDestroyed),this::isDestroyed);
     final PreparedExport ready=staged;
     runOnUiThread(()->{
      if(isDestroyed()){ready.discard();return;}
