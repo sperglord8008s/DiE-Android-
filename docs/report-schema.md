@@ -88,3 +88,5 @@ The parent input is a private snapshot in normal app use. A matching file length
 | `interpretation` | Explicit reminder that entropy is not a behavior/security verdict |
 
 Native resources can also export their exact stored bytes directly as `application/octet-stream`. The export does not decompress content, interpret code pages, synthesize virtual tails or infer an unknown symbol extent. Cancelled/failed destination writes may leave partial provider data and are reported as such.
+
+APK signing evidence uses the shared `org.diemobile.evidence-table` schema plus `org.diemobile.apk-signing` source provenance version 1. It distinguishes combined supplied-input verification from raw apksig aggregate flags, retains every scoped record and original identity, and never assigns derived certificate/lineage data an invented APK byte offset. See [signing tables and exact binary exports](apk-signing-investigation.md).

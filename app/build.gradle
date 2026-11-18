@@ -21,7 +21,7 @@ android {
     sourceSets { main { assets.srcDir '../generated-assets' } }
     sourceSets { main { jniLibs.srcDir layout.buildDirectory.dir('generated-binwalk-jni') } }
     sourceSets { main { jniLibs.srcDir layout.buildDirectory.dir('generated-mpv-jni') } }
-    sourceSets { test { java.srcDirs '../tests/fixtures/dex', '../tests/fixtures/metadata', '../tests/fixtures/resources' } }
+    sourceSets { test { java.srcDirs '../tests/fixtures/dex', '../tests/fixtures/metadata', '../tests/fixtures/resources', '../tests/fixtures/signing' } }
     packaging { resources { merges += ['LICENSE'] } }
     packaging { jniLibs { keepDebugSymbols += ['**/libmpv.so', '**/libav*.so', '**/libsw*.so', '**/libc++_shared.so'] } }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
@@ -84,12 +84,39 @@ def verifyTrackerUnicode = tasks.register('verifyTrackerUnicode', Exec) {
 }
 tasks.named('preBuild').configure { dependsOn verifyTrackerUnicode }
 
+// Verify the actual Maven bytecode used for signing inspection, independently
+// of Gradle cache/network state. Source contracts are checked by test-apk.sh.
+def apksigVerifier = configurations.create('apksigVerifier') {
+    canBeConsumed = false
+    visible = false
+    transitive = false
+}
+def verifyApksig = tasks.register('verifyApksig') {
+    inputs.files(apksigVerifier).withPropertyName('pinnedApksigArtifact')
+    inputs.file(rootProject.file('signing-engine/source-lock.json'))
+    doLast {
+        def lock = new groovy.json.JsonSlurper().parse(rootProject.file('signing-engine/source-lock.json'))
+        def digest = java.security.MessageDigest.getInstance('SHA-256')
+        apksigVerifier.singleFile.withInputStream { input ->
+            byte[] buffer = new byte[65536]
+            int count
+            while ((count = input.read(buffer)) >= 0) { if (count > 0) digest.update(buffer, 0, count) }
+        }
+        if (digest.digest().encodeHex().toString() != lock.binarySha256) {
+            throw new GradleException('APK signing verifier bytes differ from the reviewed source lock')
+        }
+        logger.lifecycle('Unmodified AOSP apksig artifact matches the reviewed signing-engine lock.')
+    }
+}
+tasks.named('preBuild').configure { dependsOn verifyApksig }
+
 // AOSP's standalone, Apache-2.0 APK signing-scheme verifier.
 dependencies {
     implementation project(':metadata-engine')
     implementation project(':resource-engine')
     implementation project(':regex-engine')
-    implementation 'com.android.tools.build:apksig:8.9.2'
+    implementation('com.android.tools.build:apksig:8.9.2') { version { strictly '8.9.2' } }
+    add('apksigVerifier', 'com.android.tools.build:apksig:8.9.2')
     // Google's maintained BSD-3-Clause smali fork; data parsing/formatting only.
     implementation 'com.android.tools.smali:smali-dexlib2:3.0.10'
     implementation 'com.android.tools.smali:smali-baksmali:3.0.10'

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "artifact": "com.android.tools.build:apksig:8.9.2",
+  "version": "8.9.2",
+  "license": "Apache-2.0",
+  "repository": "https://android.googlesource.com/platform/tools/apksig/",
+  "binaryUrl": "https://dl.google.com/dl/android/maven2/com/android/tools/build/apksig/8.9.2/apksig-8.9.2.jar",
+  "binarySha256": "c070ed1394629d74641aa0906f60b2ffa1ee77e6366a1f93437f59717b1aeb89",
+  "sourcesUrl": "https://dl.google.com/dl/android/maven2/com/android/tools/build/apksig/8.9.2/apksig-8.9.2-sources.jar",
+  "sourcesSha256": "c7a0f43d1e40fdf39725ac090f5c7bbaeae82d1e0bfd9cf2ee507a70eb5136b5",
+  "auditedPublicAndInputContracts": {
+    "com/android/apksig/ApkVerifier.java": "b6bd2d1f098e07ebc839938dc12429e69453f2611c365de800e5c2f85caaeb1c",
+    "com/android/apksig/SigningCertificateLineage.java": "ac6e745e77036793d51da2c8ac6153d0a1c66f0788d83824d655e9de50f4e381",
+    "com/android/apksig/ApkSigner.java": "42dc3965a0312452517e5c0ddd8b5971b953fd97116a572b146573567b331e1e",
+    "com/android/apksig/util/DataSource.java": "ef2e9d203b515e7aa113f88bcc6033139f3180b42f6a41ff7223cb06659cdefd",
+    "com/android/apksig/util/DataSources.java": "44f1c676792f32a3362766622fe2a0e0d195293e985cbe68a8ba9f29c12b7245",
+    "com/android/apksig/internal/apk/v4/V4Signature.java": "8ce6e76848630722fd62fb3649c5e06371c52dd2ce65fdeccd3132dfb8bcd4f8",
+    "com/android/apksig/internal/apk/v4/V4SchemeVerifier.java": "e08e5e4e18c747472e17cc97eb8f43d694fc93e3083cd83cd7f70f41258884cb"
+  },
+  "packaging": "Unmodified published Maven binary, build-time SHA-256 verified. Source archive is a development API/behavior reference; this module does not replace the upstream signing implementation."
+}
