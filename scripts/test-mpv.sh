@@ -7,7 +7,8 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 source scripts/test-dependencies.sh
 load_json_test_dependency "$tmp"
-library="${MPV_HOST_LIBRARY:-$(pkg-config --variable=libdir mpv)/libmpv.so}"
+source scripts/host-mpv.sh
+library=$(die_host_mpv_library)
 "${CC:-cc}" -std=c11 -O2 -Wall -Wextra -Werror -pthread \
   -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" -Imedia-engine/include \
   tests/mpv-boundaries.c "$library" -Wl,-rpath,"$(dirname "$library")" -lm -o "$tmp/mpv-boundaries"

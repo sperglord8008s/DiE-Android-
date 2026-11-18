@@ -74,7 +74,7 @@ if args.bundle:
                 if source_path.is_file():
                     bundle.write(source_path, 'integration/licenses/' + source_path.name)
             bundle.write(root / 'LICENSE', 'integration/DiE-Android-LICENSE.txt')
-            for name in ('prepare-mpv-source-build.py', 'fetch-mpv-sources.py', 'fetch-mpv.py', 'build-mpv.sh', 'mpv-notices.py', 'mpv-references.py'):
+            for name in ('prepare-mpv-source-build.py', 'fetch-mpv-sources.py', 'fetch-mpv.py', 'build-mpv.sh', 'host-mpv.sh', 'mpv-notices.py', 'mpv-references.py'):
                 bundle.write(root / 'scripts' / name, 'scripts/' + name)
         # Check the distribution itself, including every complete source payload,
         # before replacing a previously valid component-source artifact.

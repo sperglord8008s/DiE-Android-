@@ -5,11 +5,8 @@ cd "$(dirname "$0")/.."
 mode="${1:-android}"
 if [[ "$mode" = host ]]; then
   java_home="${JAVA_HOME:?Set JAVA_HOME to JDK 17}"
-  library="${MPV_HOST_LIBRARY:-}"
-  if [[ -z "$library" ]]; then
-    library=$(pkg-config --variable=libdir mpv)/libmpv.so
-  fi
-  if [[ ! -f "$library" ]]; then echo 'Install libmpv-dev or set MPV_HOST_LIBRARY to a real host libmpv shared library.' >&2; exit 1; fi
+  source scripts/host-mpv.sh
+  library=$(die_host_mpv_library)
   mkdir -p app/build/host-mpv
   "${CC:-cc}" -std=c11 -O2 -fPIC -shared -Wall -Wextra -Werror \
     -I"$java_home/include" -I"$java_home/include/linux" -Imedia-engine/include \
