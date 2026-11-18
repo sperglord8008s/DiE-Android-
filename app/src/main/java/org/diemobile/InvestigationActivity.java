@@ -31,6 +31,7 @@ public final class InvestigationActivity extends Activity {
     private File bytes, exportDirectory;
     private String inputName;
     private String retentionState, pendingInputRequest;
+    private String inputNotice = "";
     private long byteSize;
     private volatile int generation;
     private boolean busy, binding, pickerOpen, expired;
@@ -67,7 +68,8 @@ public final class InvestigationActivity extends Activity {
         File root = new File(path); inputName = getIntent().getStringExtra("name"); if (inputName == null) inputName = root.getName();
         if(state!=null) { retentionState=state.getString("providerState");pendingInputRequest=state.getString("pendingInputRequest");if(pendingInputRequest!=null)pickerOpen=true; }
         exportDirectory = new File(getCacheDir(), "tool-exports");
-        if ("desktop-batch".equals(getIntent().getStringExtra("provider"))) backend = new BatchScanBackend(new File(getFilesDir(),"desktop-batches"),new File(getCacheDir(),"batch-view-snapshots"),getIntent().getStringExtra("batchId"));
+        if ("comparison".equals(getIntent().getStringExtra("provider"))) backend = new ComparisonBackend(root,new File(getCacheDir(),"comparison-snapshots"),inputName,getIntent().getStringExtra("sha256"),getIntent().getLongExtra("sourceSize",-1),retentionState);
+        else if ("desktop-batch".equals(getIntent().getStringExtra("provider"))) backend = new BatchScanBackend(new File(getFilesDir(),"desktop-batches"),new File(getCacheDir(),"batch-view-snapshots"),getIntent().getStringExtra("batchId"));
         else if ("binwalk".equals(getIntent().getStringExtra("provider"))) backend = new BinwalkBackend(root,new File(getCacheDir(),"binary-snapshots"),inputName,new BinaryWorkerClient(this));
         else if ("photorec".equals(getIntent().getStringExtra("provider"))) backend = new PhotoRecBackend(root,new File(getCacheDir(),"carving-snapshots"),inputName,new BinaryWorkerClient(this,"photorec"));
         else if ("mpv".equals(getIntent().getStringExtra("provider"))) backend = new MpvBackend(root,new File(getCacheDir(),"media-snapshots"),inputName,new BinaryWorkerClient(this,"mpv"));
@@ -83,6 +85,7 @@ public final class InvestigationActivity extends Activity {
         else if ("strings".equals(getIntent().getStringExtra("provider"))) backend = new StringBackend(root,new File(getCacheDir(),"string-snapshots"),inputName,ScanPreferences.load(this).minimumStringLength);
         else backend = new DexBackend(root, new File(getCacheDir(), "investigation-inputs"), inputName,
             getIntent().getStringExtra("sha256"), getIntent().getLongExtra("sourceSize", root.length()));
+        if (state != null) inputNotice = state.getString("inputNotice", "");
         createViews(); location = new Location(null, "", "", 0, 50);
         if (state != null) {
             try {
@@ -96,7 +99,7 @@ public final class InvestigationActivity extends Activity {
             } catch (IOException e) { status.setText("Prepared export expired; prepare it again"); }
         }
         bind(location);
-        if (root.isFile()||"desktop-batch".equals(getIntent().getStringExtra("provider"))||"package-set".equals(getIntent().getStringExtra("provider"))||"apk-signing".equals(getIntent().getStringExtra("provider"))&&retentionState!=null||"sdk-rules".equals(getIntent().getStringExtra("provider"))||"tracker-rules".equals(getIntent().getStringExtra("provider"))) load(location, false);
+        if (root.isFile()||"comparison".equals(getIntent().getStringExtra("provider"))&&retentionState!=null||"desktop-batch".equals(getIntent().getStringExtra("provider"))||"package-set".equals(getIntent().getStringExtra("provider"))||"apk-signing".equals(getIntent().getStringExtra("provider"))&&retentionState!=null||"sdk-rules".equals(getIntent().getStringExtra("provider"))||"tracker-rules".equals(getIntent().getStringExtra("provider"))) load(location, false);
         else { status.setText("Input snapshot expired; reopen it from Scan. An available prepared export can still finish."); controls(); }
     }
     private void createViews() {
@@ -198,7 +201,8 @@ public final class InvestigationActivity extends Activity {
         });
         status.setText(shown.matches + " matches of " + source.size() + " records • page " + (shown.number + 1) + "/" + shown.pageCount
             + " • " + produced.pageSize + " rows/page" + (expired ? " • oldest Back location expired (64 retained)" : "")
-            + (!filter.getText().toString().equals(produced.filter) ? " • edited search not applied" : "")); controls();
+            + (!filter.getText().toString().equals(produced.filter) ? " • edited search not applied" : "")
+            + (inputNotice.isEmpty() ? "" : "\n" + inputNotice)); controls();
     }
     private void page(int delta) { if (produced == null || busy) return; Location current = capture(); load(new Location(current.request, current.filter, current.draft, Math.max(0,current.page + delta), current.pageSize), true); }
     private void navigate(InvestigationBackend.Link link) {
@@ -244,13 +248,17 @@ public final class InvestigationActivity extends Activity {
     }
 
     private void acceptAdditionalInput(String request, Uri uri) {
+        inputNotice = "";
         int ticket = begin("Acquiring / verifying selected supplemental input…");
         AtomicBoolean stop = cancellation;
         worker.execute(
                 () -> {
+                    boolean adopted = false;
                     try {
-                        if (uri == null) backend.acceptInput(request, null, "", stop::get);
-                        else {
+                        if (uri == null) {
+                            backend.acceptInput(request, null, "", stop::get);
+                            adopted = true;
+                        } else {
                             String name = "Selected supplemental input";
                             try (android.database.Cursor cursor =
                                     getContentResolver()
@@ -265,34 +273,42 @@ public final class InvestigationActivity extends Activity {
                                                     null)) {
                                 if (cursor != null && cursor.moveToFirst() && !cursor.isNull(0))
                                     name = cursor.getString(0);
+                            } catch (Exception ignored) {
+                                // Some readable providers do not implement metadata queries.
                             }
                             try (InputStream input = getContentResolver().openInputStream(uri)) {
                                 if (input == null)
                                     throw new IOException("Selected document is unavailable");
                                 backend.acceptInput(request, input, name, stop::get);
+                                adopted = true;
                             }
                         }
-                        // The backend has atomically adopted a new input. Capture private
-                        // restoration
-                        // state even if a later UI load is cancelled; never save an expired old
-                        // idsig.
-                        String retained = backend.retentionState();
-                        runOnUiThread(
-                                () -> {
-                                    if (isDestroyed() || ticket != generation) return;
-                                    retentionState = retained;
-                                    busy = false;
-                                    history.clear();
-                                    expired = false;
-                                    load(new Location(null, "", "", 0, location.pageSize), false);
-                                });
+                        acceptedInput(ticket, "");
                     } catch (Exception | LinkageError | StackOverflowError error) {
-                        failed(
-                                ticket,
-                                "Supplemental input failed; prior captured evidence retained: "
-                                        + error.getMessage());
+                        if (adopted) {
+                            try {
+                                acceptedInput(ticket, "Selected input was adopted; provider close / follow-up failed: " + error.getMessage());
+                            } catch (Exception recovery) {
+                                failed(ticket, "Selected input was adopted, but its new view could not be restored: " + recovery.getMessage());
+                            }
+                        } else failed(ticket, "Supplemental input failed; prior captured evidence retained: " + error.getMessage());
                     }
                 });
+    }
+
+    /** Called only after the backend commit point, even if provider close subsequently fails. */
+    private void acceptedInput(int ticket, String notice) throws Exception {
+        String retained = backend.retentionState();
+        String capturedNotice = notice.length() > 16384 ? notice.substring(0, 16384) + " [diagnostic preview capped]" : notice;
+        runOnUiThread(() -> {
+            if (isDestroyed() || ticket != generation) return;
+            retentionState = retained;
+            inputNotice = capturedNotice;
+            busy = false;
+            history.clear();
+            expired = false;
+            load(new Location(null, "", "", 0, location.pageSize), false);
+        });
     }
 
     private void showText(String caption, String value) {
@@ -411,14 +427,15 @@ public final class InvestigationActivity extends Activity {
         worker.execute(() -> {
             PreparedExport staged = null;
             try {
-                staged = PreparedExport.stream(exportDirectory, link.textName, "text/plain", out -> backend.writeText(link.request, out, stop::get), stop::get);
+                String mime = link.textName.toLowerCase(Locale.ROOT).endsWith(".json") ? "application/json" : "text/plain";
+                staged = PreparedExport.stream(exportDirectory, link.textName, mime, out -> backend.writeText(link.request, out, stop::get), stop::get);
                 StringBuilder snippet = new StringBuilder(); char[] buffer = new char[4096]; boolean more;
                 try (Reader in = new InputStreamReader(new FileInputStream(staged.file), StandardCharsets.UTF_8)) { int count; while (snippet.length() < 65536 && (count = in.read(buffer, 0, Math.min(buffer.length, 65536 - snippet.length()))) >= 0) { EvidenceRows.check(stop::get); snippet.append(buffer,0,count); } more = in.read() >= 0; }
                 final PreparedExport ready = staged; final String text = snippet.toString(); final boolean truncated = more;
                 runOnUiThread(() -> {
                     if (isDestroyed() || ticket != generation) { ready.discard(); return; }
                     busy = false; controls(); if (preview != null) preview.discard(); preview = ready;
-                    ScrollView scroll = new ScrollView(this); HorizontalScrollView horizontal = new HorizontalScrollView(this); TextView body = text(text + (truncated ? "\n\nDISPLAY PREVIEW • export retains the complete rendered method." : ""),12); body.setTypeface(Typeface.MONOSPACE); body.setTextIsSelectable(true); horizontal.addView(body); scroll.addView(horizontal);
+                    ScrollView scroll = new ScrollView(this); HorizontalScrollView horizontal = new HorizontalScrollView(this); TextView body = text(text + (truncated ? "\n\nDISPLAY PREVIEW • export retains the complete rendered scope." : ""),12); body.setTypeface(Typeface.MONOSPACE); body.setTextIsSelectable(true); horizontal.addView(body); scroll.addView(horizontal);
                     AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Rendered text • " + ready.size + " UTF-8 bytes").setView(scroll).setNegativeButton("Close", null)
                         .setPositiveButton("Export complete text", (d,w) -> { preview = null; launchExport(ready); }).create();
                     dialog.setOnDismissListener(d -> { if (preview == ready) { preview.discard(); preview = null; } }); dialog.show();
@@ -450,6 +467,7 @@ public final class InvestigationActivity extends Activity {
     }
     @Override protected void onSaveInstanceState(Bundle state) {
         super.onSaveInstanceState(state); if (location == null) return; state.putBundle("location", capture().bundle()); ArrayList<Bundle> trail = new ArrayList<>(); for (Location value : history) trail.add(value.bundle()); state.putParcelableArrayList("history",trail); state.putBoolean("expired",expired);
+        state.putString("inputNotice", inputNotice);
         if(retentionState!=null)state.putString("providerState",retentionState);
         if(pendingInputRequest!=null)state.putString("pendingInputRequest",pendingInputRequest);
         if (prepared != null && pickerOpen) { state.putString("prepared",prepared.file.getAbsolutePath()); state.putString("exportName",prepared.name); state.putString("exportMime",prepared.mime); state.putLong("exportSize",prepared.size); }

@@ -8,6 +8,7 @@ Development alpha with host JNI, Android UI simulation and CI build checks; hand
 
 - Storage Access Framework and Android share menu; no root, analytics, broad storage or INTERNET permission.
 - Streaming header identification, SHA-256, Shannon entropy, touch-selectable block entropy, searchable ASCII strings and hex preview.
+- **File info → Binary comparison** owns both selected inputs, verifies whole-file identities and compares exact aligned bytes with coalesced unequal runs/one-sided tails. Complete source-identified reports, per-side hex/range exports, transactional replacement and recreation retain precise scope. Host oracle/100,000-run/budget/failure cases and five Android/native-hex cases pass; semantic alignment, report/package diff and handset flows remain incomplete. See [comparison contracts](docs/binary-comparison.md).
 - **File info → Whole-file hashes** exposes complete CRC32/MD4/MD5/SHA1/SHA224/SHA256/SHA384/SHA512 records with exact values, mechanisms, source revisions and complete exports. Native Tools uses the same expanded worker path. Pinned xxfclib and unmodified 0BSD RHash MD4 supply the computations; native SHA-256 is independently checked against acquisition. Host/JCA/OpenSSL/RFC fixtures and three Android cases pass. See [hash contracts](docs/hash-investigation.md).
 - Primary scanning reuses the CDiE desktop backend: exact signature source paths, format facts, hierarchy, diagnostics, deep/heuristic/recursive/aggressive/parent-format flags, overlays/resources/archives and tag filters. Calls are serialized. Full Qt engine parity is unverified.
 - Shared persisted settings between Scan and the signature laboratory; captured options are exported with the result. Searchable detection evidence is paged without discarding records.
@@ -37,6 +38,7 @@ bash scripts/test-apk.sh
 bash scripts/test-models.sh
 bash scripts/test-profiles.sh
 bash scripts/test-batch.sh
+bash scripts/test-comparison.sh
 bash scripts/test-dex.sh
 bash scripts/test-resources.sh
 bash scripts/fetch-engine.sh

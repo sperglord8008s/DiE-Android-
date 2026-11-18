@@ -36,7 +36,12 @@ jobs:
       - run: bash scripts/fetch-engine.sh
       - run: bash scripts/fetch-knowledge.sh
       - run: bash scripts/fetch-metadata.sh
-      - run: sudo apt-get update && sudo apt-get install -y libmpv-dev ffmpeg
+      - name: Install host media reference dependencies
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y libmpv-dev ffmpeg
       - run: python3 scripts/fetch-mpv-sources.py --bundle
       - run: python3 scripts/mpv-notices.py --check && python3 scripts/mpv-references.py --check
       - uses: dtolnay/rust-toolchain@1.90.0
@@ -106,6 +111,7 @@ jobs:
       - run: bash scripts/test-models.sh
       - run: bash scripts/test-profiles.sh
       - run: bash scripts/test-batch.sh
+      - run: bash scripts/test-comparison.sh
       - run: bash scripts/test-dex.sh
       - run: bash scripts/test-strings.sh
       - run: bash scripts/test-metadata.sh
@@ -135,7 +141,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - run: sudo apt-get update && sudo apt-get install -y libmpv-dev ffmpeg
+      - name: Install host media reference dependencies
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y libmpv-dev ffmpeg
       - run: bash scripts/test-mpv.sh
       - run: python3 scripts/fetch-mpv-sources.py
       - run: python3 scripts/mpv-notices.py --check && python3 scripts/mpv-references.py --check
