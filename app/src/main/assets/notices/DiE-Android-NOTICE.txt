@@ -32,6 +32,16 @@ dependency license texts are in binary-dependencies.txt. Linked Rust 1.90.0
 standard-library notices are in rust-stdlib-1.90.0.html. The two shared JNI
 workspace license files omitted by jni-sys-macros 0.4.1's crate archive are
 retained at their pinned source commit in binary-engine/licenses.
+
+PhotoRec 7.2 format registration/header/data sources are unmodified at
+281be432dd79121e08e0898887a9ee1f30fb3e96, GPL-2.0-or-later (compatible with
+this GPL-3.0 application). Full GPL terms and original source headers are in
+photorec-7.2.txt and photorec-source-headers.txt. carving-engine/source-lock.json
+pins the complete source archive and reviewed contracts. The source-built
+descriptor adapter, offline fetch/build scripts and corresponding-source ZIP
+recipe are included in carving-engine and scripts. No optional libjpeg/zlib,
+full file-check/rename callbacks or filesystem/fragment recovery are enabled.
+
 MPV media investigation additionally uses unmodified official mpv-android
 2026-09-17 ARM64 runtime libraries, with SHA-256 identities in
 media-engine/runtime-lock.json and exact published engine/dependency/submodule

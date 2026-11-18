@@ -55,7 +55,7 @@ import sys
 import zipfile
 with zipfile.ZipFile(sys.argv[1]) as archive:
     names=[name for name in archive.namelist() if name.startswith('lib/') and name.endswith('.so')]
-    assert {'lib/arm64-v8a/libdiemobile.so','lib/arm64-v8a/libdiebinwalk.so','lib/arm64-v8a/libdiempv.so','lib/arm64-v8a/libdiehash.so'} <= set(names), 'Required native engine library missing'
+    assert {'lib/arm64-v8a/libdiemobile.so','lib/arm64-v8a/libdiebinwalk.so','lib/arm64-v8a/libdiempv.so','lib/arm64-v8a/libdiehash.so','lib/arm64-v8a/libdiephotorec.so'} <= set(names), 'Required native engine library missing'
     for name in names:
         assert name.startswith('lib/arm64-v8a/'), 'Unexpected native ABI: '+name
         data=archive.read(name);header=data[:20]
@@ -92,6 +92,8 @@ unzip -p "$apk" assets/notices/metadata-extractor-2.22.0.txt | cmp - app/src/mai
 unzip -p "$apk" assets/notices/xmp-aosp-BSD.txt | cmp - app/src/main/assets/notices/xmp-aosp-BSD.txt
 unzip -p "$apk" assets/notices/metadata-source-headers.txt | cmp - app/src/main/assets/notices/metadata-source-headers.txt
 unzip -p "$apk" assets/notices/binwalk-3.1.1.txt | cmp - app/src/main/assets/notices/binwalk-3.1.1.txt
+unzip -p "$apk" assets/notices/photorec-7.2.txt | cmp - app/src/main/assets/notices/photorec-7.2.txt
+unzip -p "$apk" assets/notices/photorec-source-headers.txt | cmp - app/src/main/assets/notices/photorec-source-headers.txt
 unzip -p "$apk" assets/notices/binary-dependencies.txt | cmp - app/src/main/assets/notices/binary-dependencies.txt
 unzip -p "$apk" assets/notices/rust-stdlib-1.90.0.html | cmp - app/src/main/assets/notices/rust-stdlib-1.90.0.html
 unzip -p "$apk" assets/notices/mpv-runtime.txt | cmp - app/src/main/assets/notices/mpv-runtime.txt
@@ -119,6 +121,7 @@ manifest="$(dirname "$apk")/build-manifest.txt"
   sha256sum regex-engine/source-lock.json
   sha256sum regex-engine/tracker-unicode-lock.json
   sha256sum signing-engine/source-lock.json package-engine/source-lock.json
+  sha256sum carving-engine/source-lock.json
   echo "Canonical LibChecker catalog SHA-256: $(cat generated-assets/knowledge/libchecker-v5.json.sha256)"
   cat generated-assets/engine-revisions.properties generated-assets/knowledge/revisions.txt
   cat app/src/main/assets/analysis-engines.properties

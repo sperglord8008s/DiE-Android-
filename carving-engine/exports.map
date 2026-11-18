@@ -1,0 +1,7 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+{
+  global:
+    Java_org_diemobile_PhotoRecEngine_scanFd;
+    Java_org_diemobile_PhotoRecEngine_scanPath;
+  local: *;
+};

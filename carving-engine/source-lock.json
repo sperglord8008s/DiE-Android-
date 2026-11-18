@@ -1,0 +1,29 @@
+{
+  "project": "TestDisk / PhotoRec",
+  "version": "7.2",
+  "revision": "281be432dd79121e08e0898887a9ee1f30fb3e96",
+  "url": "https://codeload.github.com/cgsecurity/testdisk/tar.gz/281be432dd79121e08e0898887a9ee1f30fb3e96",
+  "archiveSha256": "0cfd82ca6890188a3a4fe01c9b970f654eb3af396580f408ed024789e2873616",
+  "license": "GPL-2.0-or-later",
+  "compiledSourceCount": 358,
+  "contractFiles": [
+    "src/filegen.h",
+    "src/filegen.c",
+    "src/file_list.c",
+    "src/fidentify.c",
+    "src/Makefile.am"
+  ],
+  "adapter": "diemobile-photorec-1",
+  "optionalLibraries": [],
+  "auxiliarySignatureFiles": false,
+  "fileCheckCallbacksExecuted": false,
+  "renameCallbacksExecuted": false,
+  "filesystemRecoveryExecuted": false,
+  "contractFileSha256": {
+    "src/filegen.h": "932f6811caee7cf46e8bf1d103f8a985da65ac405ed9a421cd4537330fe2d18b",
+    "src/filegen.c": "67dc31e80822bba7e0cd241f7a4e1d13dacd7d92880fc9c57a76780cf94e1921",
+    "src/file_list.c": "b4257ba28e1815073c4e952457a82e82f48f98ad24d657d1d1d9a0ecb0b885ad",
+    "src/fidentify.c": "bf2ad0b73ded802782ff16698a4a0869c31bef410763000e4ef1dd92efe31177",
+    "src/Makefile.am": "1a26b888477facb1d663fdec98a1f84b9f646975dc496b9f9cd5d53c86ee21c7"
+  }
+}

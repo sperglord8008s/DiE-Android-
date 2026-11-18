@@ -21,7 +21,8 @@ android {
     sourceSets { main { assets.srcDir '../generated-assets' } }
     sourceSets { main { jniLibs.srcDir layout.buildDirectory.dir('generated-binwalk-jni') } }
     sourceSets { main { jniLibs.srcDir layout.buildDirectory.dir('generated-mpv-jni') } }
-    sourceSets { test { java.srcDirs '../tests/fixtures/dex', '../tests/fixtures/metadata', '../tests/fixtures/resources', '../tests/fixtures/signing' } }
+    sourceSets { main { jniLibs.srcDir layout.buildDirectory.dir('generated-photorec-jni') } }
+    sourceSets { test { java.srcDirs '../tests/fixtures/dex', '../tests/fixtures/metadata', '../tests/fixtures/resources', '../tests/fixtures/signing', '../tests/fixtures/carving' } }
     packaging { resources { merges += ['LICENSE'] } }
     packaging { jniLibs { keepDebugSymbols += ['**/libmpv.so', '**/libav*.so', '**/libsw*.so', '**/libc++_shared.so'] } }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
@@ -32,10 +33,11 @@ android {
             def fixtureDirectory = file(providers.gradleProperty('nativeFixturesDir').orElse(file('build/host-ui-fixtures').absolutePath).get())
             def binaryLibraryDirectory = file(providers.gradleProperty('hostBinaryLibraryDir').orElse(file('build/host-binwalk').absolutePath).get())
             def mediaLibraryDirectory = file(providers.gradleProperty('hostMediaLibraryDir').orElse(file('build/host-mpv').absolutePath).get())
+            def carvingLibraryDirectory = file('build/host-photorec')
             maxHeapSize = '1g'
             systemProperty 'user.home', file('build/test-runtime-home').absolutePath
             doFirst { file('build/test-runtime-home').mkdirs() }
-            jvmArgs "-Djava.library.path=${hostLibraryDirectory.absolutePath}${File.pathSeparator}${binaryLibraryDirectory.absolutePath}${File.pathSeparator}${mediaLibraryDirectory.absolutePath}", '--add-opens=java.base/java.io=ALL-UNNAMED'
+            jvmArgs "-Djava.library.path=${hostLibraryDirectory.absolutePath}${File.pathSeparator}${binaryLibraryDirectory.absolutePath}${File.pathSeparator}${mediaLibraryDirectory.absolutePath}${File.pathSeparator}${carvingLibraryDirectory.absolutePath}", '--add-opens=java.base/java.io=ALL-UNNAMED'
             systemProperty 'die.fixture.dir', fixtureDirectory.absolutePath
             // Native/fixture changes must invalidate a previous passing Test task,
             // even when none of the Java sources or test parameters changed.
@@ -44,6 +46,7 @@ android {
             inputs.dir(fixtureDirectory).withPropertyName('nativeFixtures')
             inputs.file(new File(binaryLibraryDirectory, 'libdiebinwalk.so')).withPropertyName('hostBinwalkLibrary')
             inputs.file(new File(mediaLibraryDirectory, 'libdiempv.so')).withPropertyName('hostMpvLibrary')
+            inputs.file(new File(carvingLibraryDirectory, 'libdiephotorec.so')).withPropertyName('hostPhotoRecLibrary')
             systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
         }
     }
@@ -71,6 +74,18 @@ def buildMpvAndroid = tasks.register('buildMpvAndroid', Exec) {
     outputs.dir(layout.buildDirectory.dir('generated-mpv-jni/arm64-v8a'))
 }
 tasks.named('preBuild').configure { dependsOn buildMpvAndroid }
+
+def buildPhotoRecAndroid = tasks.register('buildPhotoRecAndroid', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'bash', rootProject.file('scripts/build-photorec.sh').absolutePath, 'android'
+    environment 'ANDROID_HOME', android.sdkDirectory.absolutePath
+    if (gradle.startParameter.offline) environment 'DIE_OFFLINE', 'true'
+    inputs.files(rootProject.fileTree('carving-engine') { include '**/*.cpp', '**/*.c', '**/*.h', '**/*.map', '*-lock.json', 'CMakeLists.txt' })
+    inputs.files(rootProject.files('scripts/build-photorec.sh', 'scripts/fetch-photorec.sh', 'scripts/prepare-photorec.py', 'scripts/fetch-verified.sh', 'scripts/photorec-notices.py'))
+    inputs.files(rootProject.files('app/src/main/assets/notices/photorec-7.2.txt', 'app/src/main/assets/notices/photorec-source-headers.txt'))
+    outputs.file(layout.buildDirectory.file('generated-photorec-jni/arm64-v8a/libdiephotorec.so'))
+}
+tasks.named('preBuild').configure { dependsOn buildPhotoRecAndroid }
 
 def verifyHashSources = tasks.register('verifyHashSources', Exec) {
     workingDir rootProject.projectDir

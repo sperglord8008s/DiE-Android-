@@ -68,6 +68,7 @@ public final class InvestigationActivity extends Activity {
         if(state!=null) { retentionState=state.getString("providerState");pendingInputRequest=state.getString("pendingInputRequest");if(pendingInputRequest!=null)pickerOpen=true; }
         exportDirectory = new File(getCacheDir(), "tool-exports");
         if ("binwalk".equals(getIntent().getStringExtra("provider"))) backend = new BinwalkBackend(root,new File(getCacheDir(),"binary-snapshots"),inputName,new BinaryWorkerClient(this));
+        else if ("photorec".equals(getIntent().getStringExtra("provider"))) backend = new PhotoRecBackend(root,new File(getCacheDir(),"carving-snapshots"),inputName,new BinaryWorkerClient(this,"photorec"));
         else if ("mpv".equals(getIntent().getStringExtra("provider"))) backend = new MpvBackend(root,new File(getCacheDir(),"media-snapshots"),inputName,new BinaryWorkerClient(this,"mpv"));
         else if ("resources".equals(getIntent().getStringExtra("provider"))) backend = new AndroidResourceBackend(root,new File(getCacheDir(),"resource-snapshots"),inputName,new BinaryWorkerClient(this,"resources"));
         else if ("hashes".equals(getIntent().getStringExtra("provider"))) backend = new HashBackend(root,new File(getCacheDir(),"hash-snapshots"),inputName,new BinaryWorkerClient(this,"hashes"));

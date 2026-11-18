@@ -10,6 +10,8 @@ binary-engine/licenses/* -text whitespace=-blank-at-eof
 app/src/main/assets/notices/mpv-runtime.txt -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
 media-engine/licenses/* -text whitespace=-blank-at-eol,-blank-at-eof
 app/src/main/assets/notices/android-resources-32.5.1.txt -text whitespace=-blank-at-eol,-blank-at-eof
+app/src/main/assets/notices/photorec-7.2.txt -text whitespace=-blank-at-eol,-blank-at-eof
+app/src/main/assets/notices/photorec-source-headers.txt -text whitespace=-blank-at-eol,-blank-at-eof
 # Unified patch context uses a single space for an unchanged empty source line.
 patches/android-resource-engine.patch whitespace=-blank-at-eol
 hash-engine/third_party/rhash/* -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
