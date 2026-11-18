@@ -37,6 +37,25 @@ match interval in UTF-16 units, snapshot hash and collected metadata. Its first
 witness uses deterministic UTF-16 descriptor ordering; upstream itself does not
 guarantee the order of names extracted into its set.
 
+Adapter 2 adds a shared **required-literal prefilter** before the authoritative
+regex searches. For flat literal/dot/alternative patterns, every alternative
+must supply a literal run of at least three UTF-16 units. The longest run from
+each branch becomes a necessary candidate condition. A bounded Aho-Corasick
+trie searches those conditions together across each class name, including
+overlapping and suffix matches. A candidate still needs a complete RE2/J search;
+the prefilter never declares a positive or supplies a match span. Regex branch
+preference, first witness and exact UTF-16 spans therefore stay with RE2/J.
+
+Patterns with groups, character classes, repetition, anchors, shorthand escapes,
+short/empty branch atoms or insufficient index capacity use ordinary regex
+search. No rule is partly indexed or omitted. Original regex syntax is preserved;
+an unescaped dot remains a wildcard, rather than an invented slash or literal
+period. The catalog exposes whether each rule is indexed and its exact necessary
+atoms. Provenance and the report include indexed/fallback counts, index states,
+actual scanned UTF-16 units/work steps and actual regex comparisons. Finding all
+indexed rules as candidates can end that class's prefilter traversal early;
+the subsequent regex searches still examine the full class string.
+
 Ordinary literals, escapes, alternatives, groups/noncapturing groups, anchors,
 character classes and supported greedy/lazy repetitions use the compared
 Python-compatible subset. Python `\w`, `\d`, `\s` and their supported complements
@@ -91,6 +110,14 @@ units, one billion estimated input-unit/instruction operations or a 25-second
 cooperative deadline. Cancellation is checked during acquisition, validation,
 rule/class iteration, search and export. An active RE2 operation must settle
 before cancellation is observed; this is not a hard isolated-process deadline.
+The shared index has at most 65,536 states, uses iterative failure/output links
+instead of recursive traversal or copied suffix-output lists, and counts input,
+failure-transition and output work against the search budget. Unsupported index
+shapes/capacity fall back to regex; exhausted index traversal makes remaining
+searches unknown. Shared-index units count toward the same 128 Mi-unit budget,
+and work steps count toward the estimated-operation limit. This avoids the
+rule-count × class-count regex cost for ordinary tracker signatures while
+retaining the ordinary search for more complex supported regex syntax.
 
 An exhausted search records unknown/not-fully-searched rules and marks the result
 partial. Unsupported names/rules also prevent a complete-coverage claim. No
@@ -140,6 +167,19 @@ unsupported active signatures and 10,825 compiled instructions. The snapshot was
 not added to the app/repository. This verifies acceptance of those exact bytes,
 not an authenticated upstream release, known tracker behavior, matching ground
 truth for an APK or coverage of other/future snapshots.
+All 428 active signatures in those exact bytes also qualify for the shared
+prefilter, using 3,139 trie states.
+
+Prefilter regressions compare 191 mixed indexed/fallback patterns against an
+independent unfiltered rule-first RE2 search, checking every positive/negative,
+first witness and exact span. Overlapping/suffix atoms, alternative precedence,
+escaped literal punctuation, supplementary/Chinese input, false atom candidates,
+cancellation and exhausted index traversal are covered. A 400-rule / 30,003-class
+synthetic workload returns its two expected matches with **three actual regex
+searches**, even with an eight-comparison allowance; the former rule-by-class
+loop could not finish within that allowance. Its measured host traversal scans
+750,069 UTF-16 units / 810,075 index work steps. These counts validate that fixture,
+not a timing guarantee or an Android benchmark.
 
 Android integration tests use the actual catalog, engine, smali DEX bytes and
 ZIP streams, with test document-provider streams. They exercise complete

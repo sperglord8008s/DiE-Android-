@@ -87,7 +87,7 @@ public final class TrackerCatalogTest {
                 else if(rule.status.equals("ignored-short")) ignored++;
                 else { unsupportedCount++;System.out.println("Unsupported imported record "+rule.id+": "+rule.diagnostic); }
             }
-            System.out.println("Optional local snapshot audit (no authenticity/behavior claim): SHA-256 "+imported.sha256+"; "+imported.rules.size()+" records, "+compiled+" compiled, "+ignored+" short, "+unsupportedCount+" unsupported, "+instructions+" compiled instructions.");
+            System.out.println("Optional local snapshot audit (no authenticity/behavior claim): SHA-256 "+imported.sha256+"; "+imported.rules.size()+" records, "+compiled+" compiled, "+ignored+" short, "+unsupportedCount+" unsupported, "+instructions+" compiled instructions; "+imported.prefilter.ruleCount+" indexed rules / "+imported.prefilter.stateCount()+" states.");
         }
     }
     private static void unicode(Path source) throws Exception {

@@ -67,6 +67,14 @@ Engine: `f055daa56fd3feef1db4d6dbc187cb292de24ea9`; signature data: `7ef816ee64e
 
 ## Next priorities
 
+Tracker adapter 2 adds shared required-literal indexing without changing RE2/J
+matching authority. All active patterns in the audited public snapshot are
+indexed; complex patterns fall back to ordinary search. The 191-pattern
+differential and 400-rule / 30,003-name workload fixtures preserve results/spans
+and make only three actual regex calls in the large synthetic case. The API 28
+tracker cases also check exposed index counts and real DEX report work. Retain
+the existing scope/unsupported/deadline/device limitations; see tracker docs.
+
 1. Inspect the newest PR-head Actions jobs first. Fix regressions before adding features. Run the required host and Android checks for any changed native contract.
 2. Verify handset flows: SAF/share/rescan, database activation/failed-import preservation/restart/rollback/export, native/evidence paging and help, range/resource export with real providers, offset/VA navigation, cancellation at each phase and recreation. Repeat on API 26 and current Android, including a real/emulated 16 KiB environment. No connected-device flow was exercised in this session. Review the dense Native Tools layout on small displays, rotation and screen readers. Current parameter/page/filter and pending export survive recreation; the full Back history does not.
 3. Continue cross-split/local-definition DEX resolution, framework/split resource relationships, tracker compatibility and SDK fingerprint/version providers. Canonical LibChecker matching now retains all active rules, including regex and all ten evidence type adapters; this does not prove code identity/use or implement separate SDK version providers. Binary XML/resources.arsc has source-built parser, wire evidence and navigation fixtures; opaque overlays/staged aliases and canonical XML reconstruction remain incomplete. PackageManager summary metadata, the compared Exodus regex subset, and native DEX/ZIP recognition remain partial despite separate smali/resource fixtures. Prefer pinned, license-audited upstream APIs/engines over duplicate parsers. Add package/split relationships and cross-scan parent history alongside the fixture-tested nested archive browser. The resource provider already hashes and owns its complete parent APK.

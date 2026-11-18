@@ -14,6 +14,7 @@ import org.json.*;
 /** Offline imported data, independent matcher and complete original-record evidence. */
 final class TrackerCatalog {
     static final int MAX_BYTES=8*1024*1024;
+    static final int ADAPTER_VERSION=2;
     static final String REFERENCE="8a18f43f16f1727438c5dd8f18a8a31301e1df9a";
     static final String REFERENCE_SHA256="4569ea6464d888f9edda362cc392247934db50bb598b35655e7dec99c1d230a1";
     static final class Rule {
@@ -55,7 +56,7 @@ final class TrackerCatalog {
     static final class Result {
         final List<Evaluation> evaluations=new ArrayList<>();
         final List<String> unsupportedInputs=new ArrayList<>();
-        long comparisons,units,cost;
+        long comparisons,units,cost,prefilterUnits,prefilterSteps;
         int inputCount,hits,unsupportedRules,unsearched;
         String limit="";
         boolean complete() { return unsupportedInputs.isEmpty()&&unsupportedRules==0&&unsearched==0; }
@@ -64,6 +65,7 @@ final class TrackerCatalog {
     final String text,sha256;
     final List<Rule> rules;
     final List<TrackerJson.Slice> metadata;
+    final TrackerPrefilter prefilter;
     private TrackerCatalog(byte[] bytes,BooleanSupplier stop) throws Exception {
         this.bytes=bytes;sha256=Inspector.toHex(MessageDigest.getInstance("SHA-256").digest(bytes));
         text=StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();
@@ -74,6 +76,8 @@ final class TrackerCatalog {
             records.add(new Rule(slice,records.size(),budget));
         }
         rules=Collections.unmodifiableList(records);
+        prefilter=new TrackerPrefilter(rules,stop);
+        if(System.nanoTime()-started>15000000000L) throw new IOException("Tracker compilation/index exceeds its 15-second cooperative budget; snapshot was not activated");
     }
     static TrackerCatalog read(InputStream input,BooleanSupplier stop) throws Exception {
         ByteArrayOutputStream output=new ByteArrayOutputStream();byte[] buffer=new byte[32768];int count;
@@ -106,23 +110,35 @@ final class TrackerCatalog {
             if(!TrackerRegex.inputSupported(input)) { result.unsupportedInputs.add(descriptor);continue; }
             inputs.add(input);originals.add(descriptor);
         }
-        long started=System.nanoTime();
+        Evaluation[] foundRules=new Evaluation[rules.size()];BitSet pending=(BitSet)prefilter.indexed.clone(),fallback=new BitSet();
         for(Rule rule:rules) {
-            EvidenceRows.check(stop);
-            if(rule.pattern==null) {
-                if(rule.status.equals("unsupported")) result.unsupportedRules++;
-                result.evaluations.add(new Evaluation(rule,rule.status,"","",-1,-1));continue;
+            if(rule.pattern==null) { if(rule.status.equals("unsupported")) result.unsupportedRules++;foundRules[rule.index]=new Evaluation(rule,rule.status,"","",-1,-1); }
+            else if(!pending.get(rule.index)) fallback.set(rule.index);
+        }
+        long started=System.nanoTime();
+        classes: for(int i=0;i<inputs.size();i++) {
+            EvidenceRows.check(stop);String input=inputs.get(i);BitSet candidates=new BitSet();
+            if(!pending.isEmpty()) {
+                TrackerPrefilter.Scan scan=prefilter.scan(input,stop,started,limits.nanos,limits.units-result.units,limits.cost-result.cost);
+                result.units+=scan.units;result.cost+=scan.steps;result.prefilterUnits+=scan.units;result.prefilterSteps+=scan.steps;
+                if(!scan.complete) { result.limit="Required-literal index text/work/time budget reached; remaining searches are unknown";break; }
+                candidates=scan.candidates;candidates.and(pending);
             }
-            Evaluation evaluation=null;
-            for(int i=0;i<inputs.size();i++) {
-                EvidenceRows.check(stop);String input=inputs.get(i);long cost=Math.max(1,input.length())*(long)rule.pattern.programSize();
-                if(!result.limit.isEmpty()||result.comparisons>=limits.comparisons||input.length()>limits.units-result.units||cost>limits.cost-result.cost||System.nanoTime()-started>limits.nanos) {
-                    result.limit="Matching comparison/text/estimated-instruction/time budget reached; remaining searches are unknown";break;
+            candidates.or(fallback);
+            for(int index=candidates.nextSetBit(0);index>=0;index=candidates.nextSetBit(index+1)) {
+                EvidenceRows.check(stop);Rule rule=rules.get(index);long cost=Math.max(1,input.length())*(long)rule.pattern.programSize();
+                if(result.comparisons>=limits.comparisons||input.length()>limits.units-result.units||cost>limits.cost-result.cost||System.nanoTime()-started>limits.nanos) {
+                    result.limit="Matching comparison/text/estimated-instruction/time budget reached; remaining searches are unknown";break classes;
                 }
-                result.comparisons++;result.units+=input.length();result.cost+=cost;
-                Matcher found=rule.pattern.matcher(input);
-                if(found.find()) { evaluation=new Evaluation(rule,"matched",originals.get(i),input,found.start(),found.end());result.hits++;break; }
+                result.comparisons++;result.units+=input.length();result.cost+=cost;Matcher found=rule.pattern.matcher(input);
+                if(found.find()) {
+                    foundRules[index]=new Evaluation(rule,"matched",originals.get(i),input,found.start(),found.end());result.hits++;pending.clear(index);fallback.clear(index);
+                }
             }
+            if(pending.isEmpty()&&fallback.isEmpty()) break;
+        }
+        for(Rule rule:rules) {
+            Evaluation evaluation=foundRules[rule.index];
             if(evaluation==null) {
                 String status=!result.limit.isEmpty()?"not-fully-searched":result.unsupportedInputs.isEmpty()?"no-match":"no-match-in-supported-inputs";
                 if(status.equals("not-fully-searched")) result.unsearched++;
@@ -135,7 +151,10 @@ final class TrackerCatalog {
     JSONObject provenance() throws Exception {
         int supported=0,ignored=0;for(Rule rule:rules) { if(rule.pattern!=null) supported++;else if(rule.status.equals("ignored-short")) ignored++; }
         return new JSONObject().put("inputKind","user-imported Exodus snapshot; no online authenticity verification").put("snapshotSha256",sha256).put("snapshotSizeBytes",bytes.length)
+            .put("adapterVersion",ADAPTER_VERSION)
             .put("ruleCount",rules.size()).put("compiledRules",supported).put("ignoredShortRules",ignored).put("unsupportedRules",rules.size()-supported-ignored)
+            .put("requiredLiteralIndexedRules",prefilter.ruleCount).put("requiredLiteralIndexStates",prefilter.stateCount()).put("fallbackRegexRules",supported-prefilter.ruleCount)
+            .put("prefilterContract","Flat literal/dot/alternative branches each supply a mandatory literal of at least three UTF-16 units. A shared Aho-Corasick index excludes impossible candidates; only RE2/J verifies positives/first spans. Complex/short-atom/state-budget cases stay on ordinary regex search.")
             .put("matcher","independent GPL adapter / source-built RE2/J 1.8 / Python 3.12-compatible compared subset")
             .put("unicodeVersion",TrackerUnicode.VERSION).put("unicodeDataSha256",TrackerUnicode.SOURCE_SHA256)
             .put("upstreamContractRevision",REFERENCE).put("upstreamReferenceSourceSha256",REFERENCE_SHA256)
@@ -157,7 +176,8 @@ final class TrackerCatalog {
                 if(metadataOnly) return new Row(index,preview(slice.key,256),"Original top-level snapshot metadata",null,null,fields);
                 Rule rule=selected.get(index);
                 fields.put("trackerId",rule.id).put("originalRuleIndex",rule.index).put("codeSignature",preview(rule.signature,8192)).put("signatureUtf16Units",rule.signature.length()).put("signaturePreviewTruncated",rule.signature.length()>8192).put("status",rule.status).put("diagnostic",rule.diagnostic)
-                    .put("compiledProgramSize",rule.pattern==null?JSONObject.NULL:rule.pattern.programSize());
+                    .put("compiledProgramSize",rule.pattern==null?JSONObject.NULL:rule.pattern.programSize()).put("requiredLiteralPrefilterIndexed",prefilter.indexed.get(rule.index));
+                fields.put("requiredLiteralAtoms",prefilter.indexed.get(rule.index)?new JSONArray(TrackerPrefilter.atoms(rule.signature)):new JSONArray());
                 return new Row(index,preview(rule.name,256),rule.status+" • "+preview(rule.signature,512),null,null,fields);
             }
             JSONObject metadata() throws Exception { return provenance().put("errorsOnly",errorsOnly).put("metadataOnly",metadataOnly); }

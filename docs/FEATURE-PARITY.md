@@ -94,3 +94,12 @@ Each archive gets a private SHA-256-named immutable directory. The complete orig
 `scripts/test-apk.sh` creates disposable RSA signing keys and synthetic binary-manifest APKs. It checks actual AOSP apksig 8.9.2 verification, including signer-local digest errors (which are not returned by `Result.getErrors()`). It downloads a SHA-256-pinned build-time JAR, or accepts `APKSIG_JAR` for offline tests. Reports explicitly check the manifest minimum API through API 35; this does not verify Android 16/API 36, detached v4 signatures, or rotation lineage.
 
 Five tracker cases extend the Android suite to 63: full imported catalog paging/search/metadata/diagnostics/Back; complete long original-record exports across replacement/recreation; exact snapshot export after import deletion/recreation; actual DEX/ZIP report search with all matching rules; and the real import entry rejecting duplicate keys while retaining the prior snapshot. The shared viewer now dispatches root binary/text actions correctly. Host fixtures additionally compare 924 searches against actual pinned Exodus methods and exhaust frozen Unicode 15 properties. Real SAF/provider, handset/API 26/35 and process-isolation behavior remain unverified. See [tracker contracts](tracker-investigation.md).
+
+Tracker adapter 2 uses a bounded shared Aho-Corasick required-literal prefilter,
+then actual RE2/J verification; complex/short-atom/capacity cases retain ordinary
+regex search. Rules expose exact required atoms/index status, with measured
+index/regex work and unknown coverage on exhausted traversal. Host differential
+fixtures preserve every result/first witness/span against unfiltered searches
+across 191 mixed patterns; 400 rules over 30,003 descriptors finish with three
+regex searches. All 428 active patterns of the separately audited public
+snapshot qualify for 3,139 index states. Device performance remains unverified.

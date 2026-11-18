@@ -77,6 +77,7 @@ public final class TrackerWorkbenchTest {
     }
     @Test public void completeCatalogPagesFullValueSearchDiagnosticsMetadataAndBack() throws Exception {
         assertEquals(50,list().getAdapter().getCount());assertEquals(68,ReflectionHelpers.<EvidenceRows>getField(activity,"source").size());
+        assertEquals(65,new JSONObject(ReflectionHelpers.<String>getField(activity,"provenance")).getInt("requiredLiteralIndexedRules"));
         assertNull(row(0).physicalOffset);button("next").performClick();settle();assertEquals(50,row(0).index);
         search("end-of-full-value");assertEquals(1,list().getAdapter().getCount());assertTrue(row(0).json().getBoolean("previewTruncated"));
         controller.recreate();activity=controller.get();settle();assertEquals(1,list().getAdapter().getCount());
@@ -115,6 +116,7 @@ public final class TrackerWorkbenchTest {
         KnowledgeReport.Output report=KnowledgeReport.analyze(RuntimeEnvironment.getApplication(),dex,Inspector.scan(dex,4),"sample.dex");
         String text=report.apk.toString();assertTrue(text,text.contains("65 matching rules"));assertTrue(text,text.contains("original descriptor "+DexFixtureFactory.OWNER));
         assertTrue(text,text.contains("PARTIAL tracker search")&&text.contains("unsupported rules"));assertTrue(text,text.contains("fixture.invalid"));assertFalse(text,text.contains("literal signature matches"));
+        assertTrue(text,text.contains("65 actual regex/class comparisons")&&text.contains("65 indexed rules"));
         File zip=temporary.resolve("sample.zip").toFile();try(ZipOutputStream output=new ZipOutputStream(new FileOutputStream(zip))) {
             output.putNextEntry(new ZipEntry("classes.dex"));output.write(Files.readAllBytes(dex.toPath()));output.closeEntry();
         }
