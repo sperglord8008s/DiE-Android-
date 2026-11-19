@@ -77,9 +77,9 @@ matches, declared permissions and high entropy are evidence to investigate;
 they do not establish malicious behavior, complete validity or safety.
 
 The [feature-parity checklist](docs/FEATURE-PARITY.md) distinguishes implemented,
-host-verified and device-unverified functionality. The current source is on
-[`codex/workbench-parity`](https://github.com/sperglord8008s/DiE-Android-/tree/codex/workbench-parity),
-proposed through [draft PR #1](https://github.com/sperglord8008s/DiE-Android-/pull/1).
+host-verified and device-unverified functionality. The verified workbench is on the default branch, integrated through
+[PR #1](https://github.com/sperglord8008s/DiE-Android-/pull/1). Ongoing work
+continues on `codex/workbench-parity`.
 
 ## Build and contribute
 

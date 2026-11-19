@@ -467,3 +467,27 @@ APK verifier, including the installed label/version and all 14 native libraries.
 A cold Gradle build also reproduced a preparer refusal of an empty precreated
 output directory. The preparer now adopts only an empty unmanaged directory;
 unknown files, source edits and symlinks still fail, with a regression fixture.
+
+## Default branch and repeatable publication
+
+The verified GlassDigestor checkpoint was integrated through PR #1 into main
+`1fa7bb39cde2342049112d0648ed83bb93899758`. Its tree equals development commit
+`a30a1646677cbcc86a2dbe2f65d1358f14499edc`. All five CI jobs in run
+`44606318262` (#119) passed, and the same development tree passed 135 local
+Android host tests with zero failures/errors/skips.
+
+The captured CI source is the generated merge commit
+`119e255a9150099f6c54b09a9a6f161e0d68c1c2`; the pre-release uses that exact
+revision, not a relabeled rebuild. Its APK SHA-256 is
+`2b47ab8c3787cba625cc3939275649e50dfdd24145a8f83e0f1beb5a0d8d60de`.
+All four artifact digests/inner inventories and the downloaded APK's static
+signature/version/offline/library/alignment checks were independently verified.
+The environment can create release metadata but its credential route cannot
+upload to uploads.github.com. Publication therefore uses the dedicated
+repository workflow with GitHub's normal token; see `docs/build-versioning.md`.
+The workflow leaves failures in a draft and never overwrites assets or tags.
+
+Continue the Binwalk/PhotoRec checked exports and gallery/owned-preview handoff
+with dense, consistent formatting, then complete the broader native archive
+worker/tree. Preserve complete raw evidence and unknown extents. Hardware,
+media runtime, actual isolated UID/SAF and full desktop parity remain pending.
