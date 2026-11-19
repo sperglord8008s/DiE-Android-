@@ -176,7 +176,7 @@ public final class PhotoRecInvestigationTest {
                 "Empty input invented signatures");
         File large = directory.resolve("large.bin").toFile();
         try (RandomAccessFile output = new RandomAccessFile(large, "rw")) {
-            output.setLength(CarvingBackend.MAX_BYTES + 1);
+            output.setLength(PhotoRecBackend.MAX_BYTES + 1);
         }
         require(
                 !new JSONObject(PhotoRecEngine.scanPath(large.getAbsolutePath())).getBoolean("ok"),

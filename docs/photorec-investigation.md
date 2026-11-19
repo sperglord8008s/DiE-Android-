@@ -33,8 +33,9 @@ An independent naive matcher checks every searched-pattern occurrence in fixture
 The upstream header callback runs in standalone `safe_header_only=1` mode with
 an empty previous-file recovery context. This differs from PhotoRec's live disk
 recovery state and from fidentify's default `safe_header_only=0`. The source
-header window is 64 KiB, borrowed from immutable acquired bytes with one zero-padded
-suffix; actual bytes and zero-padded lookahead are explicit.
+header window is 64 KiB, borrowed from two bounded pread-cache windows.
+Near EOF, owned zero-padded lookahead is explicit and never becomes a stored
+source extent. The input is not copied into a file-sized native allocation.
 `headerAccepted` means this callback accepted its header, including any padded
 context. It is not full-file validation.
 
@@ -126,7 +127,7 @@ continue to stream fully expanded, named fields.
 
 ## Limits and verification
 
-Limits: **64 MiB input**, **250,000 candidate occurrences**, **10,000 patterns**,
+Limits: **256 MiB input**, **250,000 candidate occurrences**, **10,000 patterns**,
 **8 MiB copied data per candidate / 256 MiB aggregate data-block copying**, **24 MiB native report**,
 **30-second cooperative native deadline**, and the shared **45-second request
 watchdog / 32 MiB pipe envelope**. Input/match/report/deadline caps fail with no successful prefix. Data-work caps preserve complete magic/header discovery, mark each limited candidate with null extent and an explicit reason, and expose aggregate counts in help/exports.
@@ -160,3 +161,52 @@ audit: 176,292,786 expanded characters versus about 2,305,975 compact capture
 characters; 18 ranges have bounded data-stop evidence. This is one static host
 audit, not comprehensive APK recognition, integrity or Android runtime proof.
 Debug signing/build environments can produce different APK bytes.
+
+
+## Adapter 3: bounded input windows and larger blobs
+
+Adapter 3 retains native evidence schema 2 and the complete indexed transport;
+original adapter-2 captures remain readable within their original 64 MiB scope.
+The PhotoRec provider now acquires up to 256 MiB; Binwalk keeps its separate
+64 MiB limit. The upstream 7.2 format sources, pattern coverage and callback
+validation policies are unchanged.
+
+The native adapter owns a duplicated readable regular-file descriptor and uses
+`pread`, preserving the caller's position and ownership. A 1 MiB matcher buffer
+and two 128 KiB header caches bound **input-read payload buffers to 1.25 MiB**,
+independent of file size. Upstream data callbacks retain their separate 128 KiB
+previous/current block window and existing work budgets. Registry/evidence
+storage, JNI/JVM objects, allocator overhead and kernel cache are additional;
+1.25 MiB is neither the maximum input size nor a whole-process memory cap.
+
+Aho-Corasick state continues across matcher chunks. Unaligned headers borrow a
+contiguous cached 64 KiB view; short final headers receive explicit scratch
+padding. Data callbacks read only their source-bounded intervals. Reads reject
+EOF/truncation and unreadable/O_PATH descriptors, retry EINTR, and check the
+cooperative deadline. Source identity, size and timestamps are checked after
+analysis. These checks complement the app's privately acquired input identity;
+they are not cryptographic proof against an independently mutable external FD.
+
+New native metadata identifies the read mode, lack of input-sized allocation,
+maximum read-buffer payload, matcher/cache dimensions, logical source-read
+operations/bytes, owned duplicate and preserved caller position. Repeated
+header/data reads can make sourceReadBytes exceed the unique input size. The
+Java boundary checks this contract before accepting an adapter-3 report.
+
+The host suite now includes a separate reader executable for unaligned seams,
+EOF padding, cache reuse, bounds, caller close/position, write-only/O_PATH
+refusal, truncation/timestamp changes and 2,048 lease destructions. Real JNI
+checks cover an **80 MiB + 17 byte** sparse blob and an independently fully
+written nonzero blob of the same size, exact PNGs across 64 KiB/1 MiB/64 MiB and
+EOF boundaries, owned large-provider acquisition, a complete **256 MiB** sparse
+scan and rejection at 256 MiB + 1. These run with a 128 MiB Java heap and do not
+allocate full-size Java input arrays. Existing naive-pattern, dense-index,
+callback-budget and exact-export regressions still pass.
+
+A separate static audit of the frozen 0.5.0-alpha APK checks **51,088,307 bytes**
+(SHA-256 `893b9af057a829c43882dedd9ec39085319b5fc5e0909bb259e9bccc58091749`):
+all **111,228** returned magic occurrences agree with independent reads of the
+original bytes, and all **38** reported ranges stay inside the source. The APK
+was not executed. The standalone corresponding-source ZIP includes the new
+reader and tests and is separately rebuilt offline. These remain host/static
+checks, separate from actual device IPC, memory pressure and crash behavior.

@@ -63,3 +63,12 @@ Stale controls cannot relabel captured results. Known native passes/cache and
 three real-engine Android host cases pass. Profiles/batches retain their
 separate Automatic/flag-setting policies; broader desktop/device equivalence
 remains unverified. See [interpretation contracts](scan-interpretations.md).
+
+PhotoRec adapter 3 now streams its complete supported input up to 256 MiB.
+Input-read payload buffers stay bounded to 1.25 MiB; data-callback/registry/
+evidence/JVM memory are separate. Owned pread descriptors, cross-chunk matching,
+header padding, source-change gates and explicit IO metadata preserve exact
+coordinates. Sparse and fully written 80 MiB data, 256 MiB limits, every returned
+real-APK magic witness and independent source rebuilding are checked. Binwalk
+retains its separate 64 MiB limit. The tagged 0.5.0-alpha save point remains
+unchanged; this work follows that checkpoint. See [PhotoRec](photorec-investigation.md).

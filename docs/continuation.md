@@ -1,6 +1,6 @@
 # Development continuation point
 
-Work is on `codex/workbench-parity`, proposed in [draft PR #1](https://github.com/sperglord8008s/DiE-Android-/pull/1), based on main `0558a89`. The application remains `org.diemobile` / `0.5.0-alpha` (version code 5), with the existing signing configuration. Full desktop parity and handset verification are not complete. Read AGENTS.md and the three design/parity documents before continuing.
+Work is on `codex/workbench-parity`, proposed in [draft PR #1](https://github.com/sperglord8008s/DiE-Android-/pull/1), based on main `0558a89`. The application remains `org.diemobile` / `0.6.0-alpha-dev` (version code 6), with the existing signing configuration. Full desktop parity and handset verification are not complete. Read AGENTS.md and the three design/parity documents before continuing.
 
 ## Implemented and fixture-verified in this work
 
@@ -195,3 +195,17 @@ MainActivity cases bring the combined suite to 118. Full Qt format forcing,
 profile/batch interpretation policy, broader raw/malformed fixture coverage and
 real device/SAF/process-death behavior remain pending. See
 [scan-interpretations.md](scan-interpretations.md).
+
+PhotoRec continuation after the v0.5.0-alpha save point: adapter 3 / native schema
+2 replaces file-sized native allocation with owned pread FD windows, raises
+PhotoRec acquisition to 256 MiB and leaves Binwalk at 64 MiB. `blob_input.h`
+contains the parser-independent IO/lease/padding/identity layer. Run
+`scripts/test-photorec.sh` for old naive/dense/callback fixtures plus standalone
+reader tests and sparse/fully written 80 MiB and 256 MiB scale/cap cases. The
+input-read buffer payload bound is 1.25 MiB, not a file-size or whole-process RSS
+cap. Old compact captures remain accepted under their original limit. The new
+corresponding-source ZIP includes both new tests and is rebuilt offline. Actual
+device behavior and all prior full-file/weak-signature/fragment-recovery gaps
+remain pending. See [PhotoRec contracts](photorec-investigation.md).
+
+The immutable `v0.5.0-alpha` save point remains at `55ebdde`; subsequent development is labeled `0.6.0-alpha-dev` / code 6 to distinguish its APKs from that checkpoint.

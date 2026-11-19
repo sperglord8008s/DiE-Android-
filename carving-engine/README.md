@@ -61,3 +61,20 @@ expands the tuples; complete compact captures carry source identity and the
 entire indexed report. A 75,000-rejection/streaming/reconstruction fixture and
 an actual 48 MiB APK audit cover the former 50,000-hit failure. These transport
 changes do not broaden the separately documented format/validation scope.
+
+
+Adapter 3 replaces the file-sized native input vector with a duplicated readable
+FD, 1 MiB matcher chunks and two 128 KiB header caches. The input limit is now
+256 MiB with 1.25 MiB of bounded input-read payload buffers, plus separately
+bounded callback windows/registry/evidence/JVM memory. Every-byte state crosses
+chunks; cached header padding and source reads retain the original callback
+semantics. Native metadata exposes the IO mode/dimensions and read accounting;
+source identity/timestamps are checked after analysis. Native schema 2 and old
+adapter-2 captures remain supported. See the investigation contract for mutable
+FD, total-memory and device-verification limits.
+
+`test-photorec.sh` includes the trusted standalone reader test, sparse and fully
+written 80 MiB blobs with exact media across buffer/old-limit/EOF seams, a complete
+256 MiB sparse scan, descriptor lifetime/truncation tests and legacy decoding.
+The complete source ZIP includes these test inputs/generators and the new
+`blob_input.h`; its independent offline rebuild is checked separately.

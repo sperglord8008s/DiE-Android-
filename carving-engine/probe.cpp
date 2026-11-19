@@ -2,6 +2,7 @@
 // PhotoRec owns the signatures and format callbacks. This adapter owns only
 // whole-blob matching, bounded read-only inputs, evidence and JNI transport.
 #include "config.h"
+#include "blob_input.h"
 #include <jni.h>
 #include <algorithm>
 #include <array>
@@ -29,7 +30,7 @@ extern file_check_list_t file_check_list;
 }
 
 namespace {
-constexpr uint64_t MAX_BLOB_BYTES = 64ULL * 1024 * 1024;
+constexpr uint64_t MAX_BLOB_BYTES = 256ULL * 1024 * 1024;
 constexpr uint64_t MAX_WORK = 256ULL * 1024 * 1024;
 constexpr uint64_t MAX_CANDIDATE_WORK = 8ULL * 1024 * 1024;
 constexpr size_t MAX_ROWS = 250000;
@@ -176,7 +177,7 @@ struct Budget {
 };
 
 std::string candidate(const Registry &registry, size_t pattern, uint64_t magic,
-                      const std::vector<unsigned char> &input, uint64_t source_size, Budget &budget) {
+                      diemobile::BlobInput &input, uint64_t source_size, Budget &budget) {
     const auto *p = registry.patterns[pattern];
     const auto *hint = p->file_stat->file_hint;
     uint64_t start = magic - p->offset;
@@ -185,9 +186,9 @@ std::string candidate(const Registry &registry, size_t pattern, uint64_t magic,
     budget.check();
     // fidentify uses a 64 KiB header window. Zero padding is explicitly exposed;
     // an accepted padded header never establishes a missing extent by itself.
-    // Borrow the immutable acquired bytes and their single zero-padded suffix.
-    // Rejected short signatures must not copy 64 KiB for every occurrence.
-    const unsigned char *header = input.data() + start;
+    // Borrow a cached source window. Near-EOF padding is owned scratch, never
+    // an invented source extent; repeated rejections do not copy 64 KiB each.
+    const unsigned char *header = input.header(start);
     file_recovery_t old{}, recovered{};
     reset_file_recovery(&old); reset_file_recovery(&recovered);
     old.blocksize = BLOCK; recovered.blocksize = BLOCK;
@@ -247,7 +248,7 @@ std::string candidate(const Registry &registry, size_t pattern, uint64_t magic,
             }
             budget.check(count);
             std::fill(window.begin() + BLOCK, window.end(), 0);
-            std::memcpy(window.data() + BLOCK, input.data() + start + offset, count);
+            input.read_at(start + offset, window.data() + BLOCK, count);
             recovered.file_size = offset;
             status = int(recovered.data_check(window.data(), 2 * BLOCK, &recovered));
             processed = offset + count;
@@ -306,23 +307,8 @@ std::string candidate(const Registry &registry, size_t pattern, uint64_t magic,
 std::string scan(int fd) {
     std::lock_guard<std::mutex> serial(engine_mutex);
     Budget budget;
-    struct stat before{}, after{};
-    if (fstat(fd, &before) != 0 || !S_ISREG(before.st_mode) || before.st_size < 0)
-        throw std::runtime_error("PhotoRec requires a readable regular-file descriptor");
-    if (uint64_t(before.st_size) > MAX_BLOB_BYTES) throw std::runtime_error("PhotoRec input exceeds 64 MiB");
-    const size_t source_size = size_t(before.st_size);
-    std::vector<unsigned char> input(source_size + BLOCK, 0);
-    size_t read = 0;
-    while (read < source_size) {
-        budget.check();
-        ssize_t count = pread(fd, input.data() + read, std::min<size_t>(65536, source_size - read), off_t(read));
-        if (count <= 0) throw std::runtime_error("PhotoRec could not read the complete descriptor");
-        read += size_t(count);
-    }
-    if (fstat(fd, &after) || before.st_dev != after.st_dev || before.st_ino != after.st_ino || before.st_size != after.st_size ||
-        before.st_mtim.tv_sec != after.st_mtim.tv_sec || before.st_mtim.tv_nsec != after.st_mtim.tv_nsec ||
-        before.st_ctim.tv_sec != after.st_ctim.tv_sec || before.st_ctim.tv_nsec != after.st_ctim.tv_nsec)
-        throw std::runtime_error("PhotoRec input changed during acquisition");
+    diemobile::BlobInput input(fd, MAX_BLOB_BYTES, [&budget] { budget.check(); });
+    const size_t source_size = size_t(input.size());
     static Registry registry;
     std::vector<std::string> rows;
     std::vector<std::string> rejected_states;
@@ -332,66 +318,80 @@ std::string scan(int fd) {
     size_t report_bytes = registry.catalog.size();
     uint64_t underflow = 0;
     size_t node = 0;
-    for (size_t offset = 0; offset < source_size; ++offset) {
-        if ((offset & 4095) == 0) budget.check();
-        unsigned char byte = input[offset];
-        while (node && !registry.nodes[node].edges.count(byte)) node = registry.nodes[node].failure;
-        if (!node) node = registry.root[byte];
-        else node = registry.nodes[node].edges.at(byte);
-        for (size_t pattern : registry.nodes[node].outputs) {
-            const auto *p = registry.patterns[pattern];
-            uint64_t magic = offset + 1 - p->length;
-            if (rows.size() >= MAX_ROWS) {
-                size_t common = size_t(std::max_element(occurrences.begin(), occurrences.end())-occurrences.begin());
-                throw std::runtime_error("PhotoRec exceeds " + std::to_string(MAX_ROWS) + " candidate records at physical byte " + std::to_string(offset)
-                    + "; dominant observed magic " + registry.patterns[common]->file_stat->file_hint->extension
-                    + " (pattern " + std::to_string(common) + ", " + std::to_string(occurrences[common])
-                    + " occurrences); no complete result");
+    std::vector<unsigned char> scan_buffer(diemobile::BlobInput::SCAN_BYTES);
+    for (size_t block_start = 0; block_start < source_size; block_start += scan_buffer.size()) {
+        size_t available = std::min(scan_buffer.size(), source_size - block_start);
+        input.read_at(block_start, scan_buffer.data(), available);
+        for (size_t local = 0; local < available; ++local) {
+            size_t offset = block_start + local;
+            if ((offset & 4095) == 0) budget.check();
+            unsigned char byte = scan_buffer[local];
+            while (node && !registry.nodes[node].edges.count(byte)) node = registry.nodes[node].failure;
+            if (!node) node = registry.root[byte];
+            else node = registry.nodes[node].edges.at(byte);
+            for (size_t pattern : registry.nodes[node].outputs) {
+                const auto *p = registry.patterns[pattern];
+                uint64_t magic = offset + 1 - p->length;
+                if (rows.size() >= MAX_ROWS) {
+                    size_t common = size_t(std::max_element(occurrences.begin(), occurrences.end())-occurrences.begin());
+                    throw std::runtime_error("PhotoRec exceeds " + std::to_string(MAX_ROWS) + " candidate records at physical byte " + std::to_string(offset)
+                        + "; dominant observed magic " + registry.patterns[common]->file_stat->file_hint->extension
+                        + " (pattern " + std::to_string(common) + ", " + std::to_string(occurrences[common])
+                        + " occurrences); no complete result");
+                }
+                ++occurrences[pattern];
+                std::string row;
+                if (magic < p->offset) {
+                    ++underflow;
+                    const auto *hint = p->file_stat->file_hint;
+                    std::ostringstream rejected;
+                    rejected << "{\"name\":" << quoted(hint->extension) << ",\"description\":" << quoted(hint->description)
+                        << ",\"patternIndex\":" << pattern << ",\"physicalOffset\":" << magic
+                        << ",\"magicOffset\":" << magic << ",\"magicRelativeOffset\":" << p->offset
+                        << ",\"candidateStartPhysicalOffset\":null,\"derivedCandidateStart\":" << int64_t(magic) - p->offset
+                        << ",\"physicalOffsetMeaning\":\"Observed magic only; derived candidate starts before input\""
+                        << ",\"reportedSizeBytes\":null,\"headerAccepted\":false,\"parserAccepted\":false"
+                        << ",\"fileCheckExecuted\":false,\"renameCheckExecuted\":false"
+                        << ",\"parserStatus\":\"magic-matched/negative-candidate-start/header-not-called\"}";
+                    row = rejected.str();
+                } else row = candidate(registry, pattern, magic, input, source_size, budget);
+                if (!row.empty() && row.front() == '[') {
+                    auto found = state_indices.find(row);
+                    size_t state;
+                    if (found == state_indices.end()) {
+                        state = rejected_states.size();
+                        report_bytes += row.size();
+                        rejected_states.push_back(row);
+                        state_indices.emplace(std::move(row), state);
+                    } else state = found->second;
+                    row = '[' + std::to_string(pattern) + ',' + std::to_string(magic) + ',' + std::to_string(state) + ']';
+                    ++compact_rejections;
+                }
+                report_bytes += row.size();
+                if (report_bytes > MAX_REPORT) throw std::runtime_error("PhotoRec report exceeds 24 MiB; no complete result");
+                rows.push_back(std::move(row));
             }
-            ++occurrences[pattern];
-            std::string row;
-            if (magic < p->offset) {
-                ++underflow;
-                const auto *hint = p->file_stat->file_hint;
-                std::ostringstream rejected;
-                rejected << "{\"name\":" << quoted(hint->extension) << ",\"description\":" << quoted(hint->description)
-                    << ",\"patternIndex\":" << pattern << ",\"physicalOffset\":" << magic
-                    << ",\"magicOffset\":" << magic << ",\"magicRelativeOffset\":" << p->offset
-                    << ",\"candidateStartPhysicalOffset\":null,\"derivedCandidateStart\":" << int64_t(magic) - p->offset
-                    << ",\"physicalOffsetMeaning\":\"Observed magic only; derived candidate starts before input\""
-                    << ",\"reportedSizeBytes\":null,\"headerAccepted\":false,\"parserAccepted\":false"
-                    << ",\"fileCheckExecuted\":false,\"renameCheckExecuted\":false"
-                    << ",\"parserStatus\":\"magic-matched/negative-candidate-start/header-not-called\"}";
-                row = rejected.str();
-            } else row = candidate(registry, pattern, magic, input, source_size, budget);
-            if (!row.empty() && row.front() == '[') {
-                auto found = state_indices.find(row);
-                size_t state;
-                if (found == state_indices.end()) {
-                    state = rejected_states.size();
-                    report_bytes += row.size();
-                    rejected_states.push_back(row);
-                    state_indices.emplace(std::move(row), state);
-                } else state = found->second;
-                row = '[' + std::to_string(pattern) + ',' + std::to_string(magic) + ',' + std::to_string(state) + ']';
-                ++compact_rejections;
-            }
-            report_bytes += row.size();
-            if (report_bytes > MAX_REPORT) throw std::runtime_error("PhotoRec report exceeds 24 MiB; no complete result");
-            rows.push_back(std::move(row));
         }
     }
+    input.verify_identity();
     std::ostringstream out;
     out << "{\"ok\":true,\"schema\":\"org.diemobile.photorec-evidence\",\"schemaVersion\":2"
         << ",\"engine\":\"PhotoRec\",\"engineVersion\":\"7.2\",\"sourceRevision\":" << quoted(REVISION)
         << ",\"sourceArchiveSha256\":\"0cfd82ca6890188a3a4fe01c9b970f654eb3af396580f408ed024789e2873616\""
-        << ",\"adapter\":\"diemobile-photorec-2\",\"fileSizeBytes\":" << source_size
+        << ",\"adapter\":\"diemobile-photorec-3\",\"fileSizeBytes\":" << source_size
         << ",\"compactRejectedCandidateCount\":" << compact_rejections
         << ",\"rejectedRecoveryStateCount\":" << rejected_states.size()
         << ",\"compactRejectedEncoding\":\"[patternIndex,magicOffset,recoveryStateIndex]; original row ordinal is unchanged\""
         << ",\"maximumInputBytes\":" << MAX_BLOB_BYTES << ",\"maximumCandidateRecords\":" << MAX_ROWS
         << ",\"maximumReportBytes\":" << MAX_REPORT << ",\"cooperativeDeadlineMs\":30000"
-        << ",\"headerWindowMode\":\"borrowed immutable source with zero-padded suffix\""
+        << ",\"inputReadMode\":\"bounded-pread-windows\",\"inputSizedBufferAllocation\":false"
+        << ",\"maximumInputReadBufferBytes\":" << diemobile::BlobInput::MAX_INPUT_READ_BUFFERS
+        << ",\"scanReadBufferBytes\":" << diemobile::BlobInput::SCAN_BYTES
+        << ",\"headerCacheWindows\":" << diemobile::BlobInput::HEADER_WINDOWS
+        << ",\"headerCacheWindowBytes\":" << diemobile::BlobInput::WINDOW_BYTES
+        << ",\"sourceReadBytes\":" << input.bytes_read() << ",\"sourceReadOperations\":" << input.operations()
+        << ",\"ownedDescriptorDuplicate\":true,\"callerDescriptorPositionPreserved\":true"
+        << ",\"headerWindowMode\":\"borrowed bounded pread cache; explicit zero padding near EOF\""
         << ",\"rejectedRecoveryStateFields\":[\"headerCalculatedSizeBytes\",\"minimumFileSizeBytes\",\"dataCheckAvailable\",\"fileCheckAvailable\",\"upstreamTime\",\"upstreamFlags\",\"upstreamOffsetOk\",\"upstreamOffsetError\",\"upstreamExtra\",\"upstreamCheckpointOffset\",\"upstreamCheckpointStatus\",\"upstreamDataCheckTemporary\",\"dataCheckFileSizeCounterBytes\",\"reportedExtension\"]"
         << ",\"fullBlobSearch\":true,\"nestedResultsPruned\":false,\"unknownExtentsInferred\":false"
         << ",\"externalExtractorsExecuted\":false,\"fileCheckCallbacksExecuted\":false"

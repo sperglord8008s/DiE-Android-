@@ -5,6 +5,13 @@ import java.io.File;
 
 /** Whole-blob PhotoRec header/data evidence and bounded stored-byte carving. */
 final class PhotoRecBackend extends CarvingBackend {
+    static final long MAX_BYTES = PhotoRecReport.MAX_INPUT_BYTES;
+
+    @Override
+    long maximumInputBytes() {
+        return MAX_BYTES;
+    }
+
     PhotoRecBackend(File root, File directory, String name, BinaryRunner runner) {
         super(
                 root,

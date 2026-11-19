@@ -38,9 +38,13 @@ class CarvingBackend extends InvestigationBackend {
         this.photoRec = engineName.equals("PhotoRec");
     }
 
+    long maximumInputBytes() {
+        return MAX_BYTES;
+    }
+
     private void acquire(BooleanSupplier stop) throws Exception {
         if (header != null) return;
-        InputSnapshot input = InputSnapshot.acquire(root, directory, MAX_BYTES, stop);
+        InputSnapshot input = InputSnapshot.acquire(root, directory, maximumInputBytes(), stop);
         boolean success = false;
         try {
             String encoded = runner.scan(input.file, stop);
@@ -196,7 +200,7 @@ class CarvingBackend extends InvestigationBackend {
             if (!fields.getString(i).equals(PHOTO_REC_REJECTED_FIELDS[i]))
                 throw new IOException(
                         "PhotoRec rejected-state field dictionary differs from its contract");
-        if (!response.getString("adapter").equals("diemobile-photorec-2")
+        if (!PhotoRecReport.supportedAdapter(response.getString("adapter"))
                 || !response.getString("sourceArchiveSha256")
                         .equals("0cfd82ca6890188a3a4fe01c9b970f654eb3af396580f408ed024789e2873616")
                 || response.getJSONArray("optionalLibraries").length() != 0)

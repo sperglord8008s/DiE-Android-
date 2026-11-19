@@ -13,6 +13,12 @@ import java.util.function.BooleanSupplier;
 /** Lossless dictionary transport; rejected occurrences expand only when requested. */
 final class PhotoRecReport {
     static final int MAX_CANDIDATES = 250000;
+    static final long MAX_INPUT_BYTES = 256L * 1024 * 1024;
+
+    static boolean supportedAdapter(String value) {
+        return value.equals("diemobile-photorec-2") || value.equals("diemobile-photorec-3");
+    }
+
     static final String[] REJECTED_FIELDS = {
         "headerCalculatedSizeBytes",
         "minimumFileSizeBytes",
@@ -41,7 +47,7 @@ final class PhotoRecReport {
     PhotoRecReport(JSONObject report, BooleanSupplier cancelled) throws Exception {
         if (!report.getString("schema").equals("org.diemobile.photorec-evidence")
                 || report.getInt("schemaVersion") != 2
-                || !report.getString("adapter").equals("diemobile-photorec-2"))
+                || !supportedAdapter(report.getString("adapter")))
             throw new IOException("Unsupported PhotoRec compact transport version");
         rows = report.getJSONArray("rows");
         metadata = new JSONObject();
@@ -56,6 +62,28 @@ final class PhotoRecReport {
         patterns = report.getJSONArray("patterns");
         states = report.getJSONArray("rejectedRecoveryStates");
         sourceSize = report.getLong("fileSizeBytes");
+        boolean streaming = report.getString("adapter").equals("diemobile-photorec-3");
+        long maximum = streaming ? MAX_INPUT_BYTES : 64L * 1024 * 1024;
+        if (sourceSize < 0
+                || sourceSize > maximum
+                || report.getLong("maximumInputBytes") != maximum)
+            throw new IOException("PhotoRec source exceeds its adapter input contract");
+        if (streaming
+                && (!report.getString("inputReadMode").equals("bounded-pread-windows")
+                        || report.getBoolean("inputSizedBufferAllocation")
+                        || !report.getBoolean("ownedDescriptorDuplicate")
+                        || !report.getBoolean("callerDescriptorPositionPreserved")
+                        || report.getLong("maximumInputReadBufferBytes") != 1310720
+                        || report.getLong("scanReadBufferBytes") != 1048576
+                        || report.getInt("headerCacheWindows") != 2
+                        || report.getLong("headerCacheWindowBytes") != 131072
+                        || report.getLong("sourceReadBytes") < sourceSize
+                        || report.getLong("sourceReadOperations")
+                                < (sourceSize + 1048575) / 1048576))
+            throw new IOException(
+                    "PhotoRec bounded input-window/descriptor accounting differs from its"
+                            + " contract");
+
         if (rows.length() > MAX_CANDIDATES
                 || states.length() > rows.length()
                 || report.getInt("rejectedRecoveryStateCount") != states.length())

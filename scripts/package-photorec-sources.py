@@ -22,7 +22,8 @@ for name in ['LICENSE', 'scripts/build-photorec.sh', 'scripts/fetch-photorec.sh'
              'scripts/prepare-photorec.py', 'scripts/fetch-verified.sh',
              'scripts/photorec-notices.py', 'scripts/package-photorec-sources.py',
              'scripts/test-photorec.sh', 'scripts/test-dependencies.sh',
-             'tests/PhotoRecInvestigationTest.java', 'tests/fixtures/carving/CarvingFixture.java',
+             'tests/PhotoRecInvestigationTest.java', 'tests/PhotoRecStreamingTest.java',
+             'tests/blob_input_test.cpp', 'tests/fixtures/carving/CarvingFixture.java',
              'tests/fixtures/metadata/MetadataFixtureFactory.java',
              'app/src/main/assets/notices/photorec-7.2.txt',
              'app/src/main/assets/notices/photorec-source-headers.txt']:

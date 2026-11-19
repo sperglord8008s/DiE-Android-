@@ -13,7 +13,7 @@
     "src/fidentify.c",
     "src/Makefile.am"
   ],
-  "adapter": "diemobile-photorec-2",
+  "adapter": "diemobile-photorec-3",
   "optionalLibraries": [],
   "auxiliarySignatureFiles": false,
   "fileCheckCallbacksExecuted": false,
@@ -32,5 +32,8 @@
     "patternIndex",
     "magicOffset",
     "recoveryStateIndex"
-  ]
+  ],
+  "maximumInputBytes": 268435456,
+  "inputReadMode": "bounded-pread-windows",
+  "maximumInputReadBufferBytes": 1310720
 }
