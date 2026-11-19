@@ -17,6 +17,36 @@ spec.loader.exec_module(publication)
 
 
 class PublicationContracts(unittest.TestCase):
+    def test_published_tag_requires_exact_source_and_never_retargets(self):
+        source = '1' * 40
+        with mock.patch.object(publication, 'api', return_value={'object': {'type': 'commit', 'sha': source}}):
+            publication.verify_tag('repos/owner/repo', 'v0.6.0-pre-alpha.1', source)
+        for value in (None, {'object': {'type': 'commit', 'sha': '2' * 40}}):
+            with mock.patch.object(publication, 'api', return_value=value) as api:
+                with self.assertRaises(ValueError):
+                    publication.verify_tag('repos/owner/repo', 'v0.6.0-pre-alpha.1', source)
+                self.assertEqual(1, api.call_count)
+
+    def test_release_updates_preserve_and_verify_every_identity_field(self):
+        def defaulting_api(path, payload, method):
+            # Reproduce the observed omitted-field reset on a metadata update.
+            return {'tag_name': payload.get('tag_name', 'untagged-generated'),
+                    'target_commitish': payload.get('target_commitish', 'main'),
+                    'name': payload.get('name', ''), 'body': payload.get('body', ''),
+                    'draft': payload.get('draft', False),
+                    'prerelease': payload.get('prerelease', False)}
+        with mock.patch.object(publication, 'api', side_effect=defaulting_api):
+            for draft in (True, False):
+                updated = publication.update_release('repos/owner/repo', {'id': 42},
+                    'v0.6.0-pre-alpha.1', '1' * 40, 'GlassDigestor 0.6.0-pre-alpha.1', 'complete notes\n', draft)
+                self.assertEqual('v0.6.0-pre-alpha.1', updated['tag_name'])
+                self.assertEqual('1' * 40, updated['target_commitish'])
+                self.assertEqual('complete notes\n', updated['body'])
+        with mock.patch.object(publication, 'api', return_value=defaulting_api('', {}, '')):
+            with self.assertRaises(ValueError):
+                publication.update_release('repos/owner/repo', {'id': 42},
+                    'v0.6.0-pre-alpha.1', '1' * 40, 'GlassDigestor', 'notes', False)
+
     def test_direct_draft_upload_streams_exact_bytes_without_tag_lookup(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / 'source.zip'
