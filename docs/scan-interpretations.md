@@ -25,10 +25,11 @@ A different input URI starts with Automatic. The same URI can supply changed
 bytes on rescan; its current catalog and new content identity are used.
 
 This selection belongs to the primary input. Saved option profiles retain their
-existing complete flags/tags/preview-minimum contract; desktop batches continue
-to request Automatic. Neither reinterprets a profile's formerly opaque fields
+existing complete flags/tags/preview-minimum contract. Desktop batches now
+capture their own Automatic or compatible-name policy and resolve it against
+each input; see [batch contracts](batch-scanning.md). Neither reinterprets a profile's formerly opaque fields
 or stores backend IDs as portable settings. Full Qt settings compatibility,
-profile/batch interpretation policies and arbitrary-format forcing remain
+profile interpretation settings, per-file batch overrides and arbitrary-format forcing remain
 separate work.
 
 ## Captured evidence
@@ -89,3 +90,8 @@ new-input Automatic; stale-dialog rejection, unresolved exported diagnostics
 and recovery. Test output streams substitute for real document providers.
 These checks do not verify handset/ARM64 runtime, real SAF grants, process
 death, provider revocation or exhaustive desktop format semantics.
+
+Stored batch captures use `ScanTarget.Capture.read` to verify the original
+request, catalog resolution, selector/null/error and exact source/engine/scan
+binding without rewriting unknown evidence. Malformed resolution claims fail
+rather than relabeling a report. Primary captures retain the same schema.

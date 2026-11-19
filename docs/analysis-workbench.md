@@ -60,8 +60,8 @@ Automatic. The chosen name resolves against the freshly acquired input; facts
 and scanning use the same actual selector. Reports bind the request, full
 catalog, source and engine identity, including explicit unresolved failures.
 Stale controls cannot relabel captured results. Known native passes/cache and
-three real-engine Android host cases pass. Profiles/batches retain their
-separate Automatic/flag-setting policies; broader desktop/device equivalence
+three real-engine Android host cases pass. Profiles retain their separate flag-setting policy; batches now capture
+and independently resolve their own interpretation names; broader desktop/device equivalence
 remains unverified. See [interpretation contracts](scan-interpretations.md).
 
 PhotoRec adapter 3 now streams its complete supported input up to 256 MiB.
@@ -80,3 +80,13 @@ budget are preserved in reports. The 64 MiB copy limit remains separate from
 PhotoRec's streaming input limit. Six Rust tests and actual JNI/64 MiB seam/EOF
 fixtures verify the IO behavior; a parser callback remains non-preemptible and
 real worker/handset behavior remains unverified. See [Binwalk](binwalk-investigation.md).
+
+Desktop batch schema 2 captures an immutable Automatic/compatible-name request
+and resolves it per acquired input, with one actual selector shared by native
+facts/scanning. Unresolved names retain failed reports and bytes; version-1
+Automatic journals remain readable. Stored resolution/source/engine checks and
+complete comparisons/exports preserve unknown evidence. Host policy fixtures
+and three actual-CDiE Android cases exercise these flows, including invalid
+saved-state refusal and pending export ownership (121 full-suite checks).
+Arbitrary forcing, per-file overrides, named profile attribution and actual
+device/provider behavior remain incomplete. See [batches](batch-scanning.md).

@@ -5,9 +5,13 @@ Select 1–64 Storage Access Framework documents. Selection order is retained;
 duplicate names and even duplicate URIs remain independent ordinal inputs.
 The shared flags, tag filters and preview string minimum are captured when the
 picker returns, before work is queued. Applying a profile or changing settings
-afterward cannot relabel those results. Automatic format selection (`typeId: 0`)
-is used for every input; named profile attribution and forced per-file formats
-are not implemented.
+afterward cannot relabel those results. **Next batch interpretation** chooses
+Automatic or a required exact native format name. Automatic requests `typeId: 0`
+for each input. An explicit name (for example `Binary`) resolves separately
+against each acquired input's compatible-format catalog; copy exact names from
+a primary scan's interpretation chooser. A missing/ambiguous name keeps a
+failed, exportable report and owned bytes; it never falls back to Automatic.
+Arbitrary format forcing and named saved-profile attribution remain incomplete.
 
 `EngineDatabase.prepare` supplies one pinned CDiE/bundled signature revision and
 one active custom-database snapshot for the entire batch. A subsequent custom
@@ -30,7 +34,11 @@ observations; they do not establish an atomic view of a directory or package set
 
 The actual analyzer serially runs complete-input generic inspection, CDiE's
 desktop signature request and native format facts. The inspector's independently
-computed SHA-256/length must match acquisition. A post-analysis full snapshot
+computed SHA-256/length must match acquisition. Its current native catalog is
+captured before interpretation resolution, and facts/scanning share that file's
+resolved selector. Successful and unresolved reports retain the exact request,
+complete catalog, source/engine binding and native selector or explicit null.
+A post-analysis full snapshot
 identity check precedes report storage. Native rows, parents, exact signature
 paths, flags, diagnostics and returned unknown/error fields remain in the
 original `org.diemobile.scan-report` envelope. Android-specific package, DEX,
@@ -96,12 +104,22 @@ display name cannot select another file's bytes. The aggregate byte source is an
 independent captured journal, with its own length/SHA-256 and JSON coordinate
 domain.
 
-`org.diemobile.desktop-batch`, version 1, contains the UUID, creation/finalization
+`org.diemobile.desktop-batch`, version 2, contains the UUID, creation/finalization
 times, batch status/error, original options/engine identities, counts, limits and
-complete ordered `entries`. Every entry includes its source ordinal, name,
+complete ordered `entries`. `interpretationRequest` captures the immutable
+Automatic/compatible-name policy. At batch scope, `options.typeId` is zero for
+Automatic or null for an explicit name; a single native selector is never
+assumed across input catalogs. Each nested report supplies its own resolved
+selector/catalog or unresolved diagnostic. Every entry includes its source ordinal, name,
 acquisition URI, outcome/stage/error, identities and complete nested scan report
 or explicit `null` if none was stored. Private filesystem paths are excluded.
 Unknown/native report fields and isolated UTF-16 units survive streamed export.
+Original version-1 journals/reports remain readable with their original Automatic
+policy; they are not retroactively assigned a compatible catalog. Version-2
+journals require their request and consistent option scope. Stored captures are
+re-resolved against their captured catalogs and source/engine/selector checked
+without rewriting original/unknown evidence. This checks report consistency,
+not a fresh execution of an expired native scan.
 
 Stored reports are length/SHA-256 checked and cross-checked against the entry's
 source identity, captured flags/tags/minimum and engine/database revisions before
@@ -133,5 +151,27 @@ The complete suite now has 100 checks; see current CI for the committed revision
 Real SAF grants/providers, process death while writing, low-storage behavior,
 API 26/35, accessibility and ARM64 handset cancellation/crash flows remain
 unverified. Directory/tree traversal, resumable/background jobs, arbitrary-engine
-batch composition, report comparison, per-file manual formats, named profile
-attribution and full desktop/Qt batch/settings equivalence remain incomplete.
+batch composition, broader semantic/cross-batch comparison, arbitrary format
+forcing, named profile attribution and full desktop/Qt batch/settings equivalence remain incomplete.
+
+## Named-interpretation verification
+
+Host policies exercise different selectors for the same requested name in two
+input-specific catalogs, missing-name failures with stored reports, mismatch
+refusal, strict new journals and genuine version-1 shapes with independently
+remeasured report identities. Failed interpretation comparisons keep unknown
+coverage, explicit null selectors and the complete captured interpretation.
+Comparison schema 2 makes selector-dependent configuration conditions explicitly
+unknown when neither equality nor difference is established.
+
+Three additional actual-CDiE API 28 cases cover Binary passes over ELF/raw
+inputs, matching facts/scan selectors and owned source identities, pending
+complete exports through draft mutation/recreation, unresolved per-file reports
+and subsequent explicit Automatic recovery. Saved-state restoration preserves
+the exact name; invalid saved requests disable starting until a visible choice
+is made. Cancellation ownership begins before catalog acquisition so queued
+cancellation still settles without poisoning the next batch.
+
+These additions bring the complete host Android suite to 121 checks and the
+batch activity/viewer tests to thirteen. They do not verify actual handset,
+provider, native crash/deadline or process-death behavior.

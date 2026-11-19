@@ -49,6 +49,15 @@ public final class ScanTargetTest {
                         .equals("\udfff"),
                 "Opaque catalog Unicode metadata lost");
         require(
+                ScanTarget.Capture.read(new JSONObject(encoded.toString())).request.sameAs(binary),
+                "Stored capture could not verify its exact request");
+        for (String field : new String[] {"resolvedTypeId", "resolutionError", "engineRevision"}) {
+            JSONObject corrupt = new JSONObject(report.toString());
+            corrupt.getJSONObject("scanTarget")
+                    .put(field, field.equals("resolvedTypeId") ? 999 : "different");
+            expectFailure(() -> ScanTarget.Capture.read(corrupt));
+        }
+        require(
                 ScanTarget.Capture.resolve(
                                         new ScanTarget.Request("ELF64"), catalog, sha, 32, engine)
                                 .nativeTypeId

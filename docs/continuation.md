@@ -228,3 +228,35 @@ The later Binwalk adapter-2 local run also passes all 118 checks, ARM64 assembly
 lint, signing/offline/identity/fourteen-library 16 KiB checks, required core/native
 suites and the shared PhotoRec streaming regressions. Real device verification
 remains pending.
+
+Desktop batch interpretation continuation: schema/adapter 2 captures a separate
+`ScanTarget.Request` and resolves the exact name against every acquired input's
+complete catalog. `DesktopBatchAnalyzer` uses one per-file selector for native
+facts/scanning; unresolved names store explicit failed reports and retain bytes.
+`ScanTarget.Capture.read` checks saved source/engine/resolution/selector claims
+without rewriting original/unknown evidence. Batch-wide `options.typeId` is null
+for named policy; actual per-file selectors are in nested reports. Schema-1
+Automatic journals stay readable. Run `scripts/test-batch.sh`,
+`scripts/test-models.sh` and `scripts/test-scan-comparison.sh`; three new actual
+native Android cases bring the complete suite to 121. Cancellation ownership
+starts before a queued catalog call; do not move it behind engine serialization.
+Per-file overrides, arbitrary forcing, saved-profile attribution and real device
+flows remain incomplete. See [batch contracts](batch-scanning.md).
+
+The first 121-test combined run hit workspace disk exhaustion while the profile
+fixture copied the bundled rule database; 120 checks passed. The owned generated
+MPV source ZIP was reclaimed for test headroom, retaining every pinned source
+archive, and is regenerated offline after verification. This is a local storage
+constraint, not a skipped check or evidence of device low-storage handling.
+Comparison schema 2 retains the interpretation contexts and distinguishes null
+unknown selector-dependent conditions from known flag/rule/engine differences;
+the exact tree-path algorithm remains version 1.
+
+A fresh combined run passes all 121 checks with zero failures/errors/skips,
+ARM64 assembly/lint and signing/identity/offline/fourteen-library static 16 KiB
+verification. The complete MPV source bundle was regenerated and all original
+source pins verified. Binwalk adapter 2 at `e676f91` also passed all five CI jobs
+in run 44470495585. The newest verified local development checkpoint supersedes
+the older owned `0.6.0-alpha-dev-1b6596b` copy for disk space; its earlier CI
+artifact remains available. Keep the frozen 0.5.0-alpha checkpoint, original
+fallbacks and current source/checkpoint manifests.

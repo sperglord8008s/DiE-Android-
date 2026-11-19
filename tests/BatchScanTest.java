@@ -60,23 +60,28 @@ public final class BatchScanTest {
                 ScanEvidence.parse(
                         new JSONObject()
                                 .put("ok", true)
+                                .put("typeId", 0)
                                 .put("rows", rows)
                                 .put("flags", OPTIONS.flags)
                                 .put("type", inspection.type)
                                 .toString());
-        return ScanReport.create(
-                name,
-                inspection,
-                OPTIONS,
-                evidence,
-                new JSONObject().put("ok", true),
-                ENGINE,
-                DB,
-                CUSTOM,
-                1,
-                "fixture explanation",
-                "not run",
-                "");
+        JSONObject report =
+                ScanReport.create(
+                        name,
+                        inspection,
+                        OPTIONS,
+                        evidence,
+                        new JSONObject().put("ok", true),
+                        ENGINE,
+                        DB,
+                        CUSTOM,
+                        1,
+                        "fixture explanation",
+                        "not run",
+                        "");
+        ScanTarget.Capture.resolve(ScanTarget.AUTOMATIC, null, input.sha256, input.size, ENGINE)
+                .attach(report);
+        return report;
     }
 
     private static BatchScanSession create(File root, List<BatchScanSession.Source> sources)
@@ -99,8 +104,8 @@ public final class BatchScanTest {
         providerCloseAndActiveDeletion();
         System.out.println(
                 "Batch journal fixtures passed: complete plan, duplicates, owned identities, 77-row"
-                    + " paging/export, UTF-16, cancellation, interruption, mutation, budgets,"
-                    + " active leases and deletion.");
+                        + " paging/export, UTF-16, cancellation, interruption, mutation, budgets,"
+                        + " active leases and deletion.");
     }
 
     private static void duplicatesFailuresAndOwnership() throws Exception {

@@ -213,11 +213,19 @@ final class ScanTarget {
                             "This input; explicit names are resolved against its current native"
                                 + " compatible-format catalog. Backend IDs are not combo-box"
                                 + " indexes or byte offsets. New inputs default to Automatic. Saved"
-                                + " flag/tag profiles and batches are separate.");
+                                + " flag/tag profiles are separate; batches capture their own"
+                                + " request.");
         }
 
         /** Attach only to the exact source/engine whose compatible catalog was read. */
         void attach(JSONObject report) throws JSONException {
+            verifyReport(report);
+            report.getJSONObject("options")
+                    .put("typeId", nativeTypeId == null ? JSONObject.NULL : nativeTypeId);
+            report.put("scanTarget", toJson());
+        }
+
+        private void verifyReport(JSONObject report) throws JSONException {
             JSONObject source = report.getJSONObject("source");
             if (!source.getString("sha256").equals(sha256)
                     || exactLength(source.get("sizeBytes")) != size)
@@ -231,9 +239,35 @@ final class ScanTarget {
                             || !scan.has("typeId")
                             || selector(scan.get("typeId")) != nativeTypeId))
                 throw new JSONException("Native scan selector differs from captured request");
-            report.getJSONObject("options")
-                    .put("typeId", nativeTypeId == null ? JSONObject.NULL : nativeTypeId);
-            report.put("scanTarget", toJson());
+        }
+
+        /** Verify a stored capture without rewriting or discarding original/unknown evidence. */
+        static Capture read(JSONObject report) throws JSONException {
+            JSONObject encoded = report.getJSONObject("scanTarget");
+            if (!encoded.getString("schema").equals(SCHEMA)
+                    || selector(encoded.get("schemaVersion")) != 1)
+                throw new JSONException("Unsupported captured interpretation schema");
+            Request request = Request.restore(encoded.getJSONObject("request").toString());
+            Catalog catalog =
+                    encoded.isNull("compatibleFormats")
+                            ? null
+                            : Catalog.parse(encoded.getJSONObject("compatibleFormats").toString());
+            JSONObject source = encoded.getJSONObject("source");
+            Capture capture =
+                    resolve(
+                            request,
+                            catalog,
+                            source.getString("sha256"),
+                            exactLength(source.get("sizeBytes")),
+                            encoded.getString("engineRevision"));
+            Object expected = capture.nativeTypeId == null ? JSONObject.NULL : capture.nativeTypeId;
+            if (!expected.equals(encoded.get("resolvedTypeId"))
+                    || !capture.error.equals(encoded.getString("resolutionError"))
+                    || !expected.equals(report.getJSONObject("options").get("typeId")))
+                throw new JSONException(
+                        "Stored interpretation differs from its captured resolution");
+            capture.verifyReport(report);
+            return capture;
         }
     }
 

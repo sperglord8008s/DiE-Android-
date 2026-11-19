@@ -132,6 +132,157 @@ public final class BatchScanWorkbenchTest {
         return BatchScanSession.open(root, ReflectionHelpers.getField(state(), "id"), () -> false);
     }
 
+    private void requireInterpretation(String name) {
+        button("interpretation").performClick();
+        AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
+        EditText field =
+                dialog.findViewById(android.R.id.content)
+                        .findViewWithTag("batch-interpretation-name");
+        assertNotNull(field);
+        field.setText(name);
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+        assertFalse(dialog.isShowing());
+    }
+
+    private void automaticInterpretation() {
+        button("interpretation").performClick();
+        ShadowAlertDialog.getLatestAlertDialog()
+                .getButton(AlertDialog.BUTTON_NEUTRAL)
+                .performClick();
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+    }
+
+    @Test
+    public void explicitBatchPassCapturesEachNativeCatalogAndPendingExport() throws Exception {
+        requireInterpretation("Binary");
+        controller.recreate();
+        activity = controller.get();
+        settle();
+        assertEquals(
+                "Binary",
+                ReflectionHelpers.<ScanTarget.Request>getField(state(), "draftInterpretation")
+                        .formatName);
+        start(input("explicit-elf.bin", elf), input("explicit-raw.bin", new byte[] {1, 2, 3, 4}));
+        settle();
+        BatchScanSession session = session();
+        assertEquals(2, session.schemaVersion);
+        assertTrue(session.metadata().getJSONObject("options").isNull("typeId"));
+        for (BatchScanSession.Entry entry : session.entries) {
+            assertEquals(entry.error, "complete", entry.status);
+            JSONObject report = session.report(entry, () -> false);
+            int selected = report.getJSONObject("options").getInt("typeId");
+            assertNotEquals(0, selected);
+            assertEquals(selected, report.getJSONObject("scan").getInt("typeId"));
+            assertEquals(selected, report.getJSONObject("facts").getInt("typeId"));
+            assertEquals(
+                    "Binary",
+                    report.getJSONObject("scanTarget")
+                            .getJSONObject("request")
+                            .getString("formatName"));
+            assertEquals(
+                    entry.sha256,
+                    report.getJSONObject("scanTarget").getJSONObject("source").getString("sha256"));
+        }
+        PreparedExport pending = prepare();
+        byte[] expected = Files.readAllBytes(pending.file.toPath());
+        ReflectionHelpers.setField(state(), "draftInterpretation", ScanTarget.AUTOMATIC);
+        controller.recreate();
+        activity = controller.get();
+        settle();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        destination(output);
+        assertArrayEquals(expected, output.toByteArray());
+        JSONObject exported = new JSONObject(output.toString("UTF-8"));
+        assertEquals(
+                "Binary", exported.getJSONObject("interpretationRequest").getString("formatName"));
+        assertEquals(2, exported.getJSONArray("entries").length());
+        start(input("subsequent-auto.bin", elf));
+        settle();
+        assertTrue(session().interpretation.automatic());
+        assertEquals(
+                0,
+                session()
+                        .report(session().entry(0), () -> false)
+                        .getJSONObject("scan")
+                        .getInt("typeId"));
+    }
+
+    @Test
+    public void unavailableBatchNameKeepsEveryFailedReportAndRecoversAutomaticallyWhenChosen()
+            throws Exception {
+        requireInterpretation("missing-compatible-format");
+        start(input("unresolved-elf.bin", elf), input("unresolved-raw.bin", new byte[] {1, 2, 3}));
+        settle();
+        BatchScanSession failed = session();
+        for (BatchScanSession.Entry entry : failed.entries) {
+            assertEquals("failed", entry.status);
+            JSONObject report = failed.report(entry, () -> false);
+            assertFalse(report.getJSONObject("scan").getBoolean("ok"));
+            assertTrue(report.getJSONObject("options").isNull("typeId"));
+            assertTrue(
+                    report.getJSONObject("scanTarget")
+                            .getString("resolutionError")
+                            .contains("not available"));
+            assertTrue(failed.input(entry, () -> false).isFile());
+        }
+        automaticInterpretation();
+        start(input("recovered-auto.bin", elf));
+        settle();
+        assertEquals("complete", session().entry(0).status);
+        assertEquals(
+                0,
+                session()
+                        .report(session().entry(0), () -> false)
+                        .getJSONObject("scan")
+                        .getInt("typeId"));
+        assertEquals(
+                "missing-compatible-format",
+                failed.report(failed.entry(0), () -> false)
+                        .getJSONObject("scanTarget")
+                        .getJSONObject("request")
+                        .getString("formatName"));
+    }
+
+    private void restoreWithoutRetainedState(Bundle saved) throws Exception {
+        ExecutorService previous = ReflectionHelpers.getField(state(), "worker");
+        controller.pause().stop().destroy();
+        assertTrue(previous.awaitTermination(30, TimeUnit.SECONDS));
+        controller =
+                Robolectric.buildActivity(BatchScanActivity.class)
+                        .create(saved)
+                        .start()
+                        .resume()
+                        .visible();
+        activity = controller.get();
+        settle();
+    }
+
+    @Test
+    public void batchNameRestoresFromSavedStateAndInvalidStateRequiresAVisibleChoice()
+            throws Exception {
+        requireInterpretation("Binary");
+        Bundle saved = new Bundle();
+        controller.saveInstanceState(saved);
+        restoreWithoutRetainedState(saved);
+        assertEquals(
+                "Binary",
+                ReflectionHelpers.<ScanTarget.Request>getField(state(), "draftInterpretation")
+                        .formatName);
+        saved = new Bundle();
+        controller.saveInstanceState(saved);
+        saved.putString(
+                "interpretation", "{\"selectionMode\":\"automatic\",\"formatName\":\"Binary\"}");
+        restoreWithoutRetainedState(saved);
+        assertFalse(button("choose").isEnabled());
+        assertTrue(status(), status().contains("invalid"));
+        automaticInterpretation();
+        assertTrue(button("choose").isEnabled());
+        assertTrue(
+                ReflectionHelpers.<ScanTarget.Request>getField(state(), "draftInterpretation")
+                        .automatic());
+    }
+
     private PreparedExport prepare() throws Exception {
         button("export").performClick();
         settle();

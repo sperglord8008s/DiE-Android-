@@ -19,7 +19,8 @@ public final class BatchScanActivity extends Activity {
     private static final int PICK_INPUTS = 1, PICK_EXPORT = 2;
     private State state;
     private TextView status, settings;
-    private Button choose, cancel, results, export, saved, profiles;
+    private Button choose, cancel, results, export, saved, profiles, interpretation;
+    private AlertDialog interpretationDialog;
 
     /**
      * Survives configuration recreation without restarting native work or retaining an Activity.
@@ -35,6 +36,8 @@ public final class BatchScanActivity extends Activity {
         volatile boolean busy, picker, running, exportLaunchNeeded;
         volatile BatchScanSession.Control cancellation = new BatchScanSession.Control();
         PreparedExport prepared;
+        ScanTarget.Request draftInterpretation = ScanTarget.AUTOMATIC;
+        boolean interpretationReady = true;
 
         State(Context context) {
             this.context = context.getApplicationContext();
@@ -57,7 +60,7 @@ public final class BatchScanActivity extends Activity {
             return new File(context.getCacheDir(), "batch-exports");
         }
 
-        void start(List<Uri> uris, ScanOptions options) {
+        void start(List<Uri> uris, ScanOptions options, ScanTarget.Request interpretation) {
             busy = running = true;
             id = null;
             cancellation = new BatchScanSession.Control();
@@ -100,13 +103,14 @@ public final class BatchScanActivity extends Activity {
                                             root(),
                                             sources,
                                             options,
+                                            interpretation,
                                             database.engineRevision,
                                             database.signatureRevision,
                                             database.customDigest);
                             id = session.id;
                             session.run(
                                     sources,
-                                    new DesktopBatchAnalyzer(database, options),
+                                    new DesktopBatchAnalyzer(database, options, interpretation),
                                     cancellation,
                                     this::changed);
                             changed(
@@ -143,6 +147,18 @@ public final class BatchScanActivity extends Activity {
         state.owner = this;
         if (retained == null && savedState != null) {
             state.id = savedState.getString("batchId");
+            try {
+                String savedRequest = savedState.getString("interpretation");
+                if (savedRequest != null)
+                    state.draftInterpretation = ScanTarget.Request.restore(savedRequest);
+                state.interpretationReady = savedState.getBoolean("interpretationReady", true);
+            } catch (Exception failure) {
+                state.interpretationReady = false;
+                state.message =
+                        "Saved interpretation is invalid; choose the next batch interpretation"
+                            + " again: "
+                                + failure;
+            }
             state.picker = savedState.getBoolean("picker");
             state.exportLaunchNeeded = savedState.getBoolean("exportLaunchNeeded");
             if (savedState.getString("prepared") != null)
@@ -183,6 +199,8 @@ public final class BatchScanActivity extends Activity {
         root.addView(context);
         settings = new TextView(this);
         root.addView(settings);
+        interpretation = button("Next batch interpretation", this::chooseInterpretation);
+        root.addView(interpretation);
         profiles =
                 button(
                         "Saved scan option profiles",
@@ -246,9 +264,14 @@ public final class BatchScanActivity extends Activity {
                         + options.includeTags
                         + " • exclude="
                         + options.excludeTags
+                        + " • interpretation="
+                        + state.draftInterpretation.label()
                         + "\nSaved reports retain the settings captured when their batch started.");
         boolean available = !state.busy && !state.picker;
-        choose.setEnabled(available);
+        choose.setEnabled(available && state.interpretationReady);
+        interpretation.setEnabled(available);
+        interpretation.setText(
+                "Next batch interpretation: " + state.draftInterpretation.label() + " • choose…");
         saved.setEnabled(available);
         profiles.setEnabled(available);
         cancel.setEnabled(state.busy);
@@ -265,8 +288,68 @@ public final class BatchScanActivity extends Activity {
         }
     }
 
-    private void chooseFiles() {
+    private void chooseInterpretation() {
         if (state.busy || state.picker) return;
+        State owner = state;
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        int padding = Math.round(16 * getResources().getDisplayMetrics().density);
+        form.setPadding(padding, padding, padding, padding);
+        TextView explanation = new TextView(this);
+        explanation.setText(
+                "Automatic lets CDiE choose for every file. A required exact native format name"
+                    + " (for example Binary) is resolved separately against each acquired input's"
+                    + " compatible catalog. Unavailable or ambiguous names retain a failed report;"
+                    + " they never fall back to Automatic. Copy names from a primary scan's"
+                    + " interpretation choices. This does not force arbitrary formats or validate"
+                    + " their structures.");
+        form.addView(explanation);
+        EditText name = new EditText(this);
+        name.setTag("batch-interpretation-name");
+        name.setSingleLine(true);
+        name.setHint("Exact compatible native format name");
+        name.setText(owner.draftInterpretation.formatName);
+        form.addView(name);
+        interpretationDialog =
+                new AlertDialog.Builder(this)
+                        .setTitle("Next batch interpretation")
+                        .setView(form)
+                        .setPositiveButton("Require name", null)
+                        .setNeutralButton(
+                                "Automatic",
+                                (dialog, which) -> applyInterpretation(owner, ScanTarget.AUTOMATIC))
+                        .setNegativeButton("Cancel", null)
+                        .show();
+        interpretationDialog
+                .getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(
+                        view -> {
+                            try {
+                                ScanTarget.Request request =
+                                        new ScanTarget.Request(name.getText().toString());
+                                if (request.automatic())
+                                    throw new IllegalArgumentException(
+                                            "Enter a name or choose Automatic");
+                                applyInterpretation(owner, request);
+                                interpretationDialog.dismiss();
+                            } catch (IllegalArgumentException failure) {
+                                name.setError(failure.getMessage());
+                            }
+                        });
+    }
+
+    private void applyInterpretation(State owner, ScanTarget.Request request) {
+        if (state != owner || owner.owner != this || owner.busy || owner.picker) return;
+        owner.draftInterpretation = request;
+        owner.interpretationReady = true;
+        owner.changed(
+                "Next batch interpretation: "
+                        + request.label()
+                        + " • saved batches retain their captured request");
+    }
+
+    private void chooseFiles() {
+        if (state.busy || state.picker || !state.interpretationReady) return;
         Intent intent =
                 new Intent(Intent.ACTION_OPEN_DOCUMENT)
                         .addCategory(Intent.CATEGORY_OPENABLE)
@@ -297,7 +380,13 @@ public final class BatchScanActivity extends Activity {
                 } else if (data.getData() != null) inputs.add(data.getData());
                 if (inputs.isEmpty() || inputs.contains(null))
                     state.changed("The picker returned no valid document plan");
-                else state.start(Collections.unmodifiableList(inputs), ScanPreferences.load(this));
+                else if (!state.interpretationReady)
+                    state.changed("Choose a valid batch interpretation before starting");
+                else
+                    state.start(
+                            Collections.unmodifiableList(inputs),
+                            ScanPreferences.load(this),
+                            state.draftInterpretation);
             }
             present();
             return;
@@ -531,6 +620,12 @@ public final class BatchScanActivity extends Activity {
     protected void onSaveInstanceState(Bundle output) {
         super.onSaveInstanceState(output);
         output.putString("batchId", state.id);
+        output.putBoolean("interpretationReady", state.interpretationReady);
+        try {
+            output.putString("interpretation", state.draftInterpretation.toJson().toString());
+        } catch (Exception failure) {
+            output.putBoolean("interpretationReady", false);
+        }
         output.putBoolean("picker", state.picker);
         output.putBoolean("running", state.running);
         output.putBoolean("exportLaunchNeeded", state.exportLaunchNeeded);
@@ -542,6 +637,7 @@ public final class BatchScanActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (interpretationDialog != null) interpretationDialog.dismiss();
         if (state.owner == this) state.owner = null;
         if (!isChangingConfigurations()) {
             state.cancellation.cancel();

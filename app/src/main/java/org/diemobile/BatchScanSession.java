@@ -16,6 +16,7 @@ import java.util.function.BooleanSupplier;
 /** Private, checkpointed desktop batch. Each input and report has its own byte identity. */
 final class BatchScanSession {
     static final String SCHEMA = "org.diemobile.desktop-batch";
+    static final int VERSION = 2;
     static final int MAX_INPUTS = 64, MAX_SESSIONS = 8;
     static final long MAX_INPUT_BYTES = 256L * 1024 * 1024;
     static final long MAX_TOTAL_BYTES = 512L * 1024 * 1024;
@@ -110,6 +111,8 @@ final class BatchScanSession {
     final File directory;
     final String id, createdAt;
     final ScanOptions options;
+    final ScanTarget.Request interpretation;
+    final int schemaVersion;
     final String engineRevision, signatureRevision, customDigest;
     final List<Entry> entries;
     private String status = "planned", completedAt = "", error = "";
@@ -122,6 +125,8 @@ final class BatchScanSession {
             String id,
             String createdAt,
             ScanOptions options,
+            ScanTarget.Request interpretation,
+            int schemaVersion,
             String engineRevision,
             String signatureRevision,
             String customDigest,
@@ -130,6 +135,8 @@ final class BatchScanSession {
         this.id = id;
         this.createdAt = createdAt;
         this.options = options;
+        this.interpretation = interpretation;
+        this.schemaVersion = schemaVersion;
         this.engineRevision = engineRevision;
         this.signatureRevision = signatureRevision;
         this.customDigest = customDigest;
@@ -144,6 +151,27 @@ final class BatchScanSession {
             String signatureRevision,
             String customDigest)
             throws Exception {
+        return create(
+                root,
+                sources,
+                options,
+                ScanTarget.AUTOMATIC,
+                engineRevision,
+                signatureRevision,
+                customDigest);
+    }
+
+    static synchronized BatchScanSession create(
+            File root,
+            List<Source> sources,
+            ScanOptions options,
+            ScanTarget.Request interpretation,
+            String engineRevision,
+            String signatureRevision,
+            String customDigest)
+            throws Exception {
+        if (interpretation == null)
+            throw new IllegalArgumentException("Missing batch interpretation");
         if (sources.isEmpty() || sources.size() > MAX_INPUTS)
             throw new IOException("Select 1–64 files; no files were queued");
         checkRevisions(engineRevision, signatureRevision, customDigest);
@@ -167,6 +195,8 @@ final class BatchScanSession {
                         id,
                         java.time.Instant.now().toString(),
                         options,
+                        interpretation,
+                        VERSION,
                         engineRevision,
                         signatureRevision,
                         customDigest,
@@ -193,11 +223,19 @@ final class BatchScanSession {
         File directory = ownedDirectory(root, id);
         byte[] journal = readBounded(new File(directory, "state.json"), MAX_STATE_BYTES, stop);
         JSONObject state = decodeJson(journal);
-        if (!SCHEMA.equals(state.getString("schema"))
-                || integer(state, "schemaVersion", 1, 1) != 1
-                || !id.equals(state.getString("id")))
+        int version = (int) integer(state, "schemaVersion", 1, VERSION);
+        if (!SCHEMA.equals(state.getString("schema")) || !id.equals(state.getString("id")))
             throw new IOException("Invalid batch state schema");
+        ScanTarget.Request interpretation =
+                version == 1
+                        ? ScanTarget.AUTOMATIC
+                        : ScanTarget.Request.restore(
+                                state.getJSONObject("interpretationRequest").toString());
         JSONObject settings = state.getJSONObject("options");
+        if (interpretation.automatic()
+                ? integer(settings, "typeId", 0, 0) != 0
+                : !settings.has("typeId") || !settings.isNull("typeId"))
+            throw new IOException("Batch interpretation/options scope differs");
         ScanOptions options =
                 new ScanOptions(
                         (int) integer(settings, "flags", 0, 16383),
@@ -272,6 +310,8 @@ final class BatchScanSession {
                         id,
                         state.getString("createdAt"),
                         options,
+                        interpretation,
+                        version,
                         revision,
                         db,
                         custom,
@@ -390,58 +430,69 @@ final class BatchScanSession {
     JSONObject metadata() throws JSONException {
         JSONObject counts = new JSONObject();
         for (Entry entry : entries) counts.put(entry.status, counts.optInt(entry.status) + 1);
-        return new JSONObject()
-                .put("schema", SCHEMA)
-                .put("schemaVersion", 1)
-                .put("id", id)
-                .put("createdAt", createdAt)
-                .put("completedAt", completedAt)
-                .put("status", status)
-                .put("error", error)
-                .put("plannedInputs", entries.size())
-                .put("outcomes", counts)
-                .put("inputBytes", inputBytes)
-                .put("reportBytes", reportBytes)
-                .put("options", optionsJson(options))
-                .put(
-                        "engine",
-                        new JSONObject()
-                                .put("engineRevision", engineRevision)
-                                .put("signatureRevision", signatureRevision)
-                                .put("customArchiveSha256", customDigest))
-                .put("networkUsed", false)
-                .put(
-                        "limits",
-                        new JSONObject()
-                                .put("inputs", MAX_INPUTS)
-                                .put("inputBytes", MAX_INPUT_BYTES)
-                                .put("totalInputBytes", MAX_TOTAL_BYTES)
-                                .put("reportBytes", MAX_REPORT_BYTES)
-                                .put("totalReportBytes", MAX_TOTAL_REPORT_BYTES))
-                .put(
-                        "limitations",
-                        new JSONArray()
-                                .put(
-                                        "Finished means the plan settled; inspect every per-file"
-                                                + " outcome and native diagnostic.")
-                                .put(
-                                        "A running/planned journal reopened after process death is"
-                                                + " incomplete and is never automatically resumed.")
-                                .put(
-                                        "Independent document acquisition is sequential, not an"
-                                                + " atomic snapshot of a directory or package set.")
-                                .put(
-                                        "CDiE and generic inspection run in the app process with"
-                                            + " cooperative cancellation; hostile-parser isolation"
-                                            + " and hard deadlines remain pending.")
-                                .put(
-                                        "Only desktop signature scanning, native facts and bounded"
-                                            + " generic previews run here; Android-specific tools"
-                                            + " are separate.")
-                                .put(
-                                        "No Qt heuristic/format parity, device/provider"
-                                                + " verification, safety or execution verdict is"
-                                                + " implied."));
+        JSONObject metadata =
+                new JSONObject()
+                        .put("schema", SCHEMA)
+                        .put("schemaVersion", schemaVersion)
+                        .put("id", id)
+                        .put("createdAt", createdAt)
+                        .put("completedAt", completedAt)
+                        .put("status", status)
+                        .put("error", error)
+                        .put("plannedInputs", entries.size())
+                        .put("outcomes", counts)
+                        .put("inputBytes", inputBytes)
+                        .put("reportBytes", reportBytes)
+                        .put(
+                                "options",
+                                optionsJson(options)
+                                        .put(
+                                                "typeId",
+                                                interpretation.automatic() ? 0 : JSONObject.NULL))
+                        .put(
+                                "engine",
+                                new JSONObject()
+                                        .put("engineRevision", engineRevision)
+                                        .put("signatureRevision", signatureRevision)
+                                        .put("customArchiveSha256", customDigest))
+                        .put("networkUsed", false)
+                        .put(
+                                "limits",
+                                new JSONObject()
+                                        .put("inputs", MAX_INPUTS)
+                                        .put("inputBytes", MAX_INPUT_BYTES)
+                                        .put("totalInputBytes", MAX_TOTAL_BYTES)
+                                        .put("reportBytes", MAX_REPORT_BYTES)
+                                        .put("totalReportBytes", MAX_TOTAL_REPORT_BYTES))
+                        .put(
+                                "limitations",
+                                new JSONArray()
+                                        .put(
+                                                "Finished means the plan settled; inspect every"
+                                                    + " per-file outcome and native diagnostic.")
+                                        .put(
+                                                "A running/planned journal reopened after process"
+                                                    + " death is incomplete and is never"
+                                                    + " automatically resumed.")
+                                        .put(
+                                                "Independent document acquisition is sequential,"
+                                                    + " not an atomic snapshot of a directory or"
+                                                    + " package set.")
+                                        .put(
+                                                "CDiE and generic inspection run in the app process"
+                                                    + " with cooperative cancellation;"
+                                                    + " hostile-parser isolation and hard deadlines"
+                                                    + " remain pending.")
+                                        .put(
+                                                "Only desktop signature scanning, native facts and"
+                                                    + " bounded generic previews run here;"
+                                                    + " Android-specific tools are separate.")
+                                        .put(
+                                                "No Qt heuristic/format parity, device/provider"
+                                                    + " verification, safety or execution verdict"
+                                                    + " is implied."));
+        if (schemaVersion >= 2) metadata.put("interpretationRequest", interpretation.toJson());
+        return metadata;
     }
 
     static JSONObject optionsJson(ScanOptions options) throws JSONException {
@@ -636,7 +687,6 @@ final class BatchScanSession {
                 provenance = report.getJSONObject("provenance");
         if (captured.getInt("flags") != options.flags
                 || captured.getInt("minimumStringLength") != options.minimumStringLength
-                || captured.getInt("typeId") != 0
                 || !captured.getString("includeTags").equals(options.includeTags)
                 || !captured.getString("excludeTags").equals(options.excludeTags)
                 || !provenance.getString("engineRevision").equals(engineRevision)
@@ -646,6 +696,14 @@ final class BatchScanSession {
                         .getString("archiveSha256")
                         .equals(customDigest))
             throw new IOException("Batch report options or engine/database identity changed");
+        if (schemaVersion >= 2 || report.has("scanTarget")) {
+            ScanTarget.Capture target = ScanTarget.Capture.read(report);
+            if (!target.request.sameAs(interpretation)
+                    || !target.engineRevision.equals(engineRevision))
+                throw new IOException("Batch report interpretation differs from captured plan");
+        } else if (integer(captured, "typeId", 0, 0) != 0) {
+            throw new IOException("Legacy batch report must use Automatic");
+        }
         ScanEvidence.parse(report.getJSONObject("scan").toString());
     }
 

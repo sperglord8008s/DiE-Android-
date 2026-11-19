@@ -84,7 +84,7 @@ reports fail explicitly instead of producing a zero-difference table.
 
 ## Schema, lifetime and verification
 
-`org.diemobile.scan-comparison` version 1 uses
+`org.diemobile.scan-comparison` version 2 uses
 `exact-native-tree-paths/v1`, both complete comparison contexts, source-report
 identities, counts, condition/duplicate disclosures, bounds and every original
 comparison `record`. Shared evidence tables provide selected scopes and records.
@@ -108,3 +108,16 @@ external document streams are substituted. Inspect current CI for the committed
 revision; compilation/host fixtures do not establish real SAF, handset, process
 death, low-storage or power-loss behavior. Full Qt/native heuristic equivalence
 and program-level semantic comparison remain unverified/incomplete.
+
+Batch interpretation captures are retained in each comparison context. An
+unresolved requested interpretation has a null native selector and failed
+coverage; it does not become an empty successful scan or a matching known
+selector. Original request/catalog/source metadata remains exportable.
+
+Schema 2 adds `nativeSelectorsResolved` and preserves each optional `scanTarget`
+context. When a selector is unresolved and other known fields agree,
+`sameNativeOptions`, `sameEffectiveOptions` and `configurationDiffers` are null
+rather than claiming either equality or difference. A known flag/tag/engine/rule
+difference remains a known difference even if a selector is unresolved. The
+matching algorithm remains `exact-native-tree-paths/v1`; no old comparison files
+are imported or rewritten.

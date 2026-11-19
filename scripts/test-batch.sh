@@ -7,6 +7,7 @@ trap 'rm -rf "$tmp"' EXIT
 source scripts/test-dependencies.sh
 load_json_test_dependency "$tmp"
 javac -cp "$json_test_jar" -d "$tmp/classes" \
-  app/src/main/java/org/diemobile/{Engine,Inspector,EvidenceRows,EvidenceJson,CatalogJson,ScanOptions,ScanProfiles,ScanEvidence,ScanReport,ScanComparison,InputSnapshot,InvestigationBackend,BatchScanSession,BatchScanBackend,FileRange,RangeAnalysis,PreparedExport}.java \
-  tests/BatchScanTest.java
+  app/src/main/java/org/diemobile/{Engine,Inspector,EvidenceRows,EvidenceJson,CatalogJson,ScanOptions,ScanProfiles,ScanTarget,ScanEvidence,ScanReport,ScanComparison,InputSnapshot,InvestigationBackend,BatchScanSession,BatchScanBackend,FileRange,RangeAnalysis,PreparedExport}.java \
+  tests/{BatchScanTest,BatchInterpretationTest}.java
 java -Xmx256m -cp "$tmp/classes:$json_test_jar" org.diemobile.BatchScanTest "$tmp"
+java -Xmx256m -cp "$tmp/classes:$json_test_jar" org.diemobile.BatchInterpretationTest "$tmp"

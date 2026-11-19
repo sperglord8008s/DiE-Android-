@@ -10,7 +10,7 @@ import java.util.function.BooleanSupplier;
 /** Exact captured native-tree comparison, preserving original ordinals and duplicate ancestry. */
 final class ScanComparison {
     static final String SCHEMA = "org.diemobile.scan-comparison";
-    static final int VERSION = 1, MAX_ROWS = 20_000, MAX_KEY_CHARACTERS = 8 * 1024 * 1024;
+    static final int VERSION = 2, MAX_ROWS = 20_000, MAX_KEY_CHARACTERS = 8 * 1024 * 1024;
     static final String[] TABLES = {
         "differences", "matched", "left-only", "right-only", "uncompared", "all"
     };
@@ -185,6 +185,7 @@ final class ScanComparison {
                         .put("createdAt", report.opt("createdAt"))
                         .put("source", report.getJSONObject("source"))
                         .put("options", report.getJSONObject("options"))
+                        .put("scanTarget", report.opt("scanTarget"))
                         .put("provenance", report.getJSONObject("provenance"))
                         .put("engineError", report.opt("engineError"))
                         .put("nativeMetadata", metadata);
@@ -343,8 +344,21 @@ final class ScanComparison {
                 rightEngine = rightContext.getJSONObject("provenance");
         JSONObject leftOptions = leftContext.getJSONObject("options"),
                 rightOptions = rightContext.getJSONObject("options");
+        boolean selectorsResolved =
+                leftOptions.get("typeId") != JSONObject.NULL
+                        && rightOptions.get("typeId") != JSONObject.NULL;
+        boolean sameOtherNativeOptions =
+                leftOptions.getInt("flags") == rightOptions.getInt("flags")
+                        && leftOptions
+                                .getString("includeTags")
+                                .equals(rightOptions.getString("includeTags"))
+                        && leftOptions
+                                .getString("excludeTags")
+                                .equals(rightOptions.getString("excludeTags"));
         boolean sameNativeOptions =
-                effectiveNativeOptions(leftOptions).equals(effectiveNativeOptions(rightOptions));
+                selectorsResolved
+                        && effectiveNativeOptions(leftOptions)
+                                .equals(effectiveNativeOptions(rightOptions));
         boolean samePreviewMinimum =
                 leftOptions.getInt("minimumStringLength")
                         == rightOptions.getInt("minimumStringLength");
@@ -368,6 +382,16 @@ final class ScanComparison {
                                         .getString("archiveSha256"));
         boolean sameEffectiveCustom =
                 leftCustomEnabled == rightCustomEnabled && (!leftCustomEnabled || sameCustom);
+        boolean knownConfigurationDifference =
+                !sameOtherNativeOptions || !sameEngine || !sameSignatures || !sameEffectiveCustom;
+        Object nativeEquality =
+                !sameOtherNativeOptions
+                        ? false
+                        : selectorsResolved ? sameNativeOptions : JSONObject.NULL;
+        Object configurationDifference =
+                knownConfigurationDifference
+                        ? true
+                        : selectorsResolved ? !sameNativeOptions : JSONObject.NULL;
         return new JSONObject()
                 .put("schema", SCHEMA)
                 .put("schemaVersion", VERSION)
@@ -401,19 +425,15 @@ final class ScanComparison {
                                 .put("inputBytesReRead", false)
                                 .put(
                                         "sameEffectiveOptions",
-                                        sameNativeOptions && samePreviewMinimum)
-                                .put("sameNativeOptions", sameNativeOptions)
+                                        samePreviewMinimum ? nativeEquality : false)
+                                .put("nativeSelectorsResolved", selectorsResolved)
+                                .put("sameNativeOptions", nativeEquality)
                                 .put("samePreviewMinimum", samePreviewMinimum)
                                 .put("sameEngineRevision", sameEngine)
                                 .put("sameSignatureRevision", sameSignatures)
                                 .put("sameCustomArchive", sameCustom)
                                 .put("sameEffectiveCustomDatabase", sameEffectiveCustom)
-                                .put(
-                                        "configurationDiffers",
-                                        !sameNativeOptions
-                                                || !sameEngine
-                                                || !sameSignatures
-                                                || !sameEffectiveCustom))
+                                .put("configurationDiffers", configurationDifference))
                 .put(
                         "limits",
                         new JSONObject()
@@ -458,7 +478,9 @@ final class ScanComparison {
     private static String effectiveNativeOptions(JSONObject options) throws Exception {
         return options.getInt("flags")
                 + ":"
-                + options.getInt("typeId")
+                + (options.get("typeId") == JSONObject.NULL
+                        ? "unresolved"
+                        : options.getInt("typeId"))
                 + ":"
                 + encode(options.getString("includeTags"), () -> false)
                 + ":"
