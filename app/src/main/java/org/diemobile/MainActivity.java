@@ -82,7 +82,8 @@ public class MainActivity extends Activity {
   if(Build.VERSION.SDK_INT>=30){getWindow().setDecorFitsSystemWindows(false);root.setOnApplyWindowInsetsListener((v,i)->{android.graphics.Insets a=i.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());v.setPadding(a.left+dp(8),a.top+dp(6),a.right+dp(8),a.bottom+dp(4));return i;});}
   setContentView(root);
   LinearLayout titlebar=new LinearLayout(this);titlebar.setGravity(Gravity.CENTER_VERTICAL);
-  TextView title=txt("DiE Android",18);title.setTypeface(null,Typeface.BOLD);
+  TextView title=txt("GlassDigestor",18);title.setTypeface(null,Typeface.BOLD);
+  title.setContentDescription(BuildConfig.PRODUCT_NAME+" "+BuildConfig.VERSION_NAME+"; tap for build details");title.setOnClickListener(v->showBuildDetails());
   titlebar.addView(title,new LinearLayout.LayoutParams(0,-2,1));
   titlebar.addView(btn("Batch",()->startActivity(new Intent(this,BatchScanActivity.class))));titlebar.addView(btn("Explore",()->startActivityForResult(new Intent(this,SystemExplorerActivity.class),4)));titlebar.addView(btn("Options",()->optionsDialog()));root.addView(titlebar);
   fileLabel=mono("No file selected");fileLabel.setTextSize(13);fileLabel.setPadding(dp(6),dp(8),dp(6),dp(8));fileLabel.setBackgroundColor(0xff222a31);fileLabel.setMaxLines(2);
@@ -131,11 +132,13 @@ public class MainActivity extends Activity {
    startActivityForResult(intent,3);
   }));
   form.addView(btn("Inspect imported Exodus rules / metadata",this::openTrackerCatalog));
+  form.addView(btn("Build details / "+BuildConfig.VERSION_NAME,this::showBuildDetails));
   scanOptionsDialog=new AlertDialog.Builder(this).setTitle("Scan options").setView(form)
    .setNegativeButton("Cancel",null).setPositiveButton("Apply",(dialog,which)->{
     min.setText(entry.getText());min.setText(""+minLength());settingsChanged();
    }).show();
  }
+ private void showBuildDetails(){explain(BuildConfig.PRODUCT_NAME+" build",BuildConfig.VERSION_NAME+"\nVersion code: "+BuildConfig.VERSION_CODE+"\nVariant: "+BuildConfig.BUILD_TYPE+"\nApplication: "+BuildConfig.APPLICATION_ID+"\nSource: "+BuildConfig.SOURCE_REVISION+(BuildConfig.SOURCE_DIRTY?"\nSource has local changes or its identity is unavailable":"\nSource was clean at configuration"),"The numbered pre-release identifies a published checkpoint. Debug builds also identify the Git revision; .dirty means local edits were present. Android uses the numeric version code when comparing updates. An update also requires the same signing certificate. GlassDigestor continues DiE Android, with Detect It Easy/CDiE as a credited core engine. A version number does not establish handset verification or complete desktop parity.");}
  private void chooseInterpretation(){
   if(busy||result==null)return;
   final ScanTarget.Capture captured=scannedTarget;final String identity=result.sha256;

@@ -55,6 +55,7 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | Broader semantic comparison, isolated native worker | program/package/structure semantics and external/cross-batch report comparison pending; private isolated worker wired for Binwalk/PhotoRec/MPV/compiled Android resources/whole-file hashing, manifest/normal-UID refusal checked; actual OS IPC/crash/cancel timing and migration of other engines pending |
 | Device testing, regression fixtures, license audit, reproducible signing | pending |
 | Packaged ARM64 APK signing/identity, offline assets and static 16 KiB alignment | build-time verification script and CI gate; actual 16 KiB Android runtime/device verification pending |
+| Numbered debug builds / project identity | GlassDigestor display name and adaptive icon wired; shared numbered prerelease/version-code contract, source-revision/dirty debug names, installed build details and metadata-resolved APK/checkpoint packaging implemented; real Git-state host cases, ARM64 assembly, Java/resource/manifest compilation, lint and APK signature/identity/offline/static-alignment checks pass; this slice's CI and installed launcher/update/device behavior remain unverified |
 
 A functional alpha may have pending items. Do not describe it as a full port until parity is verified.
 

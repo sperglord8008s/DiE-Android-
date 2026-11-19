@@ -1,5 +1,9 @@
 plugins { id 'com.android.application' }
 def nativeEnabled = providers.gradleProperty('withCdie').orElse('true').get().toBoolean()
+def buildIdentity = new groovy.json.JsonSlurper().parseText(providers.exec {
+    workingDir rootProject.projectDir
+    commandLine 'python3', rootProject.file('scripts/build-version.py').absolutePath
+}.standardOutput.asText.get())
 android {
     namespace 'org.diemobile'
     compileSdk 35
@@ -8,11 +12,24 @@ android {
         applicationId 'org.diemobile'
         minSdk 26
         targetSdk 35
-        versionCode 6
-        versionName '0.6.0-alpha-dev'
+        versionCode buildIdentity.versionCode
+        versionName buildIdentity.baseVersionName
+        resValue 'string', 'app_name', buildIdentity.productName
+        buildConfigField 'String', 'PRODUCT_NAME', groovy.json.JsonOutput.toJson(buildIdentity.productName)
+        buildConfigField 'String', 'SOURCE_REVISION', groovy.json.JsonOutput.toJson(buildIdentity.sourceRevision)
+        buildConfigField 'boolean', 'SOURCE_DIRTY', (buildIdentity.sourceDirty != false).toString()
         if (nativeEnabled) {
             ndk { abiFilters 'arm64-v8a' }
             externalNativeBuild { cmake { targets 'diemobile', 'diehash' } }
+        }
+    }
+    buildFeatures { buildConfig true }
+    buildTypes {
+        debug { versionNameSuffix buildIdentity.versionName.substring(buildIdentity.baseVersionName.length()) }
+    }
+    applicationVariants.configureEach { variant ->
+        variant.outputs.configureEach {
+            outputFileName = "${buildIdentity.artifactName}-${variant.versionName}-arm64-v8a-${variant.name}.apk"
         }
     }
     if (nativeEnabled) {

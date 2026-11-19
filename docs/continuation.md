@@ -1,6 +1,6 @@
 # Development continuation point
 
-Work is on `codex/workbench-parity`, proposed in [draft PR #1](https://github.com/sperglord8008s/DiE-Android-/pull/1), based on main `0558a89`. The application remains `org.diemobile` / `0.6.0-alpha-dev` (version code 6), with the existing signing configuration. Full desktop parity and handset verification are not complete. Read AGENTS.md and the three design/parity documents before continuing.
+Work is on `codex/workbench-parity`, proposed in [draft PR #1](https://github.com/sperglord8008s/DiE-Android-/pull/1), based on main `0558a89`. The application remains `org.diemobile`, with the existing signing configuration. The next published checkpoint is `0.6.0-pre-alpha.1` (version code 7); debug builds also identify their exact source revision. See [versioning](build-versioning.md). Full desktop parity and handset verification are not complete. Read AGENTS.md and the three design/parity documents before continuing.
 
 ## Implemented and fixture-verified in this work
 
@@ -70,7 +70,7 @@ bash scripts/test-hashes.sh
 bash scripts/test-knowledge.sh
 bash scripts/test-trackers.sh
 ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
-bash scripts/verify-apk.sh app/build/outputs/apk/debug/app-debug.apk
+bash scripts/verify-apk.sh
 bash scripts/test-workbench-ui.sh
 ```
 
@@ -428,3 +428,42 @@ compile the ARM64 core, run real host fixtures and upload corresponding sources.
 See [module contracts](../archive-engine/README.md). Keep the current working
 Gallerize APK while this is wired. No device runtime, worker UID/Binder/cancel/
 crash/SAF, decoder/PDF/media or 16 KiB runtime behavior is verified.
+
+## GlassDigestor identity and numbered pre-release (20 November 2026)
+
+The project display name is now GlassDigestor. The repository URL and
+`org.diemobile` application ID remain stable; Detect It Easy/CDiE is credited as
+an engine. The maintainer selected the generated lens/layers logo. Android's
+adaptive icon uses the unchanged original artwork; provenance/license are in
+`docs/branding/README.md`.
+
+`version.properties` now supplies the numbered `0.6.0-pre-alpha.1` / code 7
+checkpoint. Debug versions append a Git revision and optional `.dirty`; the APK,
+installed version, build details, verifier and checkpoint packager share that
+contract. Scripts resolve AGP's actual output metadata instead of expecting
+`app-debug.apk`. See `docs/build-versioning.md` and release notes. The prior
+`v0.5.0-alpha` tag remains immutable.
+
+Archive-core commit `455ec6a7b204e5e224b879311fa397f8f424c4c1` passed all five
+jobs in run `44565494822` (#117), including the actual archive host fixtures and
+ARM64 core build. Its saved checkpoint is artifact `14553815003`; archive
+corresponding sources are artifact `14553021058`. The old execution workspace
+was replaced; its local scratch/APKs/signing key are no longer present here.
+Pushed source and retained CI artifacts are the recovery points. The current
+workspace was restored from the remote branch and pinned dependencies. Debug
+signing configuration is unchanged; independent keys must not be presented as
+the same signer.
+
+The unfinished archive worker/browser edits from that replaced workspace were
+not committed. Reapply the descriptor-only `ArchiveRunner`/worker acquisition
+protocol, source-bound metadata/payload store and broader archive tree as the
+next functional slice. Preserve the existing ZIP browser and its checked
+member handoff. The broader libarchive core is source/host/ARM64 verified,
+**not yet an exposed app feature** in this pre-release. Device/SAF/isolation/
+playback verification and remaining desktop parity work remain outstanding.
+
+The numbered/branding slice passed local ARM64 assembly, lint and the updated
+APK verifier, including the installed label/version and all 14 native libraries.
+A cold Gradle build also reproduced a preparer refusal of an empty precreated
+output directory. The preparer now adopts only an empty unmanaged directory;
+unknown files, source edits and symlinks still fail, with a regression fixture.

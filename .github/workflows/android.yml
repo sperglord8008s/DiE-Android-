@@ -1,4 +1,4 @@
-name: Android alpha build
+name: GlassDigestor Android and host checks
 on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
@@ -14,6 +14,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Identify numbered build
+        id: version
+        run: |
+          python3 - <<'PY'
+          import os, runpy
+          identity = runpy.run_path('scripts/build-version.py')['identity']()
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('name=' + identity['versionName'] + '\n')
+              output.write('base=' + identity['baseVersionName'] + '\n')
+          print(identity['apkName'])
+          PY
       - uses: actions/cache@v4
         with:
           path: .ci-cache
@@ -51,20 +62,20 @@ jobs:
       - run: bash scripts/build-archive.sh android
       - run: bash scripts/check-binary-notices.sh
       - run: ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
-      - run: bash scripts/verify-apk.sh app/build/outputs/apk/debug/app-debug.apk
+      - run: bash scripts/verify-apk.sh
       - run: bash scripts/test-workbench-ui.sh
       - run: python3 scripts/package-photorec-sources.py
       - run: python3 scripts/package-archive-sources.py
       - run: python3 scripts/package-alpha.py
       - uses: actions/upload-artifact@v4
         with:
-          name: die-android-alpha-savepoint
+          name: GlassDigestor-${{ steps.version.outputs.base }}-savepoint
           if-no-files-found: error
           retention-days: 90
           path: app/build/alpha-checkpoint/*
       - uses: actions/upload-artifact@v4
         with:
-          name: die-android-arm64-debug
+          name: GlassDigestor-${{ steps.version.outputs.name }}-arm64-debug
           path: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/debug/*.sha256

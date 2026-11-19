@@ -53,3 +53,20 @@ and let a reader move from a plain-language role to full technical references.
 This is an investigation/understanding workbench; package-removal operations are
 not part of this request. Existing UAD, LibChecker and tracker data are starting
 sources, not substitutes for evidence about a particular installed version.
+
+## Recovery workflow and interface direction (20 November 2026)
+
+The maintainer explicitly prioritizes Binwalk/PhotoRec recovered-file exports,
+their gallery/preview handoff and consistent formatting. Preserve the dense,
+desktop-inspired workbench: aligned facts, clear headings, compact purposeful
+controls, monospace for actual data and expandable proportional explanations.
+Avoid ornamental cards, oversized rounded controls, decorative color systems
+and appearance settings that obscure analysis actions.
+
+Next functional acceptance: a bounded native finding can be acquired from its
+checked parent identity, viewed locally through the shared owned preview,
+opened in Gallerize, and exported without losing its original source range or
+witness context. Unknown extents remain visible and non-extractable. Preserve
+all complete raw/native/catalog exports and their staged-picker lifetime.
+This acceptance is pending beyond the current release identity slice; existing
+stored-range export and Gallerize preview coverage remains documented separately.

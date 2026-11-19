@@ -9,8 +9,12 @@ import re
 import shutil
 import subprocess
 import tempfile
+import importlib.util
 
 ROOT = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location('build_version', ROOT / 'scripts/build-version.py')
+build_version = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(build_version)
 
 
 def digest(path):
@@ -23,10 +27,10 @@ def digest(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--apk', type=Path, default=ROOT / 'app/build/outputs/apk/debug/app-debug.apk')
+    parser.add_argument('--apk', type=Path, help='Defaults to the single debug output in AGP metadata')
     parser.add_argument('--output-dir', type=Path, default=ROOT / 'app/build/alpha-checkpoint')
     arguments = parser.parse_args()
-    apk = arguments.apk.resolve()
+    apk = (arguments.apk or build_version.apk_path()).resolve()
     output = arguments.output_dir.resolve()
     if output.exists():
         raise SystemExit('Checkpoint already exists; retain it and choose a new output directory.')
@@ -41,13 +45,16 @@ def main():
     changes = subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True)
     if head != source.group(1) or changes:
         raise SystemExit('Current source does not match the clean verification manifest.')
+    identity = build_version.identity()
+    if version.group(1) != identity['versionName'] or int(version.group(2)) != identity['versionCode']:
+        raise SystemExit('Verified application version does not match the current version/source identity.')
     expected = apk.with_name(apk.name + '.sha256').read_text().split()[0]
     if not re.fullmatch(r'[0-9a-f]{64}', expected) or digest(apk) != expected:
         raise SystemExit('APK bytes differ from their verified checksum.')
     output.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix='.alpha-', dir=output.parent))
     try:
-        name = 'DiE-Android-' + version.group(1) + '-arm64.apk'
+        name = identity['apkName']
         shutil.copyfile(apk, staging / name)
         if digest(staging / name) != expected:
             raise SystemExit('APK changed during checkpoint acquisition; candidate discarded.')
@@ -56,6 +63,7 @@ def main():
         metadata = {
             'schema': 'org.diemobile.alpha-checkpoint', 'schemaVersion': 1,
             'applicationId': 'org.diemobile', 'versionName': version.group(1),
+            'productName': identity['productName'],
             'versionCode': int(version.group(2)), 'sourceRevision': head,
             'apk': name, 'apkSha256': expected, 'apkSizeBytes': (staging / name).stat().st_size,
             'variant': 'debug', 'abi': 'arm64-v8a', 'minSdk': 26, 'targetSdk': 35,
@@ -63,7 +71,7 @@ def main():
         }
         (staging / 'checkpoint.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')
         (staging / 'CHECKPOINT.md').write_text(
-            '# DiE Android ' + version.group(1) + '\n\n'
+            '# ' + identity['productName'] + ' ' + version.group(1) + '\n\n'
             'Source: `' + head + '`\n\n'
             'Install `' + name + '` on an ARM64 Android API 26+ device. '
             'Application ID is `org.diemobile`; version code is ' + version.group(2) + '.\n\n'

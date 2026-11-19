@@ -7,3 +7,4 @@ java -cp "$tmp" org.diemobile.InspectorTest
 java -cp "$tmp" org.diemobile.CustomRuleStoreTest
 java -cp "$tmp" org.diemobile.ArchiveStoreTest
 bash scripts/test-presentation.sh
+python3 tests/test-build-version.py
