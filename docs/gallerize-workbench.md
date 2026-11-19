@@ -1,6 +1,8 @@
 # Gallerize and content-first investigation: active development requirements
 
-These are accepted user requirements, not claims of implementation or device
+These are accepted user requirements. The [implemented first content/gallery/grid
+slice](gallerize-implementation.md) records its precise verification and limits;
+this requirements list is not a claim of complete implementation or device
 verification. Existing binary, Android, metadata, rule and export functions must
 remain accessible throughout the reorganization.
 

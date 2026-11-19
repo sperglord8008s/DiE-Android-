@@ -107,3 +107,12 @@ Raw facts and unsupported/partial status remain visible independently of optiona
 help. Byte-based ordinary media/archive header recognition is expanded, without
 claiming full validation/decompression. See [presentation contracts](content-presentation.md)
 and the [active Gallerize requirements](gallerize-workbench.md).
+
+Gallerize now owns the exact input and original PhotoRec capture, maps accepted/
+bounded/header-only/nested/unassigned content plus gap UTF-8 text, and supplies a
+labeled gallery, independent owned-range previews and complete configurable byte/
+entropy grids. Complete exports retain raw findings/catalog and cell values.
+Four concatenated media files/text, independent grid oracles, original-capture
+restoration and a fully written 80 MiB fixture are host checked; platform media/
+PDF and actual Android behavior remain separately unverified. See
+[Gallerize contracts](gallerize-implementation.md).

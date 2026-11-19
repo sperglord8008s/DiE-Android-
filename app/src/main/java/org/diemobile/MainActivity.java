@@ -100,7 +100,7 @@ public class MainActivity extends Activity {
   min=new EditText(this);min.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);min.setText(""+prefs.minimumStringLength);
   for(CheckBox c:new CheckBox[]{deep,heuristic,recursive,aggressive,all})c.setOnCheckedChangeListener((b,v)->settingsChanged());
   tabs=new LinearLayout(this);HorizontalScrollView hs=new HorizontalScrollView(this);hs.setHorizontalScrollBarEnabled(false);hs.addView(tabs);root.addView(hs);
-  String[] labels={"Scan","File info",null,"APK / SDKs","Entropy","Strings","Hex","Reports / Log"};for(int i=0;i<labels.length;i++){if(labels[i]==null)continue;final int p=i;Button tab=btn(labels[i],()->{page=p;show();});tab.setTag(p);tabs.addView(tab);}
+  String[] labels={"Scan","File info",null,"APK / SDKs","Entropy","Strings","Hex","Reports / Log"};for(int i=0;i<labels.length;i++){if(labels[i]==null)continue;final int p=i;Button tab=btn(labels[i],()->{page=p;show();});tab.setTag(p);tabs.addView(tab);if(i==1){Button gallery=btn("Gallerize",this::openGallerize);gallery.setTag(8);tabs.addView(gallery);}}
   root.addView(explanations.controls(this));
   View line=new View(this);line.setBackgroundColor(0xff44525e);root.addView(line,new LinearLayout.LayoutParams(-1,dp(1)));
   ScrollView sc=new ScrollView(this);pane=vertical();sc.addView(pane);root.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
@@ -195,6 +195,7 @@ public class MainActivity extends Activity {
   });
  }
  private void openDesktopScan(){if(retainedFile==null||!Engine.AVAILABLE)return;Intent i=new Intent(this,DesktopScanActivity.class);i.putExtra("path",retainedFile.getAbsolutePath());i.putExtra("name",name);startActivity(i);}
+ private void openGallerize(){if(busy||retainedFile==null||result==null)return;startActivity(new Intent(this,GallerizeActivity.class).putExtra("path",retainedFile.getAbsolutePath()).putExtra("name",name).putExtra("sha256",result.sha256).putExtra("sourceSize",result.size));}
  private void openArchive(){if(retainedFile==null)return;Intent i=new Intent(this,ArchiveExplorerActivity.class);i.putExtra("path",retainedFile.getAbsolutePath());i.putExtra("name",name);startActivityForResult(i,5);}
  private void openNativeTools(){if(retainedFile==null)return;Intent i=new Intent(this,NativeToolsActivity.class);i.putExtra("path",retainedFile.getAbsolutePath());i.putExtra("name",name);if(result!=null){i.putExtra("sha256",result.sha256);i.putExtra("sourceSize",result.size);}startActivity(i);}
  private void openInvestigation(String provider){if(retainedFile==null)return;Intent i=new Intent(this,InvestigationActivity.class).putExtra("provider",provider).putExtra("path",retainedFile.getAbsolutePath()).putExtra("name",name);if(result!=null){i.putExtra("sha256",result.sha256);i.putExtra("sourceSize",result.size);}startActivity(i);}
@@ -249,6 +250,7 @@ public class MainActivity extends Activity {
   field("Name",name);field("Size",String.format(Locale.ROOT,"%,d bytes (0x%X)",result.size,result.size));
   field("Entropy",String.format(Locale.ROOT,"%.4f bits/byte",result.entropy),"Whole-input Shannon entropy over byte counts. Regions, raw byte views and alternative interpretations remain available; compression, encryption and ordinary media can all have high entropy.");
   field("SHA-256",result.sha256,"Digest of the exact acquired bytes. Captured reports and exported resources retain their own complete source identities.");
+  pane.addView(btn("Gallerize / content gallery / byte and entropy grids",this::openGallerize));
   heading("Explore content and evidence");
   for(ToolCatalog.Group group:ToolCatalog.GROUPS){
    Button toggle=btn(group.label,()->{});toggle.setTag("tool-group-toggle:"+group.id);LinearLayout body=vertical();body.setTag("tool-group:"+group.id);
@@ -276,7 +278,7 @@ public class MainActivity extends Activity {
   if(busy||retainedFile==null)return;
   if(tool.nativeTool>=0){openNativeToolAt(tool.nativeTool,-1);return;}
   if(tool.provider!=null){openInvestigation(tool.provider);return;}
-  switch(tool.id){case "archive":openArchive();break;case "laboratory":openDesktopScan();break;
+  switch(tool.id){case "gallerize":openGallerize();break;case "archive":openArchive();break;case "laboratory":openDesktopScan();break;
    case "profiles":startActivity(new Intent(this,ScanProfilesActivity.class));break;
    case "batch":startActivity(new Intent(this,BatchScanActivity.class));break;case "native-all":openNativeTools();break;
    default:throw new IllegalArgumentException("Unknown tool action: "+tool.id);}

@@ -19,6 +19,7 @@ These are adapter limits, not verified maximum sizes on a phone. MiB means
 | Desktop document batches | 256 MiB/file | 64 files, 512 MiB total captured input; 16 MiB/report, 64 MiB total stored reports |
 | Exact aligned binary comparison | 256 MiB/side | 512 MiB pair; difference-record and report bounds remain separate |
 | PhotoRec adapter 3 | 256 MiB | 250,000 candidates; 24 MiB native report; per-candidate/aggregate callback work and deadline bounds |
+| Gallerize content/gallery/grid input | 256 MiB | 50,000 cards, original native report/callback budgets; grid at most 1,048,576 cells; previews/renderers separately bounded |
 | Binwalk adapter 2 | 64 MiB | Contiguous file-sized native copy; 20,000 raw magic matches and 32 MiB report |
 | MPV media probe | 256 MiB | Probe/property/worker limits; initialization is not full-frame/media-integrity verification |
 | Collected EXIF/IPTC/ICC/XMP metadata | 128 MiB | Reader dispatch plus directory/tag/XMP/value/report limits |
@@ -58,6 +59,12 @@ a read boundary and ending at EOF. Its actual JNI path preserves the caller's
 seek position and records complete read accounting. Binwalk still requires a
 file-sized contiguous copy for the pinned validators; PhotoRec's window bound
 does not apply to it.
+
+Gallerize independently exercises a fully written **80 MiB + 17 byte** source,
+with a PNG beyond 64 MiB and Unicode tail text. The complete local-entropy grid
+accounts for every byte and agrees with independent streaming SHA-256. These
+are host checks of the actual acquisition/PhotoRec/map/grid path; see
+[Gallerize contracts](gallerize-implementation.md).
 
 A separate native entropy audit covers every returned measurement/histogram of
 a real **50,223,887-byte** APK against independent streaming byte counts, log2

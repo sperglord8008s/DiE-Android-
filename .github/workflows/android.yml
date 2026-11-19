@@ -141,6 +141,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.90.0
       - run: bash scripts/test-binwalk.sh
       - run: bash scripts/test-photorec.sh
+      - run: bash scripts/test-gallerize.sh
       - run: bash scripts/check-binary-notices.sh
 
   media-integration:

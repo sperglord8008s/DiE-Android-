@@ -45,11 +45,11 @@ stale-source refusal. Existing native/media/resource/carving/export cases test
 that statuses and workflows remain available. Hardware and accessibility flows
 remain device-unverified.
 
-This is the presentation foundation. **Gallerize**, its concatenated-content
-acceptance fixture, actual in-app media playback/gallery, configurable byte/
-entropy grids and the broader archive engine are separate active work; this
-slice does not claim those features are implemented. See
-[gallerize-workbench.md](gallerize-workbench.md).
+This contract describes the presentation foundation. The subsequent
+[Gallerize implementation](gallerize-implementation.md) adds the concatenated-
+content fixture, gallery/previews and configurable byte/entropy grids, with
+separate verification and remaining media/device limits. The broader archive
+engine remains active work. See [accepted requirements](gallerize-workbench.md).
 
 Combined local verification passes all 127 Android host checks with zero failures,
 errors or skips, ARM64 assembly/lint, core/native and PhotoRec streaming fixtures.

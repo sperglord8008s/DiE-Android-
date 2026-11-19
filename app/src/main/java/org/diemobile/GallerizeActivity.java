@@ -1,0 +1,997 @@
+// SPDX-License-Identifier: GPL-3.0-only
+package org.diemobile;
+
+import android.app.*;
+import android.content.*;
+import android.net.Uri;
+import android.os.*;
+import android.text.*;
+import android.view.*;
+import android.widget.*;
+
+import org.json.*;
+
+import java.io.*;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/** Content-first view over one owned input, complete native evidence and exact byte grids. */
+public final class GallerizeActivity extends Activity {
+    private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private ContentGalleryAdapter galleryAdapter;
+    private GallerizeSession session;
+    private ContentMap map;
+    private String retained, name, mode = "gallery", group = "All";
+    private int page, generation;
+    private boolean busy, pickerOpen;
+    private AtomicBoolean cancellation = new AtomicBoolean();
+    private TextView title, summary, status, cellInfo;
+    private LinearLayout content, gridControls, pager;
+    private Button cancel, previous, next, apply;
+    private EditText width, height;
+    private Spinner groups;
+    private PreparedExport prepared;
+    private ByteGrid.Result grid;
+    private File exportDirectory, previewDirectory;
+    private final List<ContentMap.Card> selected = new ArrayList<>();
+    private android.content.SharedPreferences preferences;
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private TextView text(String value, int size) {
+        TextView view = new TextView(this);
+        view.setText(value);
+        view.setTextSize(size);
+        view.setTextColor(0xffe5eaf0);
+        return view;
+    }
+
+    private Button button(String label, Runnable action) {
+        Button view = new Button(this);
+        view.setText(label);
+        view.setTextSize(12);
+        view.setAllCaps(false);
+        view.setOnClickListener(v -> action.run());
+        return view;
+    }
+
+    private void add(LinearLayout row, View view) {
+        row.addView(view, new LinearLayout.LayoutParams(0, -2, 1));
+    }
+
+    @Override
+    public void onCreate(Bundle saved) {
+        super.onCreate(saved);
+        String path = getIntent().getStringExtra("path");
+        if (path == null) {
+            finish();
+            return;
+        }
+        name = getIntent().getStringExtra("name");
+        if (name == null) name = new File(path).getName();
+        exportDirectory = new File(getCacheDir(), "tool-exports");
+        previewDirectory = new File(getCacheDir(), "content-previews");
+        preferences = getSharedPreferences("gallerize-grid", MODE_PRIVATE);
+        if (saved != null) {
+            retained = saved.getString("session");
+            mode = saved.getString("mode", "gallery");
+            group = saved.getString("group", "All");
+            page = Math.max(0, saved.getInt("page"));
+            if (saved.getString("prepared") != null)
+                try {
+                    prepared =
+                            PreparedExport.restore(
+                                    exportDirectory,
+                                    saved.getString("prepared"),
+                                    saved.getString("exportName"),
+                                    saved.getString("exportMime"),
+                                    saved.getLong("exportSize"));
+                    pickerOpen = true;
+                } catch (IOException ignored) {
+                    /* Explicitly reported after views exist. */
+                }
+        }
+        createViews();
+        if (saved != null) {
+            width.setText(saved.getString("width", "640"));
+            height.setText(saved.getString("height", "640"));
+            if (saved.getString("prepared") != null && prepared == null)
+                status.setText("Prepared export expired; prepare it again");
+        }
+        load(new File(path), saved == null);
+    }
+
+    private void createViews() {
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(8), dp(8), dp(8), dp(8));
+        root.setBackgroundColor(0xff15191e);
+        if (Build.VERSION.SDK_INT >= 30) {
+            getWindow().setDecorFitsSystemWindows(false);
+            root.setOnApplyWindowInsetsListener(
+                    (view, insets) -> {
+                        android.graphics.Insets bars =
+                                insets.getInsets(
+                                        WindowInsets.Type.systemBars()
+                                                | WindowInsets.Type.displayCutout());
+                        view.setPadding(
+                                bars.left + dp(8),
+                                bars.top + dp(8),
+                                bars.right + dp(8),
+                                bars.bottom + dp(8));
+                        return insets;
+                    });
+        }
+        title = text("Gallerize · " + name, 18);
+        title.setMaxLines(2);
+        root.addView(title);
+        summary = text("Acquiring exact bytes…", 13);
+        root.addView(summary);
+        LinearLayout tools = new LinearLayout(this);
+        add(tools, button("Views", this::chooseView));
+        add(tools, button("Tools / evidence", this::tools));
+        add(tools, button("Export", this::export));
+        cancel =
+                button(
+                        "Cancel",
+                        () -> {
+                            cancellation.set(true);
+                            status.setText(
+                                    "Cancellation requested · waiting for current IO/engine"
+                                            + " operation");
+                        });
+        add(tools, cancel);
+        root.addView(tools);
+        ExpandableHelp help = new ExpandableHelp(this);
+        help.paragraph(
+                this,
+                root,
+                "gallerize.scope",
+                "Evidence and presentation limits",
+                "Cards retain every accepted PhotoRec header, reported bounded artifact,"
+                    + " nested/overlapping range and unassigned gap. Header acceptance is not"
+                    + " complete-file validation. Raw findings include every rejection and the full"
+                    + " catalog. Text candidates are strict printable UTF-8 runs outside bounded"
+                    + " artifacts; other encodings and text within artifacts remain in Classified"
+                    + " strings. Thumbnail/preview decoding is a separate platform observation."
+                    + " Grid resolution partitions all bytes without sampling; entropy from one"
+                    + " byte is always zero. Tools and view modes remain manually selectable.",
+                true,
+                false);
+        gridControls = new LinearLayout(this);
+        gridControls.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout dimensions = new LinearLayout(this);
+        width = new EditText(this);
+        height = new EditText(this);
+        for (EditText value : new EditText[] {width, height}) {
+            value.setSingleLine();
+            value.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+            value.setFilters(new InputFilter[] {new InputFilter.LengthFilter(4)});
+        }
+        width.setHint("Width");
+        height.setHint("Height");
+        width.setText(Integer.toString(preferences.getInt("width", 640)));
+        height.setText(Integer.toString(preferences.getInt("height", 640)));
+        add(dimensions, width);
+        add(dimensions, height);
+        apply = button("Apply", () -> showGrid(false));
+        add(dimensions, apply);
+        add(dimensions, button("Sizes / Auto", this::gridSizes));
+        gridControls.addView(dimensions);
+        cellInfo = text("", 12);
+        cellInfo.setTextIsSelectable(true);
+        gridControls.addView(cellInfo);
+        root.addView(gridControls);
+        pager = new LinearLayout(this);
+        groups = new Spinner(this);
+        groups.setAdapter(
+                new ArrayAdapter<>(
+                        this,
+                        android.R.layout.simple_spinner_dropdown_item,
+                        new String[] {
+                            "All",
+                            "Images",
+                            "Audio / video",
+                            "Text",
+                            "Archives",
+                            "Documents",
+                            "Unassigned",
+                            "Header only"
+                        }));
+        add(pager, groups);
+        previous =
+                button(
+                        "Previous",
+                        () -> {
+                            if (!busy) {
+                                page--;
+                                showGallery();
+                            }
+                        });
+        add(pager, previous);
+        next =
+                button(
+                        "Next",
+                        () -> {
+                            if (!busy) {
+                                page++;
+                                showGallery();
+                            }
+                        });
+        add(pager, next);
+        root.addView(pager);
+        groups.setOnItemSelectedListener(
+                new android.widget.AdapterView.OnItemSelectedListener() {
+                    public void onItemSelected(
+                            AdapterView<?> parent, View view, int position, long id) {
+                        String value = parent.getItemAtPosition(position).toString();
+                        if (!value.equals(group)) {
+                            group = value;
+                            page = 0;
+                            if (!busy && mode.equals("gallery")) showGallery();
+                        }
+                    }
+
+                    public void onNothingSelected(AdapterView<?> parent) {}
+                });
+        for (int i = 0; i < groups.getCount(); i++)
+            if (groups.getItemAtPosition(i).equals(group)) groups.setSelection(i);
+        status = text("Loading…", 12);
+        root.addView(status);
+        content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        root.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
+        setContentView(root);
+    }
+
+    private void clearContent() {
+        content.removeAllViews();
+        if (galleryAdapter != null) {
+            galleryAdapter.close();
+            galleryAdapter = null;
+        }
+    }
+
+    private int begin(String message) {
+        cancellation.set(true);
+        cancellation = new AtomicBoolean();
+        busy = true;
+        cancel.setEnabled(true);
+        previous.setEnabled(false);
+        next.setEnabled(false);
+        apply.setEnabled(false);
+        groups.setEnabled(false);
+        status.setText(message);
+        return ++generation;
+    }
+
+    private void end() {
+        busy = false;
+        cancel.setEnabled(false);
+        apply.setEnabled(true);
+        groups.setEnabled(true);
+        if (mode.equals("gallery")) {
+            previous.setEnabled(page > 0);
+            next.setEnabled((long) (page + 1) * 24 < selected.size());
+        }
+    }
+
+    private void load(File input, boolean autoView) {
+        int ticket = begin("Acquiring input and scanning the supported whole blob…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(
+                () -> {
+                    String failure = "";
+                    ContentMap digest = null;
+                    try {
+                        session =
+                                GallerizeSession.open(
+                                        input,
+                                        new File(getCacheDir(), "gallerize-inputs"),
+                                        name,
+                                        getIntent().getStringExtra("sha256"),
+                                        getIntent().getLongExtra("sourceSize", -1),
+                                        retained,
+                                        new BinaryWorkerClient(this, "photorec"),
+                                        stop::get);
+                        digest = session.digest(stop::get);
+                    } catch (Exception error) {
+                        failure = error.toString();
+                    }
+                    final ContentMap loaded = digest;
+                    final String error = failure;
+                    String state = null;
+                    try {
+                        if (session != null) state = session.retentionState();
+                    } catch (Exception ignored) {
+                    }
+                    final String descriptor = state;
+                    runOnUiThread(
+                            () -> {
+                                if (isDestroyed() || ticket != generation) return;
+                                end();
+                                retained = descriptor;
+                                map = loaded;
+                                if (session == null) {
+                                    status.setText("Gallerize acquisition failed: " + error);
+                                    return;
+                                }
+                                summary.setText(
+                                        map == null
+                                                ? "Content scan incomplete · bytes and manual views"
+                                                        + " remain available"
+                                                : map.primaryType + "\n" + map.composition);
+                                if (autoView
+                                        && map != null
+                                        && map.boundedCount == 0
+                                        && map.textCount == 0)
+                                    mode =
+                                            session.input.size > ByteGrid.MAX_CELLS
+                                                    ? "entropy"
+                                                    : "bytes";
+                                if (mode.equals("gallery") && map != null) showGallery();
+                                else {
+                                    if (mode.equals("gallery")) mode = "bytes";
+                                    showGrid(!preferences.getBoolean("manual", false));
+                                }
+                                if (!error.isEmpty())
+                                    status.setText(
+                                            "Content scan failed: "
+                                                    + error
+                                                    + " · grid/source views remain usable");
+                            });
+                });
+    }
+
+    private boolean matches(ContentMap.Card card) {
+        switch (group) {
+            case "Images":
+                return card.kind == ContentMap.Kind.IMAGE;
+            case "Audio / video":
+                return card.kind == ContentMap.Kind.AUDIO || card.kind == ContentMap.Kind.VIDEO;
+            case "Text":
+                return card.kind == ContentMap.Kind.TEXT;
+            case "Archives":
+                return card.kind == ContentMap.Kind.ARCHIVE;
+            case "Documents":
+                return card.kind == ContentMap.Kind.DOCUMENT;
+            case "Unassigned":
+                return card.kind == ContentMap.Kind.UNASSIGNED;
+            case "Header only":
+                return card.length == null;
+            default:
+                return true;
+        }
+    }
+
+    private void showGallery() {
+        if (busy || map == null) return;
+        mode = "gallery";
+        gridControls.setVisibility(View.GONE);
+        pager.setVisibility(View.VISIBLE);
+        clearContent();
+        grid = null;
+        selected.clear();
+        for (ContentMap.Card card : map.cards) if (matches(card)) selected.add(card);
+        int pages = Math.max(1, (selected.size() + 23) / 24);
+        page = Math.max(0, Math.min(page, pages - 1));
+        List<ContentMap.Card> shown =
+                new ArrayList<>(
+                        selected.subList(page * 24, Math.min(selected.size(), (page + 1) * 24)));
+        GridView gallery = new GridView(this);
+        gallery.setTag("gallerize-gallery");
+        gallery.setNumColumns(GridView.AUTO_FIT);
+        gallery.setColumnWidth(dp(156));
+        gallery.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
+        gallery.setHorizontalSpacing(dp(6));
+        gallery.setVerticalSpacing(dp(6));
+        galleryAdapter = new ContentGalleryAdapter(this, shown, session.input, worker);
+        gallery.setAdapter(galleryAdapter);
+        gallery.setOnItemClickListener((parent, view, index, id) -> details(shown.get(index)));
+        content.addView(gallery, new LinearLayout.LayoutParams(-1, -1));
+        previous.setEnabled(page > 0);
+        next.setEnabled(page + 1 < pages);
+        status.setText(
+                "Page "
+                        + (page + 1)
+                        + "/"
+                        + pages
+                        + " · "
+                        + selected.size()
+                        + " cards · "
+                        + map.rawCount
+                        + " raw findings\n"
+                        + session.statusSummary());
+    }
+
+    private void chooseView() {
+        if (busy || session == null) return;
+        new AlertDialog.Builder(this)
+                .setTitle("Gallerize views")
+                .setItems(
+                        new String[] {
+                            "Content gallery",
+                            "Mean-byte grid",
+                            "Local-entropy grid",
+                            "Preview entire selected input"
+                        },
+                        (dialog, which) -> {
+                            if (which == 0) {
+                                if (map == null)
+                                    status.setText(
+                                            "Content scan did not complete; no partial gallery"
+                                                    + " published");
+                                else showGallery();
+                            } else if (which == 3)
+                                preview(
+                                        new ContentMap.Card(
+                                                ContentMap.Kind.INPUT,
+                                                name,
+                                                "selected input",
+                                                0,
+                                                session.input.size,
+                                                "",
+                                                -1));
+                            else {
+                                mode = which == 1 ? "bytes" : "entropy";
+                                showGrid(!preferences.getBoolean("manual", false));
+                            }
+                        })
+                .show();
+    }
+
+    private void gridSizes() {
+        if (busy) return;
+        new AlertDialog.Builder(this)
+                .setTitle("Grid dimensions · width × height")
+                .setItems(
+                        new String[] {
+                            "Automatic",
+                            "64 × 64",
+                            "128 × 128",
+                            "256 × 256",
+                            "320 × 240",
+                            "512 × 512",
+                            "640 × 640",
+                            "640 × 480",
+                            "1024 × 1024"
+                        },
+                        (dialog, which) -> {
+                            if (which == 0) {
+                                preferences.edit().putBoolean("manual", false).apply();
+                                showGrid(true);
+                                return;
+                            }
+                            int[][] sizes = {
+                                {64, 64},
+                                {128, 128},
+                                {256, 256},
+                                {320, 240},
+                                {512, 512},
+                                {640, 640},
+                                {640, 480},
+                                {1024, 1024}
+                            };
+                            width.setText(Integer.toString(sizes[which - 1][0]));
+                            height.setText(Integer.toString(sizes[which - 1][1]));
+                            showGrid(false);
+                        })
+                .show();
+    }
+
+    private void showGrid(boolean automatic) {
+        if (busy || session == null) return;
+        ByteGrid.Mode gridMode =
+                mode.equals("entropy") ? ByteGrid.Mode.ENTROPY : ByteGrid.Mode.BYTES;
+        ByteGrid.Layout layout;
+        try {
+            layout =
+                    automatic
+                            ? ByteGrid.automatic(session.input.size, gridMode)
+                            : new ByteGrid.Layout(
+                                    session.input.size,
+                                    Integer.parseInt(width.getText().toString()),
+                                    Integer.parseInt(height.getText().toString()));
+        } catch (RuntimeException error) {
+            status.setText(error.toString());
+            return;
+        }
+        width.setText(Integer.toString(layout.width));
+        height.setText(Integer.toString(layout.height));
+        preferences
+                .edit()
+                .putBoolean("manual", !automatic)
+                .putInt("width", layout.width)
+                .putInt("height", layout.height)
+                .apply();
+        pager.setVisibility(View.GONE);
+        gridControls.setVisibility(View.VISIBLE);
+        clearContent();
+        grid = null;
+        int ticket = begin("Measuring every source byte for the grid…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(
+                () -> {
+                    try {
+                        ByteGrid.Result result =
+                                ByteGrid.measure(session.input, layout, gridMode, stop::get);
+                        runOnUiThread(
+                                () -> {
+                                    if (isDestroyed() || ticket != generation) return;
+                                    end();
+                                    grid = result;
+                                    ByteGridView view = new ByteGridView(this, grid, this::cell);
+                                    view.setTag("gallerize-grid");
+                                    content.addView(view, new LinearLayout.LayoutParams(-1, -1));
+                                    cellInfo.setText(
+                                            gridMode.legend
+                                                    + "\n"
+                                                    + "Gray unused cells have no bytes. Row-major"
+                                                    + " exact partitions; tap for range/hex.");
+                                    status.setText(
+                                            layout.width
+                                                    + " × "
+                                                    + layout.height
+                                                    + " · "
+                                                    + layout.used
+                                                    + " populated cells · all "
+                                                    + session.input.size
+                                                    + " bytes accounted\nSHA-256 "
+                                                    + result.sha256);
+                                });
+                    } catch (Exception failure) {
+                        failed(ticket, failure);
+                    }
+                });
+    }
+
+    private void cell(int index) {
+        if (grid == null || busy) return;
+        FileRange range = grid.layout.range(index);
+        cellInfo.setText(
+                "Cell ("
+                        + index % grid.layout.width
+                        + ", "
+                        + index / grid.layout.width
+                        + ") · "
+                        + (range.length == 0
+                                ? "unused; no range"
+                                : "[0x"
+                                        + Long.toHexString(range.offset)
+                                        + ", 0x"
+                                        + Long.toHexString(range.offset + range.length)
+                                        + ") · "
+                                        + range.length
+                                        + " bytes · "
+                                        + grid.values[index]));
+        if (range.length == 0) return;
+        new AlertDialog.Builder(this)
+                .setTitle("Exact grid cell")
+                .setMessage(cellInfo.getText())
+                .setPositiveButton(
+                        "Hex at original offset", (dialog, which) -> nativeHex(range.offset))
+                .setNeutralButton(
+                        "Preview exact bytes",
+                        (dialog, which) ->
+                                preview(
+                                        new ContentMap.Card(
+                                                ContentMap.Kind.OTHER,
+                                                "Grid cell " + index,
+                                                "bytes",
+                                                range.offset,
+                                                range.length,
+                                                "",
+                                                -1)))
+                .setNegativeButton("Close", null)
+                .show();
+    }
+
+    private void nativeHex(long offset) {
+        startActivity(
+                new Intent(this, NativeToolsActivity.class)
+                        .putExtra("path", session.input.file.getAbsolutePath())
+                        .putExtra("name", name)
+                        .putExtra("sha256", session.input.sha256)
+                        .putExtra("sourceSize", session.input.size)
+                        .putExtra("tool", 9)
+                        .putExtra("offset", offset));
+    }
+
+    private void details(ContentMap.Card card) {
+        if (busy) return;
+        try {
+            TextView value = text(card.json().toString(2), 13);
+            value.setTextIsSelectable(true);
+            ScrollView scroll = new ScrollView(this);
+            scroll.addView(value);
+            new AlertDialog.Builder(this)
+                    .setTitle(card.label)
+                    .setView(scroll)
+                    .setNegativeButton("Close", null)
+                    .setPositiveButton(
+                            card.length == null ? "Native witness" : "Preview / actions",
+                            (dialog, which) -> {
+                                if (card.length == null) showWitness(card);
+                                else actions(card);
+                            })
+                    .show();
+        } catch (Exception error) {
+            status.setText(error.toString());
+        }
+    }
+
+    private void actions(ContentMap.Card card) {
+        String[] options = {
+            "View in app",
+            "Export exact stored bytes",
+            "Hex at original offset",
+            "Inspect native witness",
+            "Inspect range with all tools"
+        };
+        new AlertDialog.Builder(this)
+                .setTitle(card.label)
+                .setItems(
+                        options,
+                        (dialog, which) -> {
+                            if (which == 0) preview(card);
+                            else if (which == 1) exportRange(card);
+                            else if (which == 2) nativeHex(card.offset);
+                            else if (which == 3) showWitness(card);
+                            else preview(card); // The preview's tool menu operates on this
+                            // separately owned exact range.
+                        })
+                .show();
+    }
+
+    private void showWitness(ContentMap.Card card) {
+        if (card.nativeRow < 0) {
+            status.setText("This source/text/gap card has no native format witness");
+            return;
+        }
+        int ticket = begin("Loading exact native witness…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(
+                () -> {
+                    try {
+                        String raw =
+                                session.raw().row(card.nativeRow, stop::get).json().toString(2);
+                        runOnUiThread(
+                                () -> {
+                                    if (!isDestroyed() && ticket == generation) {
+                                        end();
+                                        TextView value = text(raw, 13);
+                                        value.setTextIsSelectable(true);
+                                        ScrollView scroll = new ScrollView(this);
+                                        scroll.addView(value);
+                                        new AlertDialog.Builder(this)
+                                                .setTitle(
+                                                        "Original PhotoRec row #" + card.nativeRow)
+                                                .setView(scroll)
+                                                .setPositiveButton("Close", null)
+                                                .show();
+                                    }
+                                });
+                    } catch (Exception error) {
+                        failed(ticket, error);
+                    }
+                });
+    }
+
+    private void preview(ContentMap.Card card) {
+        if (busy || card.length == null) return;
+        int ticket = begin("Owning exact selected bytes for preview…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(
+                () -> {
+                    InputSnapshot input = null;
+                    try {
+                        input =
+                                GallerizeSession.stageRange(
+                                        session.input,
+                                        card.range(session.input.size),
+                                        previewDirectory,
+                                        stop::get);
+                        InputSnapshot staged = input;
+                        input = null;
+                        runOnUiThread(
+                                () -> {
+                                    if (isDestroyed() || ticket != generation || stop.get()) {
+                                        staged.close();
+                                        return;
+                                    }
+                                    end();
+                                    try {
+                                        startActivity(
+                                                new Intent(this, ContentPreviewActivity.class)
+                                                        .putExtra(
+                                                                "path",
+                                                                staged.file.getAbsolutePath())
+                                                        .putExtra("sha256", staged.sha256)
+                                                        .putExtra("sourceSize", staged.size)
+                                                        .putExtra("name", card.label)
+                                                        .putExtra(
+                                                                "originalSha256",
+                                                                session.input.sha256)
+                                                        .putExtra("originalOffset", card.offset)
+                                                        .putExtra(
+                                                                "originalSize", session.input.size)
+                                                        .putExtra("preferred", card.kind.name()));
+                                    } catch (RuntimeException error) {
+                                        staged.close();
+                                        status.setText(error.toString());
+                                    }
+                                });
+                    } catch (Exception error) {
+                        if (input != null) input.close();
+                        failed(ticket, error);
+                    }
+                });
+    }
+
+    private void tools() {
+        if (busy || session == null) return;
+        String[] labels = {
+            "PhotoRec raw findings / full catalog",
+            "Binwalk",
+            "Classified strings",
+            "Collected metadata / EXIF",
+            "MPV codecs / streams / tags",
+            "Browse ZIP / APK hierarchy",
+            "Native hex",
+            "All native tools"
+        };
+        new AlertDialog.Builder(this)
+                .setTitle("Source tools")
+                .setItems(
+                        labels,
+                        (dialog, which) -> {
+                            if (which == 6) {
+                                nativeHex(0);
+                                return;
+                            }
+                            Class<?> target =
+                                    which == 5
+                                            ? ArchiveExplorerActivity.class
+                                            : which == 7
+                                                    ? NativeToolsActivity.class
+                                                    : InvestigationActivity.class;
+                            Intent intent =
+                                    new Intent(this, target)
+                                            .putExtra("path", session.input.file.getAbsolutePath())
+                                            .putExtra("name", name)
+                                            .putExtra("sha256", session.input.sha256)
+                                            .putExtra("sourceSize", session.input.size);
+                            if (which < 5)
+                                intent.putExtra(
+                                        "provider",
+                                        new String[] {
+                                                    "photorec",
+                                                    "binwalk",
+                                                    "strings",
+                                                    "metadata",
+                                                    "mpv"
+                                                }
+                                                [which]);
+                            startActivity(intent);
+                        })
+                .show();
+    }
+
+    private void export() {
+        if (busy || pickerOpen || session == null) return;
+        if (grid != null) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Complete export scope")
+                    .setItems(
+                            new String[] {
+                                "Every grid cell / exact ranges / values",
+                                "Content map / every raw finding / full catalog"
+                            },
+                            (dialog, which) -> {
+                                if (which == 0) exportGrid();
+                                else exportMap();
+                            })
+                    .show();
+        } else exportMap();
+    }
+
+    private void exportGrid() {
+        if (busy || pickerOpen || grid == null) return;
+        ByteGrid.Result captured = grid;
+        int ticket = begin("Staging every grid cell and its exact source interval…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(
+                () -> {
+                    try {
+                        staged(
+                                ticket,
+                                PreparedExport.stream(
+                                        exportDirectory,
+                                        "byte-grid.json",
+                                        "application/json",
+                                        output ->
+                                                ByteGrid.writeReport(
+                                                        captured, name, output, stop::get),
+                                        stop::get));
+                    } catch (Exception error) {
+                        failed(ticket, error);
+                    }
+                });
+    }
+
+    private void exportMap() {
+        if (busy || pickerOpen || session == null) return;
+        int ticket = begin("Staging complete content map, raw findings and catalog…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(
+                () -> {
+                    try {
+                        PreparedExport result =
+                                PreparedExport.stream(
+                                        exportDirectory,
+                                        "gallerize.json",
+                                        "application/json",
+                                        output -> session.writeReport(output, stop::get),
+                                        stop::get);
+                        staged(ticket, result);
+                    } catch (Exception error) {
+                        failed(ticket, error);
+                    }
+                });
+    }
+
+    private void exportRange(ContentMap.Card card) {
+        if (busy || pickerOpen) return;
+        int ticket = begin("Staging exact original range…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(
+                () -> {
+                    try {
+                        session.input.checkIdentity(stop::get);
+                        PreparedExport result =
+                                PreparedExport.range(
+                                        exportDirectory,
+                                        "range-" + card.offset + ".bin",
+                                        session.input.file,
+                                        card.range(session.input.size),
+                                        stop::get);
+                        try {
+                            session.input.checkIdentity(stop::get);
+                        } catch (Exception error) {
+                            result.discard();
+                            throw error;
+                        }
+                        staged(ticket, result);
+                    } catch (Exception error) {
+                        failed(ticket, error);
+                    }
+                });
+    }
+
+    private void staged(int ticket, PreparedExport result) {
+        runOnUiThread(
+                () -> {
+                    if (isDestroyed() || ticket != generation) {
+                        result.discard();
+                        return;
+                    }
+                    end();
+                    if (prepared != null) prepared.discard();
+                    prepared = result;
+                    try {
+                        pickerOpen = true;
+                        startActivityForResult(
+                                new Intent(Intent.ACTION_CREATE_DOCUMENT)
+                                        .addCategory(Intent.CATEGORY_OPENABLE)
+                                        .setType(result.mime)
+                                        .putExtra(Intent.EXTRA_TITLE, result.name),
+                                1);
+                        status.setText("Prepared " + result.size + " bytes · choose destination");
+                    } catch (RuntimeException error) {
+                        pickerOpen = false;
+                        result.discard();
+                        prepared = null;
+                        status.setText(error.toString());
+                    }
+                });
+    }
+
+    @Override
+    protected void onActivityResult(int request, int result, Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request != 1) return;
+        pickerOpen = false;
+        PreparedExport captured = prepared;
+        prepared = null;
+        if (captured == null) {
+            status.setText("Prepared export expired");
+            return;
+        }
+        if (result != RESULT_OK || data == null || data.getData() == null) {
+            captured.discard();
+            status.setText("Export cancelled");
+            return;
+        }
+        Uri destination = data.getData();
+        int ticket = begin("Saving prepared bytes…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(
+                () -> {
+                    try {
+                        try (OutputStream output =
+                                getContentResolver().openOutputStream(destination, "wt")) {
+                            if (output == null) throw new IOException("No output stream");
+                            captured.copyTo(output, stop::get);
+                        }
+                        runOnUiThread(
+                                () -> {
+                                    if (!isDestroyed() && ticket == generation) {
+                                        end();
+                                        status.setText(
+                                                "Export saved · " + captured.size + " bytes");
+                                    }
+                                });
+                    } catch (Exception error) {
+                        failed(ticket, error);
+                    } finally {
+                        captured.discard();
+                    }
+                });
+    }
+
+    private void failed(int ticket, Exception failure) {
+        runOnUiThread(
+                () -> {
+                    if (!isDestroyed() && ticket == generation) {
+                        end();
+                        status.setText(failure.toString());
+                    }
+                });
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle saved) {
+        super.onSaveInstanceState(saved);
+        saved.putString("session", retained);
+        saved.putString("mode", mode);
+        saved.putString("group", group);
+        saved.putInt("page", page);
+        saved.putString("width", width.getText().toString());
+        saved.putString("height", height.getText().toString());
+        if (prepared != null) {
+            saved.putString("prepared", prepared.file.getAbsolutePath());
+            saved.putString("exportName", prepared.name);
+            saved.putString("exportMime", prepared.mime);
+            saved.putLong("exportSize", prepared.size);
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (busy) {
+            cancellation.set(true);
+            status.setText("Cancellation requested · wait for the current operation");
+        } else super.onBackPressed();
+    }
+
+    @Override
+    protected void onDestroy() {
+        cancellation.set(true);
+        generation++;
+        boolean retain = isChangingConfigurations() && retained != null;
+        worker.execute(
+                () -> {
+                    try {
+                        if (session != null) session.close(retain);
+                    } catch (Exception ignored) {
+                    }
+                });
+        worker.shutdown();
+        if (prepared != null && !isChangingConfigurations()) prepared.discard();
+        if (galleryAdapter != null) galleryAdapter.close();
+        super.onDestroy();
+    }
+}

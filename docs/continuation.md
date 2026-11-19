@@ -323,3 +323,54 @@ checkpoint; real device behavior remains unverified. Local build headroom was
 increased by reclaiming only the owned extracted-CMake installer ZIP and unused
 NDK LLDB debugger library; compiler/linker/runtime inputs and original pinned
 engine source archives remain retained.
+
+Gallerize continuation: `ContentMap` maps accepted/native-row identities, bounded
+artifacts, unassigned unions/gaps and strict gap UTF-8 spans; unknown extents
+stay null. `GallerizeSession` owns source/capture SHA-256 identities and restores
+the original capture without rerunning native work. Its PhotoRec backend borrows
+the existing input, preserving caller ownership on failure/close. `ByteGrid`
+streams every byte into exact manual/automatic row-major cells and exports all
+values/ranges/IEEE representations. `ContentGalleryAdapter` owns one 24-card
+page and deduplicates bounded thumbnails; GallerizeActivity handles navigation/
+staged exports, and ContentPreviewActivity owns separately acquired exact ranges
+for first-frame images, text/hex, local playback controls and paged PDF wiring.
+The main tab uses tag 8, preserving old Reference/page mappings and every native
+or provider action. APK verification checks both new activities remain private.
+
+Run `scripts/test-gallerize.sh` with the existing PhotoRec/JSON dependencies. It
+checks four concatenated media files plus Unicode text, exact derived bytes,
+full native/catalog exports, capture corruption/refusal/restoration, UTF-8 IO
+seams, independent means/log2 entropy/partitions/IEEE exports and a fully written
+80 MiB + 17-byte input with a PNG beyond 64 MiB and Unicode tail. Seven Android
+host cases bring the full suite to **134, zero failures/errors/skips**. The
+combined ARM64 assembly/lint, required core/native, PhotoRec streaming, shared
+Binwalk and APK signature/offline/identity/source-reference/fourteen-library
+static 16 KiB checks pass. MPV/PhotoRec source ZIPs were regenerated and verified.
+Platform media/PDF decoding, actual ARM64/isolated UID/Binder/SAF, process death,
+performance and 16 KiB runtime remain separate unverified acceptance work. See
+[gallerize-implementation.md](gallerize-implementation.md) for exact scope,
+budgets, missing animation/video thumbnails and other remaining requirements.
+
+Presentation at `46f95c0` passed all five CI jobs in run 44546813328; its savepoint
+artifact is 14543560216. The verified local content-presentation checkpoint
+supersedes the older owned Binder checkpoint for space; the frozen 0.5.0-alpha,
+original fallback APKs and current checkpoint remain preserved. Binder's CI
+savepoint 14538634930 remains available in run 44477726846.
+
+Broader archive investigation: original libarchive 3.8.11 source commit
+03036ffa409a2aa1c5bbad35be2202641a040fda, codeload archive SHA-256
+87d05df74305b7f16b784852e49f434e09ce2b3bb29423461f717fc988742a78.
+A host-only source-library prototype exists under
+`/workspace/work/archive-integration/host-library`, with logs and the original
+archive alongside it. This is **not Android archive integration**. The host
+prototype currently found zlib/zstd, not bzip2/liblzma/lz4. The existing Cargo
+cache includes liblzma-sys 0.4.9's original XZ 5.8.4 library sources. Pin/build
+all selected codecs for both host/Android; do not claim missing codecs work.
+Register only reviewed format/filter functions; never use external-program
+filters, path extraction or disk readers. The mtree reader has an optional
+`checkfs` path-opening mode (default false); exclude it or explicitly keep all
+filesystem resolution disabled. An all-formats/all-filters helper can clear
+warnings or register external-program fallbacks, so it is not the intended
+adapter contract. Next: descriptor-only bounded acquisition, typed complete
+archive entries, safe generated-name member bytes and content-based/nested/
+embedded browsing, then richer rendering and the sourced knowledge cards.

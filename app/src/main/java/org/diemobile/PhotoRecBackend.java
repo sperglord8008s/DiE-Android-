@@ -12,6 +12,19 @@ final class PhotoRecBackend extends CarvingBackend {
         return MAX_BYTES;
     }
 
+    /** Caller retains ownership; native results are checked against these exact private bytes. */
+    PhotoRecBackend(InputSnapshot input, String name, BinaryRunner runner) {
+        super(
+                input.file,
+                input.file.getParentFile(),
+                name,
+                runner,
+                "PhotoRec",
+                "org.diemobile.photorec-evidence",
+                "281be432dd79121e08e0898887a9ee1f30fb3e96",
+                input);
+    }
+
     PhotoRecBackend(File root, File directory, String name, BinaryRunner runner) {
         super(
                 root,

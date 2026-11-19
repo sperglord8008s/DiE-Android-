@@ -109,6 +109,12 @@ public final class ContentPresentationWorkbenchTest {
         assertEquals(View.GONE, tagged("tool-group:executable").getVisibility());
         tagged("tool-group-toggle:executable").performClick();
         assertEquals(View.VISIBLE, tagged("tool-group:executable").getVisibility());
+        tabs.findViewWithTag(8).performClick();
+        Intent gallery = Shadows.shadowOf(activity).getNextStartedActivity();
+        assertEquals(GallerizeActivity.class.getName(), gallery.getComponent().getClassName());
+        assertEquals(
+                ReflectionHelpers.<Inspector.Result>getField(activity, "result").sha256,
+                gallery.getStringExtra("sha256"));
         // A restored old Reference page resolves to the same File info view.
         page(2);
         assertEquals(1, ReflectionHelpers.<Integer>getField(activity, "page").intValue());

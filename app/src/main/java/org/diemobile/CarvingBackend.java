@@ -14,6 +14,7 @@ class CarvingBackend extends InvestigationBackend {
     private final String name, engineName, schema, sourceRevision;
     private final boolean photoRec;
     private final BinaryRunner runner;
+    private final InputSnapshot borrowedInput;
     private InputSnapshot snapshot;
     private JSONObject header;
     private JSONArray candidates, patterns;
@@ -28,6 +29,19 @@ class CarvingBackend extends InvestigationBackend {
             String engineName,
             String schema,
             String sourceRevision) {
+        this(root, directory, name, runner, engineName, schema, sourceRevision, null);
+    }
+
+    CarvingBackend(
+            File root,
+            File directory,
+            String name,
+            BinaryRunner runner,
+            String engineName,
+            String schema,
+            String sourceRevision,
+            InputSnapshot borrowedInput) {
+        this.borrowedInput = borrowedInput;
         this.root = root;
         this.directory = directory;
         this.name = name;
@@ -44,7 +58,15 @@ class CarvingBackend extends InvestigationBackend {
 
     private void acquire(BooleanSupplier stop) throws Exception {
         if (header != null) return;
-        InputSnapshot input = InputSnapshot.acquire(root, directory, maximumInputBytes(), stop);
+        InputSnapshot input;
+        if (borrowedInput == null)
+            input = InputSnapshot.acquire(root, directory, maximumInputBytes(), stop);
+        else {
+            if (borrowedInput.size > maximumInputBytes())
+                throw new IOException("Borrowed input exceeds carving budget");
+            borrowedInput.checkIdentity(stop);
+            input = borrowedInput;
+        }
         boolean success = false;
         try {
             String encoded = runner.scan(input.file, stop);
@@ -184,7 +206,7 @@ class CarvingBackend extends InvestigationBackend {
             snapshot = input;
             success = true;
         } finally {
-            if (!success) input.close();
+            if (!success && borrowedInput == null) input.close();
         }
     }
 
@@ -548,7 +570,7 @@ class CarvingBackend extends InvestigationBackend {
         try {
             runner.close();
         } finally {
-            if (snapshot != null) snapshot.close();
+            if (snapshot != null && borrowedInput == null) snapshot.close();
         }
     }
 }

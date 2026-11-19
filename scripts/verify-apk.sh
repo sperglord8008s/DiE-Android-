@@ -57,6 +57,18 @@ assert any(':isolatedProcess(' in line and line.endswith('=true') for line in bl
 assert any(':exported(' in line and line.endswith('=false') for line in block),'Binary worker became externally accessible'
 assert any(':process(' in line and '":binary_worker"' in line for line in block),'Binary worker lost its separate process'
 print('Packaged binary worker is private and requests a separate isolated UID/process.')
+for activity in ('GallerizeActivity', 'ContentPreviewActivity'):
+    found=[]
+    for i,line in enumerate(lines):
+        if line.strip().startswith('E: activity '):
+            indent=len(line)-len(line.lstrip());children=[]
+            for child in lines[i+1:]:
+                if child.strip().startswith('E:') and len(child)-len(child.lstrip())<=indent: break
+                children.append(child)
+            if any('org.diemobile.'+activity+'"' in child for child in children): found.append(children)
+    assert len(found)==1 and any(':exported(' in child and child.endswith('=false') for child in found[0]), activity+' must remain private'
+print('Packaged content gallery and preview activities are private.')
+
 PY
 
 python3 - "$apk" "$readelf" "$tmp" <<'PY'

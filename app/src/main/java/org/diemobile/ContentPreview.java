@@ -1,0 +1,91 @@
+// SPDX-License-Identifier: GPL-3.0-only
+package org.diemobile;
+
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+
+import java.io.*;
+
+/** Local bounded image decoding; unknown extents are never passed to a decoder. */
+final class ContentPreview {
+    static Bitmap image(File source, FileRange range, int target) throws IOException {
+        if (target < 1 || target > 2048)
+            throw new IOException("Image target must be 1–2048 pixels");
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+        try (InputStream stream = stream(source, range)) {
+            BitmapFactory.decodeStream(stream, null, options);
+        }
+        if (options.outWidth <= 0 || options.outHeight <= 0)
+            throw new IOException("Platform image decoder could not read these bytes");
+        int sample = 1;
+        while ((options.outWidth + (long) sample - 1) / sample > target
+                || (options.outHeight + (long) sample - 1) / sample > target) {
+            if (sample > (1 << 29))
+                throw new IOException("Image dimensions exceed the sampling budget");
+            sample *= 2;
+        }
+        options.inJustDecodeBounds = false;
+        options.inSampleSize = sample;
+        Bitmap bitmap;
+        try (InputStream stream = stream(source, range)) {
+            bitmap = BitmapFactory.decodeStream(stream, null, options);
+        }
+        if (bitmap == null) throw new IOException("Platform image decoder returned no image");
+        if ((long) bitmap.getWidth() * bitmap.getHeight() > (long) target * target) {
+            bitmap.recycle();
+            throw new IOException("Decoded image exceeded its pixel budget");
+        }
+        return bitmap;
+    }
+
+    static InputStream stream(File source, FileRange range) throws IOException {
+        range.requireCurrentLength(source.length());
+        FileInputStream input = new FileInputStream(source);
+        boolean success = false;
+        try {
+            input.getChannel().position(range.offset);
+            InputStream bounded =
+                    new FilterInputStream(input) {
+                        long remaining = range.length;
+
+                        @Override
+                        public int read() throws IOException {
+                            if (remaining == 0) return -1;
+                            int value = in.read();
+                            if (value < 0) throw new EOFException("Preview source shortened");
+                            remaining--;
+                            return value;
+                        }
+
+                        @Override
+                        public int read(byte[] bytes, int offset, int count) throws IOException {
+                            if (count == 0) return 0;
+                            if (remaining == 0) return -1;
+                            int read = in.read(bytes, offset, (int) Math.min(count, remaining));
+                            if (read < 0) throw new EOFException("Preview source shortened");
+                            remaining -= read;
+                            return read;
+                        }
+
+                        @Override
+                        public long skip(long count) throws IOException {
+                            long skipped = in.skip(Math.max(0, Math.min(count, remaining)));
+                            remaining -= skipped;
+                            return skipped;
+                        }
+
+                        @Override
+                        public int available() throws IOException {
+                            return (int) Math.min(remaining, in.available());
+                        }
+                    };
+            success = true;
+            return bounded;
+        } finally {
+            if (!success) input.close();
+        }
+    }
+
+    private ContentPreview() {}
+}

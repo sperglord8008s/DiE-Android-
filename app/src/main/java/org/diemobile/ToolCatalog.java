@@ -55,13 +55,18 @@ final class ToolCatalog {
                             new Group(
                                     "media",
                                     "Media and collected metadata",
+                                    new Tool(
+                                            "gallerize",
+                                            "Gallerize / content gallery / byte and entropy grids",
+                                            null,
+                                            -1),
                                     provider(
                                             "metadata",
                                             "EXIF / IPTC / ICC / XMP / every collected tag"),
                                     provider(
                                             "mpv",
                                             "MPV codecs / containers / tracks / chapters / stream"
-                                                + " metadata")),
+                                                    + " metadata")),
                             new Group(
                                     "contents",
                                     "Archives, embedded content and carving",
