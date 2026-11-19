@@ -1,6 +1,6 @@
 # Development continuation point
 
-Work is on `codex/workbench-parity`, proposed in [draft PR #1](https://github.com/sperglord8008s/DiE-Android-/pull/1), based on main `0558a89`. The application remains `org.diemobile`, with the existing signing configuration. The next published checkpoint is `0.6.0-pre-alpha.1` (version code 7); debug builds also identify their exact source revision. See [versioning](build-versioning.md). Full desktop parity and handset verification are not complete. Read AGENTS.md and the three design/parity documents before continuing.
+The verified workbench is on main through PR #1 and continues as GlassDigestor in `sperglord8008s/DiE-Android-`. Active development uses `codex/workbench-parity`; the application remains `org.diemobile` with the existing debug signing configuration. The published `0.6.0-pre-alpha.1` checkpoint is immutable; current development is `0.6.0-pre-alpha.2` / code 8. See [versioning](build-versioning.md). Full desktop parity and handset verification remain incomplete. Read AGENTS.md and the three design/parity documents before changes.
 
 ## Implemented and fixture-verified in this work
 
@@ -491,3 +491,27 @@ Continue the Binwalk/PhotoRec checked exports and gallery/owned-preview handoff
 with dense, consistent formatting, then complete the broader native archive
 worker/tree. Preserve complete raw evidence and unknown extents. Hardware,
 media runtime, actual isolated UID/SAF and full desktop parity remain pending.
+
+## Checked recovery preview/export slice
+
+The working recovery slice connects actual Binwalk/PhotoRec bounded findings to
+independent previews and checked named exports, adds source-independent preview
+byte exports with picker recreation, and hands captured whole inputs to
+Gallerize through validated private ownership. Four new API 28 actual-JNI
+cases and the existing twelve carving/gallery cases pass. Shared acquisition
+checks, the fully written 80 MiB gallery/grid fixture, generic/native scanner
+checks and complete SDK/tracker host contracts pass. The full 139-case Android host suite passes with zero failures/errors/skips;
+ARM64 assembly, lint and APK signature/version/offline/static-alignment checks
+also pass. CI for this slice is the next gate. See
+`docs/recovered-content.md` for implemented scope and unverified runtime limits.
+
+The public release is https://github.com/sperglord8008s/DiE-Android-/releases/tag/v0.6.0-pre-alpha.1
+with exact source `119e255a9150099f6c54b09a9a6f161e0d68c1c2`, APK SHA-256
+`2b47ab8c3787cba625cc3939275649e50dfdd24145a8f83e0f1beb5a0d8d60de`
+and all 14 verified assets. The publisher now streams directly to the checked
+draft ID, preserves every metadata identity field on updates, validates the
+returned public tag/source and can verify an already published release without
+rewriting it. Six contract cases and successful publication/idempotence runs
+`44614616127` / `44615704588` document these paths. The fix is merged through PR #3 at
+`f6ea298e61b82a1c0cc296ab372b57d2048e7d65`; the published artifact bytes remain
+unchanged. All five jobs in fix CI run `44616666002` (#126) passed.

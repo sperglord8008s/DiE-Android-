@@ -526,6 +526,11 @@ class CarvingBackend extends InvestigationBackend {
     }
 
     @Override
+    InputSnapshot ownedByteSource() {
+        return snapshot;
+    }
+
+    @Override
     String sourceName() {
         return name;
     }

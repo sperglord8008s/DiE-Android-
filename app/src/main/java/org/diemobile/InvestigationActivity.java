@@ -194,24 +194,93 @@ public final class InvestigationActivity extends Activity {
     }
     private void failed(int ticket, String message) { runOnUiThread(() -> { if (!isDestroyed() && ticket == generation) { busy = false; controls(); status.setText(message); } }); }
     private void present() {
-        title.setText(source.title); context.setText((backend.statusSummary().isEmpty()?"":backend.statusSummary()+"\n") + inputName + " • " + byteSize + " bytes • " + source.size() + " records in scope");
+        title.setText(source.title);
+        context.setText(
+                (backend.statusSummary().isEmpty() ? "" : backend.statusSummary() + "\n")
+                        + inputName
+                        + " • "
+                        + byteSize
+                        + " bytes • "
+                        + source.size()
+                        + " records in scope");
         mechanism.setText(backend.help(produced.request));
-        explanations.bind("investigation."+getIntent().getStringExtra("provider")+"."+source.kind,"Scope and interpretation",mechanismToggle,mechanism,true,false);
-        records.setAdapter(new BaseAdapter() {
-            public int getCount() { return shown.rows.size(); }
-            public Object getItem(int i) { return shown.rows.get(i); }
-            public long getItemId(int i) { return shown.rows.get(i).index; }
-            public View getView(int i, View old, ViewGroup parent) {
-                TextView view = old instanceof TextView ? (TextView)old : text("", 12); view.setTypeface(Typeface.MONOSPACE); view.setPadding(dp(6), dp(8), dp(6), dp(8));
-                EvidenceRows.Row row = shown.rows.get(i); String name = row.name.length() > 180 ? row.name.substring(0,180) + "… [full record on tap]" : row.name;
-                String description = row.description.length() > 300 ? row.description.substring(0,300) + "…" : row.description;
-                view.setText("#" + row.index + " " + visible(name) + "\n" + visible(description) + "\nphysical=" + NativeTable.hexOffset(row.physicalOffset) + " • bytes=" + (row.sizeBytes == null ? "unknown/associated location" : row.sizeBytes)); return view;
-            }
-        });
-        status.setText(shown.matches + " matches of " + source.size() + " records • page " + (shown.number + 1) + "/" + shown.pageCount
-            + " • " + produced.pageSize + " rows/page" + (expired ? " • oldest Back location expired (64 retained)" : "")
-            + (!filter.getText().toString().equals(produced.filter) ? " • edited search not applied" : "")
-            + (inputNotice.isEmpty() ? "" : "\n" + inputNotice)); controls();
+        explanations.bind(
+                "investigation." + getIntent().getStringExtra("provider") + "." + source.kind,
+                "Scope and interpretation",
+                mechanismToggle,
+                mechanism,
+                true,
+                false);
+        records.setAdapter(
+                new BaseAdapter() {
+                    public int getCount() {
+                        return shown.rows.size();
+                    }
+
+                    public Object getItem(int i) {
+                        return shown.rows.get(i);
+                    }
+
+                    public long getItemId(int i) {
+                        return shown.rows.get(i).index;
+                    }
+
+                    public View getView(int i, View old, ViewGroup parent) {
+                        TextView view = old instanceof TextView ? (TextView) old : text("", 13);
+                        view.setTypeface(Typeface.SANS_SERIF);
+                        view.setTextSize(13);
+                        view.setPadding(dp(6), dp(8), dp(6), dp(8));
+                        EvidenceRows.Row row = shown.rows.get(i);
+                        String name =
+                                row.name.length() > 180
+                                        ? row.name.substring(0, 180) + "… [full record on tap]"
+                                        : row.name;
+                        String description =
+                                row.description.length() > 300
+                                        ? row.description.substring(0, 300) + "…"
+                                        : row.description;
+                        String heading = "#" + row.index + " " + visible(name),
+                                body = visible(description),
+                                facts =
+                                        "physical="
+                                                + NativeTable.hexOffset(row.physicalOffset)
+                                                + " • bytes="
+                                                + (row.sizeBytes == null
+                                                        ? "unknown/associated location"
+                                                        : row.sizeBytes);
+                        SpannableString formatted =
+                                new SpannableString(heading + "\n" + body + "\n" + facts);
+                        formatted.setSpan(
+                                new android.text.style.StyleSpan(Typeface.BOLD),
+                                0,
+                                heading.length(),
+                                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        formatted.setSpan(
+                                new android.text.style.TypefaceSpan("monospace"),
+                                heading.length() + body.length() + 2,
+                                formatted.length(),
+                                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        view.setText(formatted);
+                        return view;
+                    }
+                });
+        status.setText(
+                shown.matches
+                        + " matches of "
+                        + source.size()
+                        + " records • page "
+                        + (shown.number + 1)
+                        + "/"
+                        + shown.pageCount
+                        + " • "
+                        + produced.pageSize
+                        + " rows/page"
+                        + (expired ? " • oldest Back location expired (64 retained)" : "")
+                        + (!filter.getText().toString().equals(produced.filter)
+                                ? " • edited search not applied"
+                                : "")
+                        + (inputNotice.isEmpty() ? "" : "\n" + inputNotice));
+        controls();
     }
     private void page(int delta) { if (produced == null || busy) return; Location current = capture(); load(new Location(current.request, current.filter, current.draft, Math.max(0,current.page + delta), current.pageSize), true); }
     private void navigate(InvestigationBackend.Link link) {
@@ -225,8 +294,28 @@ public final class InvestigationActivity extends Activity {
         else if (!history.isEmpty() && !pickerOpen) goBack(); else super.onBackPressed();
     }
     private void rootViews() {
-        if (busy || pickerOpen) return; String[] names = new String[roots.size()]; for (int i = 0; i < names.length; i++) names[i] = roots.get(i).label;
-        new AlertDialog.Builder(this).setTitle("Root evidence views").setItems(names, (dialog, which) -> followLink(roots.get(which))).setNegativeButton("Cancel", null).show();
+        if (busy || pickerOpen) return;
+        InputSnapshot owned = backend.ownedByteSource();
+        String[] names = new String[roots.size() + (owned == null ? 0 : 1)];
+        for (int i = 0; i < roots.size(); i++) names[i] = roots.get(i).label;
+        if (owned != null)
+            names[roots.size()] = "Gallerize this captured input / gallery and byte grids";
+        new AlertDialog.Builder(this)
+                .setTitle("Root evidence views")
+                .setItems(
+                        names,
+                        (dialog, which) -> {
+                            if (which < roots.size()) followLink(roots.get(which));
+                            else
+                                openStoredContent(
+                                        owned,
+                                        new FileRange(owned.size, 0, owned.size),
+                                        inputName,
+                                        true,
+                                        null);
+                        })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
     private void followLink(InvestigationBackend.Link link) {
         if(link.input) selectAdditionalInput(link.request);
@@ -337,11 +426,63 @@ public final class InvestigationActivity extends Activity {
         return result.toString();
     }
     private void details(EvidenceRows.Row row) {
-        ScrollView scroll = new ScrollView(this); String value = pretty(row.encoded);
-        TextView body = text((value.length() > 128 * 1024 ? value.substring(0,128 * 1024) + "\nDISPLAY PREVIEW • export the complete record/table for all values." : value)
-            + "\n\n" + backend.help(produced.request), 13); body.setTypeface(Typeface.MONOSPACE); body.setTextIsSelectable(true); body.setPadding(dp(12),dp(8),dp(12),dp(8)); scroll.addView(body);
-        body.setText(visible(body.getText().toString())); new AlertDialog.Builder(this).setTitle("Record " + row.index + " • " + source.kind).setView(scroll).setNegativeButton("Close", null)
-            .setPositiveButton("Actions", (dialog, which) -> rowActions(row)).show();
+        ScrollView scroll = new ScrollView(this);
+        String value = pretty(row.encoded);
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(dp(12), dp(8), dp(12), dp(8));
+        scroll.addView(body);
+        TextView name = text(visible(row.name), 16);
+        name.setTypeface(null, Typeface.BOLD);
+        name.setTextIsSelectable(true);
+        body.addView(name);
+        TextView facts =
+                text(
+                        "Physical offset: "
+                                + NativeTable.hexOffset(row.physicalOffset)
+                                + "\nStored bytes: "
+                                + (row.sizeBytes == null
+                                        ? "unknown / associated location"
+                                        : row.sizeBytes),
+                        13);
+        facts.setTypeface(Typeface.MONOSPACE);
+        facts.setTextIsSelectable(true);
+        body.addView(facts);
+        TextView description = text(visible(row.description), 13);
+        description.setTextIsSelectable(true);
+        description.setPadding(0, dp(8), 0, dp(8));
+        body.addView(description);
+        TextView fields = text("Original record fields", 14);
+        fields.setTypeface(null, Typeface.BOLD);
+        body.addView(fields);
+        TextView raw =
+                text(
+                        visible(
+                                value.length() > 128 * 1024
+                                        ? value.substring(0, 128 * 1024)
+                                                + "\n"
+                                                + "DISPLAY PREVIEW • export the complete"
+                                                + " record/table for all values."
+                                        : value),
+                        12);
+        raw.setTypeface(Typeface.MONOSPACE);
+        raw.setTextIsSelectable(true);
+        body.addView(raw);
+        body.addView(explanations.controls(this));
+        explanations.paragraph(
+                this,
+                body,
+                "detail." + source.kind,
+                "Interpretation / mechanisms / limits",
+                backend.help(produced.request),
+                true,
+                false);
+        new AlertDialog.Builder(this)
+                .setTitle("Record " + row.index + " • " + source.kind)
+                .setView(scroll)
+                .setNegativeButton("Close", null)
+                .setPositiveButton("Actions", (dialog, which) -> rowActions(row))
+                .show();
     }
     private void rowActions(EvidenceRows.Row row) {
         if (busy || pickerOpen || produced == null) return;
@@ -354,33 +495,215 @@ public final class InvestigationActivity extends Activity {
         });
     }
     private void actionDialog(EvidenceRows.Row row, List<InvestigationBackend.Link> links) {
-        List<String> labels = new ArrayList<>(); List<Runnable> actions = new ArrayList<>();
-        for (InvestigationBackend.Link link : links) { labels.add(link.label); actions.add(() -> followLink(link)); }
-        if (row.physicalOffset != null && row.physicalOffset < byteSize) {
-            labels.add("Hex at associated physical offset"); actions.add(() -> {
-                if (!bytes.isFile() || bytes.length() != byteSize) { status.setText("Input snapshot expired or changed; reopen it from Scan"); return; }
-                openHex(row.physicalOffset);
-            });
+        List<String> labels = new ArrayList<>();
+        List<Runnable> actions = new ArrayList<>();
+        for (InvestigationBackend.Link link : links) {
+            labels.add(link.label);
+            actions.add(() -> followLink(link));
         }
-        if (row.physicalOffset != null && row.sizeBytes != null) try {
-            FileRange range = new FileRange(byteSize, row.physicalOffset, row.sizeBytes);
-            if (range.length > 0 && range.length <= FileRange.MAX_OPERATION_BYTES) {
-                labels.add("Analyze stored range: entropy / SHA-256 / CRC32"); actions.add(() -> rangeAnalysis(range));
-                labels.add("Export exact stored range"); actions.add(() -> prepare(stop -> PreparedExport.range(exportDirectory, "range-" + Long.toHexString(range.offset) + ".bin", bytes, range, stop::get)));
+        if (row.physicalOffset != null && row.physicalOffset < byteSize) {
+            labels.add("Hex at associated physical offset");
+            actions.add(
+                    () -> {
+                        if (!bytes.isFile() || bytes.length() != byteSize) {
+                            status.setText(
+                                    "Input snapshot expired or changed; reopen it from Scan");
+                            return;
+                        }
+                        openHex(row.physicalOffset);
+                    });
+        }
+        if (row.physicalOffset != null && row.sizeBytes != null)
+            try {
+                FileRange range = new FileRange(byteSize, row.physicalOffset, row.sizeBytes);
+                if (range.length > 0 && range.length <= FileRange.MAX_OPERATION_BYTES) {
+                    labels.add("Analyze stored range: entropy / SHA-256 / CRC32");
+                    actions.add(() -> rangeAnalysis(range));
+                    InputSnapshot owned = backend.ownedByteSource();
+                    String recoveredName = recoveredName(row, range);
+                    if (owned != null) {
+                        labels.add("View exact recovered bytes / media / text");
+                        actions.add(
+                                () ->
+                                        openStoredContent(
+                                                owned,
+                                                range,
+                                                inputName + " · " + row.name + " #" + row.index,
+                                                false,
+                                                recoveredName));
+                    }
+                    labels.add("Export exact stored range");
+                    actions.add(
+                            () ->
+                                    prepare(
+                                            stop ->
+                                                    owned == null
+                                                            ? PreparedExport.range(
+                                                                    exportDirectory,
+                                                                    "range-"
+                                                                            + Long.toHexString(
+                                                                                    range.offset)
+                                                                            + ".bin",
+                                                                    bytes,
+                                                                    range,
+                                                                    stop::get)
+                                                            : OwnedContent.exportRange(
+                                                                    owned,
+                                                                    range,
+                                                                    exportDirectory,
+                                                                    recoveredName,
+                                                                    stop::get)));
+                }
+            } catch (IllegalArgumentException ignored) {
+                /* Invalid/associated ranges remain metadata, not extractable bytes. */
             }
-        } catch (IllegalArgumentException ignored) { /* Invalid/associated ranges remain metadata, not extractable bytes. */ }
-        labels.add("Export complete selected record JSON"); actions.add(() -> {
-            final String origin = provenance, meta = metadata; final EvidenceRows captured = source;
-            EvidenceRows one = new EvidenceRows(capturedKind(), "Selected original record " + row.index) {
-                int size() { return 1; } Row row(int ignored, java.util.function.BooleanSupplier stop) throws Exception { EvidenceRows.check(stop); return row; }
-                JSONObject metadata() throws Exception { return new JSONObject(meta).put("recordSelection", row.index); }
-                @Override void writeSelectedRow(Writer out, Row selected, java.util.function.BooleanSupplier stop) throws Exception { captured.writeSelectedRow(out,selected,stop); }
-            };
-            prepare(stop -> PreparedExport.stream(exportDirectory, "evidence-record.json", "application/json", out -> one.writeReport(out, new JSONObject(origin), "", 0, stop::get), stop::get));
-        });
-        new AlertDialog.Builder(this).setTitle("Record actions").setItems(labels.toArray(new String[0]), (dialog, which) -> actions.get(which).run()).setNegativeButton("Cancel", null).show();
+        labels.add("Export complete selected record JSON");
+        actions.add(
+                () -> {
+                    final String origin = provenance, meta = metadata;
+                    final EvidenceRows captured = source;
+                    EvidenceRows one =
+                            new EvidenceRows(
+                                    capturedKind(), "Selected original record " + row.index) {
+                                int size() {
+                                    return 1;
+                                }
+
+                                Row row(int ignored, java.util.function.BooleanSupplier stop)
+                                        throws Exception {
+                                    EvidenceRows.check(stop);
+                                    return row;
+                                }
+
+                                JSONObject metadata() throws Exception {
+                                    return new JSONObject(meta).put("recordSelection", row.index);
+                                }
+
+                                @Override
+                                void writeSelectedRow(
+                                        Writer out,
+                                        Row selected,
+                                        java.util.function.BooleanSupplier stop)
+                                        throws Exception {
+                                    captured.writeSelectedRow(out, selected, stop);
+                                }
+                            };
+                    prepare(
+                            stop ->
+                                    PreparedExport.stream(
+                                            exportDirectory,
+                                            "evidence-record.json",
+                                            "application/json",
+                                            out ->
+                                                    one.writeReport(
+                                                            out,
+                                                            new JSONObject(origin),
+                                                            "",
+                                                            0,
+                                                            stop::get),
+                                            stop::get));
+                });
+        new AlertDialog.Builder(this)
+                .setTitle("Record actions")
+                .setItems(
+                        labels.toArray(new String[0]), (dialog, which) -> actions.get(which).run())
+                .setNegativeButton("Cancel", null)
+                .show();
     }
     private String capturedKind() { return source == null ? "selected-record" : source.kind + "-record"; }
+    private String recoveredName(EvidenceRows.Row row, FileRange range) {
+        String extension = row.name.toLowerCase(Locale.ROOT).trim();
+        if (extension.equals("jpeg")) extension = "jpg";
+        else if (extension.equals("gzip")) extension = "gz";
+        else if (extension.equals("bzip2")) extension = "bz2";
+        else if (extension.equals("zstd") || extension.equals("zstandard")) extension = "zst";
+        if (!extension.matches("[a-z0-9]{1,12}")) extension = "bin";
+        String engine = source.kind.startsWith("photorec") ? "photorec" : "binwalk";
+        return engine
+                + "-"
+                + row.index
+                + "-at-0x"
+                + Long.toHexString(range.offset)
+                + "."
+                + extension;
+    }
+
+    private void openStoredContent(
+            InputSnapshot sourceInput,
+            FileRange range,
+            String display,
+            boolean gallery,
+            String suggestedName) {
+        if (busy || pickerOpen) return;
+        int ticket =
+                begin(
+                        gallery
+                                ? "Owning captured input for the gallery…"
+                                : "Acquiring exact recovered bytes for local viewing…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(
+                () -> {
+                    InputSnapshot staged = null;
+                    try {
+                        staged =
+                                OwnedContent.stageRange(
+                                        sourceInput,
+                                        range,
+                                        new File(
+                                                getCacheDir(),
+                                                gallery ? "gallery-handoffs" : "content-previews"),
+                                        stop::get);
+                        EvidenceRows.check(stop::get);
+                        InputSnapshot owned = staged;
+                        staged = null;
+                        runOnUiThread(
+                                () -> {
+                                    if (isDestroyed() || ticket != generation) {
+                                        owned.close();
+                                        return;
+                                    }
+                                    busy = false;
+                                    controls();
+                                    try {
+                                        Intent intent =
+                                                new Intent(
+                                                                this,
+                                                                gallery
+                                                                        ? GallerizeActivity.class
+                                                                        : ContentPreviewActivity
+                                                                                .class)
+                                                        .putExtra(
+                                                                "path",
+                                                                owned.file.getAbsolutePath())
+                                                        .putExtra("sha256", owned.sha256)
+                                                        .putExtra("sourceSize", owned.size)
+                                                        .putExtra("name", display)
+                                                        .putExtra(
+                                                                "originalSha256",
+                                                                sourceInput.sha256)
+                                                        .putExtra("originalSize", sourceInput.size)
+                                                        .putExtra("originalOffset", range.offset)
+                                                        .putExtra("originalKind", "stored-range");
+                                        if (gallery) intent.putExtra("ownedInputHandoff", true);
+                                        if (suggestedName != null)
+                                            intent.putExtra("exportName", suggestedName);
+                                        startActivity(intent);
+                                        status.setText(
+                                                "Independent content acquired · "
+                                                        + owned.size
+                                                        + " bytes · SHA-256 "
+                                                        + owned.sha256);
+                                    } catch (RuntimeException error) {
+                                        owned.close();
+                                        status.setText("Content view could not open: " + error);
+                                    }
+                                });
+                    } catch (Exception error) {
+                        if (staged != null) staged.close();
+                        failed(ticket, "Content acquisition failed: " + error.getMessage());
+                    }
+                });
+    }
     private void openHex(long offset) {
         File input = bytes; String name = inputName; int ticket = begin("Preparing independent byte view…"); AtomicBoolean stop = cancellation;
         worker.execute(() -> {
