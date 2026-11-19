@@ -401,6 +401,112 @@ public final class GallerizeWorkbenchTest {
         assertNull(ReflectionHelpers.getField(preview, "player"));
     }
 
+    private byte[] zip(String name, byte[] bytes) throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (java.util.zip.ZipOutputStream stream = new java.util.zip.ZipOutputStream(output)) {
+            stream.putNextEntry(new java.util.zip.ZipEntry(name));
+            stream.write(bytes);
+            stream.closeEntry();
+        }
+        return output.toByteArray();
+    }
+
+    private Intent memberResult(File source) throws Exception {
+        ArchiveStore.Inventory inventory = ArchiveStore.read(source, () -> false);
+        ArchiveStore.Extracted leaf =
+                ArchiveStore.extract(
+                        inventory,
+                        inventory.members.get(0),
+                        new File(activity.getCacheDir(), "archive-snapshots"),
+                        () -> false);
+        return new Intent()
+                .putExtra("path", leaf.file.getAbsolutePath())
+                .putExtra("display", "archive!/" + inventory.members.get(0).name)
+                .putExtra("memberSha256", leaf.sha256);
+    }
+
+    @Test
+    public void archiveMemberResultsReachOwnedPreviewsFromGalleryAndNestedPreview()
+            throws Exception {
+        closeGallery();
+        byte[] inner = zip("message.txt", text.getBytes(StandardCharsets.UTF_8));
+        Files.write(original.toPath(), zip("nested.zip", inner));
+        Intent opening =
+                new Intent(RuntimeEnvironment.getApplication(), GallerizeActivity.class)
+                        .putExtra("path", original.getAbsolutePath())
+                        .putExtra("name", "outer.zip")
+                        .putExtra("sha256", Inspector.scan(original, 4).sha256)
+                        .putExtra("sourceSize", original.length());
+        controller = Robolectric.buildActivity(GallerizeActivity.class, opening).setup().visible();
+        activity = controller.get();
+        settle(activity);
+        // Forged paths must neither launch a preview nor remove arbitrary selected files.
+        activity.onActivityResult(
+                2,
+                Activity.RESULT_OK,
+                new Intent()
+                        .putExtra("path", original.getAbsolutePath())
+                        .putExtra("memberSha256", opening.getStringExtra("sha256")));
+        settle(activity);
+        assertTrue(original.isFile());
+        assertTrue(status(activity), status(activity).contains("owned member directory"));
+        invoke("tools");
+        ShadowAlertDialog.getLatestAlertDialog().getListView().performItemClick(null, 5, 5);
+        var browser = Shadows.shadowOf(activity).getNextStartedActivityForResult();
+        assertNotNull(browser);
+        assertEquals(2, browser.requestCode);
+        assertEquals(
+                ArchiveExplorerActivity.class.getName(),
+                browser.intent.getComponent().getClassName());
+        GallerizeSession session = ReflectionHelpers.getField(activity, "session");
+        Intent member = memberResult(session.input.file);
+        File oldLeaf = new File(member.getStringExtra("path"));
+        activity.onActivityResult(2, Activity.RESULT_OK, member);
+        settle(activity);
+        assertFalse(oldLeaf.exists());
+        Intent first = Shadows.shadowOf(activity).getNextStartedActivity();
+        assertNotNull(status(activity), first);
+        assertEquals(ContentPreviewActivity.class.getName(), first.getComponent().getClassName());
+        assertEquals(session.input.sha256, first.getStringExtra("originalSha256"));
+        assertFalse(first.hasExtra("originalOffset"));
+        previewController =
+                Robolectric.buildActivity(ContentPreviewActivity.class, first).setup().visible();
+        preview = previewController.get();
+        settle(preview);
+        assertArrayEquals(
+                inner,
+                Files.readAllBytes(
+                        ReflectionHelpers.<InputSnapshot>getField(preview, "input").file.toPath()));
+        ReflectionHelpers.callInstanceMethod(preview, "tools");
+        ShadowAlertDialog.getLatestAlertDialog().getListView().performItemClick(null, 3, 3);
+        var nestedBrowser = Shadows.shadowOf(preview).getNextStartedActivityForResult();
+        assertNotNull(nestedBrowser);
+        assertEquals(2, nestedBrowser.requestCode);
+        Intent nested =
+                memberResult(ReflectionHelpers.<InputSnapshot>getField(preview, "input").file);
+        preview.onActivityResult(2, Activity.RESULT_OK, nested);
+        settle(preview);
+        Intent second = Shadows.shadowOf(preview).getNextStartedActivity();
+        assertNotNull(status(preview), second);
+        assertEquals("archive-member", second.getStringExtra("originalKind"));
+        assertFalse(second.hasExtra("originalOffset"));
+        ExecutorService oldWorker = ReflectionHelpers.getField(preview, "worker");
+        previewController.pause().stop().destroy();
+        assertTrue(oldWorker.awaitTermination(30, TimeUnit.SECONDS));
+        closeGallery();
+        Files.delete(original.toPath());
+        previewController =
+                Robolectric.buildActivity(ContentPreviewActivity.class, second).setup().visible();
+        preview = previewController.get();
+        settle(preview);
+        assertEquals(text, ((TextView) tagged(preview, "content-text")).getText().toString());
+        assertTrue(
+                ReflectionHelpers.<TextView>getField(preview, "identity")
+                        .getText()
+                        .toString()
+                        .contains("physical offset unavailable"));
+    }
+
     @Test
     public void cancelledGridAndFailedDestinationCleanStagesAndAllowRecovery() throws Exception {
         ExecutorService worker = ReflectionHelpers.getField(activity, "worker");

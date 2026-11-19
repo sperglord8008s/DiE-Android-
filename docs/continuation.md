@@ -374,3 +374,19 @@ warnings or register external-program fallbacks, so it is not the intended
 adapter contract. Next: descriptor-only bounded acquisition, typed complete
 archive entries, safe generated-name member bytes and content-based/nested/
 embedded browsing, then richer rendering and the sourced knowledge cards.
+
+Archive-result correction: the first Gallerize release opened the ZIP browser
+without receiving its selected-member result. Both Gallerize and ContentPreview
+now use a result request and the shared `ArchivePreviewLauncher` /
+`ArchiveMemberHandoff` boundary. It rejects paths outside the browser's owned
+leaf directory, acquires the exact expected SHA-256 into a separate preview,
+releases the old temporary, and labels original physical offsets as unavailable
+for decompressed members. A real outer ZIP → nested ZIP → Unicode text case
+exercises both callers and parent closure, with forged-path refusal. Printable
+strict UTF-8 headers now select text automatically; manual overrides remain.
+Unused grid cells are magenta to distinguish them from valid grayscale data.
+The targeted 13 checks and complete **135-case suite** pass with zero failures,
+errors or skips, plus core/80 MiB host fixtures, ARM64 assembly/lint and static
+APK checks. Actual handset/SAF/media/worker behavior remains unverified.
+Gallerize at `11b5af9` passed all five CI jobs in run 44552943212; its immutable
+CI savepoint artifact is 14545440333 and APK artifact is 14545510241.

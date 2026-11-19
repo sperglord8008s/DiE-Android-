@@ -85,7 +85,7 @@ The chosen width × height partitions bytes in row-major order. For
 [floor(i * length / used), floor((i + 1) * length / used))
 ```
 
-Trailing unused cells are gray with no value/range. An empty input has no
+Trailing unused cells are magenta with no value/range. An empty input has no
 populated cell. One-byte entropy is zero, regardless of the byte's value.
 Colors are measurements, not format/packing verdicts or a decoded image claim.
 Each cell opens exact original-offset hex or an owned-range preview. Grid
@@ -111,7 +111,7 @@ log2 entropy/complete partitions/grid exports are checked. A fully written
 **80 MiB + 17 byte** fixture retains a PNG beyond 64 MiB and Unicode tail text;
 the complete grid/source hash agrees with independent streaming SHA-256.
 
-Seven Android host cases exercise actual native/model/widget paths: labeled
+Eight Android host cases exercise actual native/model/widget paths: labeled
 cards and image thumbnails; manual/preset grids and aspect-preserving touch-to-
 hex coordinates/recreation; full filtered delayed exports; owned Unicode
 previews through parent closure/recreation; image/manual-decoder failure and
@@ -127,3 +127,13 @@ scan report, full device acceptance and the later sourced “What does it do?”
 knowledge cards remain active work. ZIP/APK hierarchy and selected member
 acquisition remain available now. Header recognition is not broader archive
 decompression or universal obfuscation/encryption recovery.
+
+Archive member handoff now receives the browser result from both the gallery
+and a derived preview, checks the owned leaf directory and exact member SHA-256,
+acquires an independent preview and releases the browser temporary. Derived
+archive members explicitly have no asserted original physical offset. A real
+outer-ZIP → nested-ZIP → Unicode-text UI case checks both handoffs, original
+parent identities, source expiry and rejection of a forged external path.
+Automatic preview also recognizes a strictly decoded printable UTF-8 header;
+manual modes remain available. Unused grid cells use magenta to distinguish
+them from valid grayscale byte measurements.

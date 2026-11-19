@@ -87,7 +87,7 @@ final class ByteGrid {
         double[] values = new double[layout.width * layout.height];
         int[] pixels = new int[values.length];
         Arrays.fill(values, Double.NaN);
-        Arrays.fill(pixels, 0xff383838);
+        Arrays.fill(pixels, 0xffa000a0);
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         long[] histogram = new long[256];
         byte[] buffer = new byte[65536];

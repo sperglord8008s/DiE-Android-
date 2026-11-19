@@ -8,6 +8,29 @@ import java.io.*;
 
 /** Local bounded image decoding; unknown extents are never passed to a decoder. */
 final class ContentPreview {
+    static boolean looksLikeText(byte[] header) {
+        try {
+            String value =
+                    java.nio.charset.StandardCharsets.UTF_8
+                            .newDecoder()
+                            .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                            .decode(java.nio.ByteBuffer.wrap(header))
+                            .toString();
+            if (value.isEmpty()) return false;
+            boolean visible = false;
+            for (int i = 0; i < value.length(); ) {
+                int code = value.codePointAt(i);
+                i += Character.charCount(code);
+                if (Character.isISOControl(code) && code != '\n' && code != '\r' && code != '\t')
+                    return false;
+                visible |= !Character.isWhitespace(code);
+            }
+            return visible;
+        } catch (java.nio.charset.CharacterCodingException invalid) {
+            return false;
+        }
+    }
+
     static Bitmap image(File source, FileRange range, int target) throws IOException {
         if (target < 1 || target > 2048)
             throw new IOException("Image target must be 1–2048 pixels");

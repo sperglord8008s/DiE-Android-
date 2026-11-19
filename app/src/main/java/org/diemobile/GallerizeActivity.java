@@ -529,8 +529,9 @@ public final class GallerizeActivity extends Activity {
                                     cellInfo.setText(
                                             gridMode.legend
                                                     + "\n"
-                                                    + "Gray unused cells have no bytes. Row-major"
-                                                    + " exact partitions; tap for range/hex.");
+                                                    + "Magenta unused cells have no bytes."
+                                                    + " Row-major exact partitions; tap for"
+                                                    + " range/hex.");
                                     status.setText(
                                             layout.width
                                                     + " × "
@@ -775,7 +776,8 @@ public final class GallerizeActivity extends Activity {
                                                     "mpv"
                                                 }
                                                 [which]);
-                            startActivity(intent);
+                            if (which == 5) startActivityForResult(intent, 2);
+                            else startActivity(intent);
                         })
                 .show();
     }
@@ -902,6 +904,29 @@ public final class GallerizeActivity extends Activity {
     @Override
     protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
+        if (request == 2) {
+            if (result != RESULT_OK || data == null) {
+                status.setText("Archive selection cancelled");
+                return;
+            }
+            if (session == null) {
+                status.setText("Archive parent session expired");
+                return;
+            }
+            int ticket = begin("Acquiring returned archive member…");
+            AtomicBoolean stop = cancellation;
+            ArchivePreviewLauncher.launch(
+                    this,
+                    worker,
+                    data,
+                    session.input.sha256,
+                    session.input.size,
+                    stop::get,
+                    () -> !isDestroyed() && ticket == generation,
+                    this::end,
+                    message -> status.setText(message));
+            return;
+        }
         if (request != 1) return;
         pickerOpen = false;
         PreparedExport captured = prepared;

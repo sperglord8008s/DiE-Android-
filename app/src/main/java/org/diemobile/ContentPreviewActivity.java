@@ -159,11 +159,16 @@ public final class ContentPreviewActivity extends Activity {
                                                     + input.sha256
                                                     + "\nOriginal input "
                                                     + getIntent().getStringExtra("originalSha256")
-                                                    + " · offset 0x"
-                                                    + Long.toHexString(
-                                                            getIntent()
-                                                                    .getLongExtra(
-                                                                            "originalOffset", 0)));
+                                                    + (getIntent().hasExtra("originalOffset")
+                                                            ? " · offset 0x"
+                                                                    + Long.toHexString(
+                                                                            getIntent()
+                                                                                    .getLongExtra(
+                                                                                            "originalOffset",
+                                                                                            0))
+                                                            : " · derived archive member; original"
+                                                                  + " physical offset"
+                                                                  + " unavailable"));
                                     render();
                                 });
                     } catch (Exception error) {
@@ -219,7 +224,8 @@ public final class ContentPreviewActivity extends Activity {
                                     || "AUDIO".equals(preferred)
                                     || "VIDEO".equals(preferred)) chosen = "Audio / video";
                             else if (type.equals("PDF")) chosen = "PDF";
-                            else if ("TEXT".equals(preferred)) chosen = "UTF-8 text";
+                            else if ("TEXT".equals(preferred) || ContentPreview.looksLikeText(head))
+                                chosen = "UTF-8 text";
                             else chosen = "Hex";
                         }
                         String renderer = chosen;
@@ -546,9 +552,37 @@ public final class ContentPreviewActivity extends Activity {
                                 intent.putExtra(
                                         "provider",
                                         new String[] {"metadata", "mpv", "strings"}[which]);
-                            startActivity(intent);
+                            if (which == 3) startActivityForResult(intent, 2);
+                            else startActivity(intent);
                         })
                 .show();
+    }
+
+    @Override
+    protected void onActivityResult(int request, int result, Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request != 2) return;
+        if (result != RESULT_OK || data == null) {
+            status.setText("Archive selection cancelled");
+            return;
+        }
+        if (input == null) {
+            status.setText("Archive parent preview expired");
+            return;
+        }
+        releasePlayer();
+        int ticket = ++generation;
+        status.setText("Acquiring returned archive member…");
+        ArchivePreviewLauncher.launch(
+                this,
+                worker,
+                data,
+                input.sha256,
+                input.size,
+                cancellation::get,
+                () -> !isDestroyed() && ticket == generation,
+                () -> {},
+                message -> status.setText(message));
     }
 
     private void failed(int ticket, Exception error) {
