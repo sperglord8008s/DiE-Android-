@@ -282,11 +282,13 @@ public final class GallerizeActivity extends Activity {
     private void load(File input, boolean autoView) {
         int ticket = begin("Acquiring input and scanning the supported whole blob…");
         AtomicBoolean stop = cancellation;
+        boolean incomingHandoff=retained==null&&getIntent().getBooleanExtra("ownedInputHandoff",false);
         worker.execute(
                 () -> {
                     String failure = "";
                     ContentMap digest = null;
                     try {
+                        if(incomingHandoff)InputSnapshot.restore(input,new File(getCacheDir(),"gallery-handoffs"),getIntent().getLongExtra("sourceSize",-1),getIntent().getStringExtra("sha256"),stop::get);
                         session =
                                 GallerizeSession.open(
                                         input,
@@ -300,6 +302,8 @@ public final class GallerizeActivity extends Activity {
                         digest = session.digest(stop::get);
                     } catch (Exception error) {
                         failure = error.toString();
+                    } finally {
+                        if(incomingHandoff)OwnedContent.discardHandoff(input,new File(getCacheDir(),"gallery-handoffs"));
                     }
                     final ContentMap loaded = digest;
                     final String error = failure;

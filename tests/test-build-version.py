@@ -3,6 +3,7 @@
 """Exercise real Git/source states, not a mocked version string."""
 import importlib.util
 import json
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -64,9 +65,9 @@ class BuildIdentityTest(unittest.TestCase):
             self.assertEqual(unknown['sourceRevision'], 'unknown')
             self.assertIsNone(unknown['sourceDirty'])
             self.assertTrue(unknown['versionName'].endswith('-dev.unknown'))
-            for change in [original.replace('version.code=7', 'version.code=7.5'),
-                           original.replace('version.code=7', 'version.code=2100000001'),
-                           original.replace('version.name=0.6.0-pre-alpha.1', 'version.name=arbitrary'),
+            for change in [re.sub(r'^version.code=.*$', 'version.code=7.5', original, flags=re.M),
+                           re.sub(r'^version.code=.*$', 'version.code=2100000001', original, flags=re.M),
+                           re.sub(r'^version.name=.*$', 'version.name=arbitrary', original, flags=re.M),
                            original + '\nversion.code=8\n']:
                 (root / 'version.properties').write_text(change)
                 with self.assertRaises(ValueError):

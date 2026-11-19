@@ -6,6 +6,7 @@ import android.content.*;
 import android.graphics.*;
 import android.graphics.pdf.PdfRenderer;
 import android.media.MediaPlayer;
+import android.net.Uri;
 import android.os.*;
 import android.text.*;
 import android.view.*;
@@ -20,11 +21,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /** In-app viewing of a separately owned exact range. No file name becomes an executable or URL. */
 public final class ContentPreviewActivity extends Activity {
+    private static final String[] MODES = {
+        "Automatic", "Image", "Audio / video", "UTF-8 text", "PDF", "Hex"
+    };
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final AtomicBoolean cancellation = new AtomicBoolean();
     private InputSnapshot input;
     private String name, mode = "Automatic", retainedPath;
     private TextView status, identity;
+    private TextView exportNotice;
+    private Button exportBytes;
+    private PreparedExport contentExport;
+    private boolean exportBusy, exportPickerOpen;
+    private int exportGeneration;
+    private String restoredExportNotice = "";
     private LinearLayout content, controls;
     private MediaPlayer player;
     private SurfaceView surface;
@@ -71,6 +81,21 @@ public final class ContentPreviewActivity extends Activity {
             mode = saved.getString("mode", "Automatic");
             pdfPage = Math.max(0, saved.getInt("pdfPage"));
             seekPosition = Math.max(0, saved.getInt("seek"));
+            if (saved.getString("contentExport") != null)
+                try {
+                    contentExport =
+                            PreparedExport.restore(
+                                    new File(getCacheDir(), "tool-exports"),
+                                    saved.getString("contentExport"),
+                                    saved.getString("contentExportName"),
+                                    saved.getString("contentExportMime"),
+                                    saved.getLong("contentExportSize"));
+                    exportPickerOpen = true;
+                    restoredExportNotice =
+                            "Captured byte export is ready; finish choosing its destination";
+                } catch (IOException error) {
+                    restoredExportNotice = "Prepared byte export expired; prepare it again";
+                }
         }
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -99,40 +124,18 @@ public final class ContentPreviewActivity extends Activity {
         identity.setTextIsSelectable(true);
         root.addView(identity);
         LinearLayout tools = new LinearLayout(this);
-        add(
-                tools,
-                button(
-                        "View as…",
-                        () ->
-                                new AlertDialog.Builder(this)
-                                        .setTitle("View exact selected bytes as")
-                                        .setItems(
-                                                new String[] {
-                                                    "Automatic",
-                                                    "Image",
-                                                    "Audio / video",
-                                                    "UTF-8 text",
-                                                    "PDF",
-                                                    "Hex"
-                                                },
-                                                (dialog, which) -> {
-                                                    mode =
-                                                            new String[] {
-                                                                        "Automatic",
-                                                                        "Image",
-                                                                        "Audio / video",
-                                                                        "UTF-8 text",
-                                                                        "PDF",
-                                                                        "Hex"
-                                                                    }
-                                                                    [which];
-                                                    render();
-                                                })
-                                        .show()));
+        add(tools, button("View as…", this::chooseMode));
         add(tools, button("Inspect / metadata", this::tools));
+        exportBytes = button("Export bytes", this::exportBytes);
+        exportBytes.setEnabled(false);
+        add(tools, exportBytes);
         root.addView(tools);
         status = text("Loading…", 12);
         root.addView(status);
+        exportNotice = text(restoredExportNotice, 12);
+        exportNotice.setTextIsSelectable(true);
+        exportNotice.setVisibility(restoredExportNotice.isEmpty() ? View.GONE : View.VISIBLE);
+        root.addView(exportNotice);
         controls = new LinearLayout(this);
         root.addView(controls);
         content = new LinearLayout(this);
@@ -167,13 +170,149 @@ public final class ContentPreviewActivity extends Activity {
                                                                                             "originalOffset",
                                                                                             0))
                                                             : " · derived archive member; original"
-                                                                  + " physical offset"
-                                                                  + " unavailable"));
+                                                                    + " physical offset"
+                                                                    + " unavailable"));
+                                    exportBytes.setEnabled(!exportBusy && !exportPickerOpen);
                                     render();
                                 });
                     } catch (Exception error) {
                         failed(ticket, error);
                     }
+                });
+    }
+
+    private void chooseMode() {
+        new AlertDialog.Builder(this)
+                .setTitle("View exact selected bytes as")
+                .setItems(
+                        MODES,
+                        (dialog, which) -> {
+                            mode = MODES[which];
+                            render();
+                        })
+                .show();
+    }
+
+    private void exportMessage(String value) {
+        exportNotice.setText(value);
+        exportNotice.setVisibility(View.VISIBLE);
+    }
+
+    private void exportBytes() {
+        if (input == null || exportBusy || exportPickerOpen) return;
+        InputSnapshot captured = input;
+        int operation = ++exportGeneration;
+        exportBusy = true;
+        exportBytes.setEnabled(false);
+        exportMessage("Checking and staging exact selected bytes…");
+        String suggested = getIntent().getStringExtra("exportName");
+        String filename =
+                suggested != null && suggested.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
+                        ? suggested
+                        : "content-" + captured.sha256.substring(0, 12) + ".bin";
+        worker.execute(
+                () -> {
+                    PreparedExport staged = null;
+                    try {
+                        staged =
+                                OwnedContent.exportRange(
+                                        captured,
+                                        new FileRange(captured.size, 0, captured.size),
+                                        new File(getCacheDir(), "tool-exports"),
+                                        filename,
+                                        cancellation::get);
+                        EvidenceRows.check(cancellation::get);
+                        PreparedExport ready = staged;
+                        staged = null;
+                        runOnUiThread(
+                                () -> {
+                                    if (isDestroyed() || operation != exportGeneration) {
+                                        ready.discard();
+                                        return;
+                                    }
+                                    exportBusy = false;
+                                    contentExport = ready;
+                                    exportPickerOpen = true;
+                                    exportMessage(
+                                            "Captured exact byte export · "
+                                                    + ready.size
+                                                    + " bytes · SHA-256 "
+                                                    + captured.sha256);
+                                    try {
+                                        startActivityForResult(
+                                                new Intent(Intent.ACTION_CREATE_DOCUMENT)
+                                                        .addCategory(Intent.CATEGORY_OPENABLE)
+                                                        .setType(ready.mime)
+                                                        .putExtra(Intent.EXTRA_TITLE, ready.name),
+                                                1);
+                                    } catch (RuntimeException error) {
+                                        contentExport = null;
+                                        exportPickerOpen = false;
+                                        ready.discard();
+                                        exportBytes.setEnabled(input != null);
+                                        exportMessage("Byte export could not open: " + error);
+                                    }
+                                });
+                    } catch (Exception error) {
+                        if (staged != null) staged.discard();
+                        runOnUiThread(
+                                () -> {
+                                    if (!isDestroyed() && operation == exportGeneration) {
+                                        exportBusy = false;
+                                        exportBytes.setEnabled(input != null && !exportPickerOpen);
+                                        exportMessage(
+                                                "Byte export preparation failed: "
+                                                        + error.getMessage());
+                                    }
+                                });
+                    }
+                });
+    }
+
+    private void finishByteExport(int result, Intent data) {
+        PreparedExport staged = contentExport;
+        contentExport = null;
+        exportPickerOpen = false;
+        if (staged == null) {
+            exportBytes.setEnabled(input != null);
+            exportMessage("Prepared byte export expired; prepare it again");
+            return;
+        }
+        if (result != RESULT_OK || data == null || data.getData() == null) {
+            staged.discard();
+            exportBytes.setEnabled(input != null);
+            exportMessage("Byte export cancelled");
+            return;
+        }
+        Uri destination = data.getData();
+        int operation = ++exportGeneration;
+        exportBusy = true;
+        exportBytes.setEnabled(false);
+        exportMessage("Writing captured bytes…");
+        worker.execute(
+                () -> {
+                    String message;
+                    try (OutputStream output =
+                            getContentResolver().openOutputStream(destination, "wt")) {
+                        if (output == null) throw new IOException("Destination unavailable");
+                        staged.copyTo(output, cancellation::get);
+                        message = "Byte export saved · " + staged.size + " exact bytes";
+                    } catch (Exception error) {
+                        message =
+                                "Byte export failed; destination may contain partial data: "
+                                        + error.getMessage();
+                    } finally {
+                        staged.discard();
+                    }
+                    String response = message;
+                    runOnUiThread(
+                            () -> {
+                                if (!isDestroyed() && operation == exportGeneration) {
+                                    exportBusy = false;
+                                    exportBytes.setEnabled(input != null);
+                                    exportMessage(response);
+                                }
+                            });
                 });
     }
 
@@ -561,6 +700,10 @@ public final class ContentPreviewActivity extends Activity {
     @Override
     protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
+        if (request == 1) {
+            finishByteExport(result, data);
+            return;
+        }
         if (request != 2) return;
         if (result != RESULT_OK || data == null) {
             status.setText("Archive selection cancelled");
@@ -612,6 +755,12 @@ public final class ContentPreviewActivity extends Activity {
         super.onSaveInstanceState(saved);
         saved.putString("mode", mode);
         saved.putInt("pdfPage", pdfPage);
+        if (contentExport != null && exportPickerOpen) {
+            saved.putString("contentExport", contentExport.file.getAbsolutePath());
+            saved.putString("contentExportName", contentExport.name);
+            saved.putString("contentExportMime", contentExport.mime);
+            saved.putLong("contentExportSize", contentExport.size);
+        }
         saved.putInt(
                 "seek", player != null && prepared ? player.getCurrentPosition() : seekPosition);
     }
@@ -620,13 +769,15 @@ public final class ContentPreviewActivity extends Activity {
     protected void onDestroy() {
         cancellation.set(true);
         generation++;
+        exportGeneration++;
+        if (contentExport != null && (!exportPickerOpen || isFinishing())) contentExport.discard();
         releasePlayer();
         boolean retain = isChangingConfigurations();
         worker.execute(
                 () -> {
                     if (!retain) {
                         if (input != null) input.close();
-                        else
+                        else if (retainedPath != null)
                             try {
                                 // Ownership transfers before onCreate; clean an unacquired private
                                 // input after cancellation.

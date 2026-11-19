@@ -70,3 +70,9 @@ witness context. Unknown extents remain visible and non-extractable. Preserve
 all complete raw/native/catalog exports and their staged-picker lifetime.
 This acceptance is pending beyond the current release identity slice; existing
 stored-range export and Gallerize preview coverage remains documented separately.
+
+The checked range/preview/export and private whole-input handoff subset is now
+implemented and host checked in the recovery slice; see
+[recovered-content contracts](recovered-content.md). A complete persistent
+per-preview native-origin sidecar and broader investigation history remain
+pending; parent tool reports retain their complete native evidence.

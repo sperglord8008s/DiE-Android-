@@ -1,4 +1,4 @@
-# DiE Android — design goals and acceptance criteria
+# GlassDigestor — design goals and acceptance criteria
 
 ## Mission
 A free, open-source, offline, expert-first Android software and binary investigation workbench. A technically curious person should be able to explore files of known and unknown format, apps and system packages, and build a genuine understanding of their structures, roles, dependencies and potential behavior. It is not a malware verdict generator or a simplified beginner scanner.
