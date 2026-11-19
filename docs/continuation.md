@@ -260,3 +260,27 @@ in run 44470495585. The newest verified local development checkpoint supersedes
 the older owned `0.6.0-alpha-dev-1b6596b` copy for disk space; its earlier CI
 artifact remains available. Keep the frozen 0.5.0-alpha checkpoint, original
 fallbacks and current source/checkpoint manifests.
+
+Binder registry continuation: fixed normal-UID command capture is separate from
+parsing and the viewer. `BoundedProcessOutput` owns IO/deadlines/cleanup;
+`BinderServiceCapture` writes a new source-identified envelope; `BinderRegistry`
+retains raw syntax/diagnostics/duplicates/unknowns and explicit visibility
+uncertainty; `BinderRegistryBackend` owns separate envelope/output coordinates.
+Recreation checks the original capture identity without rerunning the command,
+and prepared exports outlive source expiry. The exact AOSP reference and full
+Apache-2.0 notice are pinned, packaged and verified at build/APK time. Run
+`scripts/test-system-services.sh`; three Android host cases bring the complete
+suite to 124. The original normal-UID service explorer used to display all
+output/error lines as registrations; that evidence error is corrected. Actual
+Android command/UID/SELinux/provider/handset behavior and privileged diagnostics
+remain pending. See [Binder contracts](binder-registry.md).
+
+The per-tool [input budget/verified scale matrix](input-budgets.md) separates
+implemented limits from actual sparse/fully written/real-APK host checks and
+from device acceptance. PhotoRec's 1.25 MiB input-read buffer payload is not a
+file-size or whole-process memory cap. A fresh full Binder integration run passes
+all 124 tests (zero failures/errors/skips), ARM64 assembly/lint and APK signature,
+offline, identity, source-reference and fourteen-library static 16 KiB checks.
+The corresponding MPV component-source archive was regenerated with all pins
+verified. Batch interpretations at `24e8b2b` passed all five CI jobs in run
+44473098270, including checkpoint/source packaging.

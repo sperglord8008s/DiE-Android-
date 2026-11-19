@@ -21,7 +21,7 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | Installed user/system package inventory, base/split APK paths | wired |
 | Captured base/split APK declaration and signer relationships | normal-UID inventory handoff and single-file entry; owned whole-APK/manifest SHA-256 plus CRC/size acquisition, exact package/version/split groups, every dependency/type candidate, duplicate/unknown scopes and verified certificate DER-set comparisons; complete metadata and APK/manifest/certificate exports with recreation; independent AAPT2/malformed/CRC/cycle/budget/cancel/identity/Unicode cases and five actual-engine viewer flows pass (83 suite checks); real installed-path/SAF/worker/handset behavior, installability/signing policy, archive-set import and framework/cross-split runtime resolution remain incomplete/unverified |
 | Read-only permitted filesystem and declared service inventory | wired |
-| OS Binder service registrations | wired, normal UID visibility only |
+| OS Binder service registrations | typed immutable normal-UID command captures, explicit registration/diagnostic/unknown separation, exact source/output identities, original rows/ranges, complete exports and pinned offline AOSP reference; trusted-process IO/parser/ownership fixtures and three Android host cases pass (124 full-suite checks); actual OS command/UID/SELinux/SAF/handset behavior remains unverified; see [contract](binder-registry.md) |
 | Live process/service diagnostics and privileged files | pending; explicit bridge required |
 | ZIP/APK nested member selection/extraction | complete bounded inventories, searchable 50-row folder pages, nested Back/recreation, private extraction with full-directory revalidation, size/CRC32/SHA-256 checks; host malformed/stale/duplicate/cancel fixtures and five Robolectric navigation/lifecycle/budget cases verified; handset flow and persistent cross-scan parent history pending |
 | Native resource payload extraction | selected resource or manually validated physical range staged for exact SAF byte export; host payload equality and Robolectric picker-delay/recreation/output checks verified; real document-provider flow pending |
@@ -189,3 +189,13 @@ invalid saved requests require a visible choice before starting. Pending complet
 exports remain bound through draft changes/recreation. Host policy fixtures
 verify differing per-file IDs, strict stored captures and original schema-1
 journals/reports. Real device/SAF/process-death/Qt behavior remains unverified.
+
+Three Binder registry cases bring the complete API 28 suite to 124. Actual
+provider/widget/digest paths cover 155-row paging/search/full filtered exports,
+source references, diagnostic separation and pending bytes across recreation/
+source expiry. The production command's host launch failure remains an explicit
+failure with zero invented registrations. Separate trusted-JVM IO fixtures cover
+output caps, timeouts, cancellation and child cleanup; raw-byte oracles check
+Unicode/invalid UTF-8, duplicate/header/overflow and exact source lifetimes.
+Real OS service visibility, providers, process death and handset behavior remain
+unverified. See [Binder registry contracts](binder-registry.md).

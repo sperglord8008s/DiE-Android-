@@ -70,6 +70,7 @@ public final class InvestigationActivity extends Activity {
         exportDirectory = new File(getCacheDir(), "tool-exports");
         if ("comparison".equals(getIntent().getStringExtra("provider"))) backend = new ComparisonBackend(root,new File(getCacheDir(),"comparison-snapshots"),inputName,getIntent().getStringExtra("sha256"),getIntent().getLongExtra("sourceSize",-1),retentionState);
         else if ("desktop-batch".equals(getIntent().getStringExtra("provider"))) backend = new BatchScanBackend(new File(getFilesDir(),"desktop-batches"),new File(getCacheDir(),"batch-view-snapshots"),getIntent().getStringExtra("batchId"));
+        else if ("binder-registry".equals(getIntent().getStringExtra("provider"))) backend = new BinderRegistryBackend(root,new File(getCacheDir(),"binder-registry-snapshots"),BinderServiceCapture.directory(this),getIntent().getStringExtra("sha256"),getIntent().getLongExtra("sourceSize",-1),()->getAssets().open("references/android-15-service.cpp"));
         else if ("binwalk".equals(getIntent().getStringExtra("provider"))) backend = new BinwalkBackend(root,new File(getCacheDir(),"binary-snapshots"),inputName,new BinaryWorkerClient(this));
         else if ("photorec".equals(getIntent().getStringExtra("provider"))) backend = new PhotoRecBackend(root,new File(getCacheDir(),"carving-snapshots"),inputName,new BinaryWorkerClient(this,"photorec"));
         else if ("mpv".equals(getIntent().getStringExtra("provider"))) backend = new MpvBackend(root,new File(getCacheDir(),"media-snapshots"),inputName,new BinaryWorkerClient(this,"mpv"));

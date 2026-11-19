@@ -1,0 +1,7 @@
+{
+  "project": "platform/frameworks/native",
+  "revision": "f7274fca5e36082674740bc6c976f73c4578d009",
+  "tag": "android-15.0.0_r1",
+  "file": "cmds/service/service.cpp",
+  "sha256": "b559db30c430011667ede52a1ebb4b05a2c474bbe4df85d47c398298191bab94"
+}

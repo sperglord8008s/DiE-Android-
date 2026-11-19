@@ -19,7 +19,7 @@ public final class SystemExplorerActivity extends Activity {
  private TextView heading,detail;
  private EditText search;
  private ListView list;
- private int generation;
+ private volatile int generation;
  private static class Entry {
   final String label,description;final Runnable open;
   Entry(String l,String d,Runnable r){label=l;description=d;open=r;}
@@ -67,21 +67,19 @@ public final class SystemExplorerActivity extends Activity {
   });
  }
  private void binderServices(){
-  final int ticket=begin("OS Binder service registry","Querying /system/bin/service list as this app's normal UID…");
+  final int ticket=begin("OS Binder service registry","Capturing the fixed platform service-list command as this app's normal UID…");
   worker.execute(()->{
-   List<Entry> result=new ArrayList<>();java.lang.Process process=null;ExecutorService reader=Executors.newSingleThreadExecutor();
+   File captured=null;
    try{
-    process=new ProcessBuilder("/system/bin/service","list").redirectErrorStream(true).start();
-    final java.lang.Process running=process;Future<String> output=reader.submit(()->{try(InputStream in=running.getInputStream()){return KnowledgeReport.read(in,1024*1024);}});
-    if(!process.waitFor(5,TimeUnit.SECONDS))throw new IOException("Service list timed out");
-    String text=output.get(2,TimeUnit.SECONDS);int exit=process.exitValue();
-    for(String line:text.split("\n")){
-     String raw=line.trim();if(raw.isEmpty())continue;int tab=raw.indexOf('\t');String label=tab>=0?raw.substring(tab+1):raw;
-     result.add(new Entry(label,"Raw service list record",()->new AlertDialog.Builder(this).setTitle("Binder registration").setMessage(raw+"\n\nBinder is Android's interprocess call mechanism. A listed service is registered and visible to this caller at query time. This does not prove a particular client is using it, grant permission to invoke it, or identify every service in the system.").setPositiveButton("Close",null).show()));
-    }
-    finishRows(ticket,result,"Exit="+exit+" • "+result.size()+" output lines • service visibility is restricted by UID and SELinux; errors are raw output, not service records");
-   }catch(Exception e){finishRows(ticket,result,"Binder registry unavailable to this app: "+e.getMessage());}
-   finally{if(process!=null)process.destroyForcibly();reader.shutdownNow();}
+    BinderServiceCapture.Captured value=BinderServiceCapture.capture(this,()->isDestroyed()||ticket!=generation||Thread.currentThread().isInterrupted());
+    captured=value.file;
+    final File input=captured;
+    runOnUiThread(()->{
+     if(isDestroyed()||ticket!=generation){input.delete();return;}
+     try{startActivity(new Intent(this,InvestigationActivity.class).putExtra("provider","binder-registry").putExtra("path",input.getAbsolutePath()).putExtra("name","Normal-UID Binder registry capture").putExtra("sha256",value.sha256).putExtra("sourceSize",value.size));detail.setText("Captured output opened • parsed registrations and diagnostics remain separate; no global visibility or client-use claim");}
+     catch(RuntimeException failure){input.delete();detail.setText("Cannot open captured registry: "+failure);}
+    });
+   }catch(Exception failure){if(captured!=null)captured.delete();finishRows(ticket,Collections.emptyList(),"Binder capture failed: "+failure);}
   });
  }
  private void packageDetails(String pkg){

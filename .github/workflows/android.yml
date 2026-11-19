@@ -116,6 +116,7 @@ jobs:
       - run: bash scripts/test-apk.sh
       - run: bash tests/test-dependency-fetch.sh
       - run: bash scripts/test-models.sh
+      - run: bash scripts/test-system-services.sh
       - run: bash scripts/test-profiles.sh
       - run: bash scripts/test-batch.sh
       - run: bash scripts/test-comparison.sh

@@ -18,3 +18,5 @@ hash-engine/third_party/rhash/* -text whitespace=-blank-at-eol,-blank-at-eof,-sp
 regex-engine/third_party/re2j/** -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
 app/src/main/assets/notices/unicode-15.0.0.txt -text whitespace=-blank-at-eol,-blank-at-eof
 app/src/main/java/org/diemobile/TrackerUnicode.java -text
+# Preserve the exact unmodified, hash-pinned upstream reference bytes.
+app/src/main/assets/references/android-15-service.cpp -text whitespace=-blank-at-eof

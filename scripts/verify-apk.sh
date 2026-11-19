@@ -88,6 +88,9 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
     assert 'lib/arm64-v8a/libplayer.so' not in names,'Unneeded upstream player JNI was packaged'
     assert archive.read('mpv-properties.json')==Path('app/src/main/resources/mpv-properties.json').read_bytes(),'Offline MPV property reference missing/changed'
     print('Nine packaged official MPV runtime libraries and offline property references match their pinned inputs.')
+    service_lock=json.loads(Path('system-engine/binder-service-contract.json').read_text())
+    assert hashlib.sha256(archive.read('assets/references/android-15-service.cpp')).hexdigest()==service_lock['sha256'], 'Packaged Binder contract reference changed'
+    assert archive.read('assets/notices/android-service-contract.txt')==Path('app/src/main/assets/notices/android-service-contract.txt').read_bytes(), 'Binder reference license notice missing/changed'
     catalog=archive.read('assets/knowledge/libchecker-v5.json')
     assert hashlib.sha256(catalog).hexdigest()==archive.read('assets/knowledge/libchecker-v5.json.sha256').decode('ascii').strip(),'Canonical SDK catalog checksum differs from its complete payload'
 PY

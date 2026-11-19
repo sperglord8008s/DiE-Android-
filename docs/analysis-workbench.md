@@ -90,3 +90,12 @@ and three actual-CDiE Android cases exercise these flows, including invalid
 saved-state refusal and pending export ownership (121 full-suite checks).
 Arbitrary forcing, per-file overrides, named profile attribution and actual
 device/provider behavior remain incomplete. See [batches](batch-scanning.md).
+
+OS Binder registry inspection now owns one normal-UID `service list` capture,
+separates parsed observations from every diagnostic/unknown line, and exposes
+raw output/envelope identities, exact byte ranges, full scoped exports and the
+pinned offline AOSP output reference. Empty descriptors, non-atomic queries and
+visibility/count limits stay explicit; recreation never reruns the command.
+Trusted-process host checks and three provider/widget cases pass (124 combined
+checks). Actual OS output, SELinux/visibility, provider/process-death and handset
+behavior remain unverified. See [Binder registry](binder-registry.md).

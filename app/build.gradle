@@ -99,6 +99,12 @@ def verifyTrackerUnicode = tasks.register('verifyTrackerUnicode', Exec) {
 }
 tasks.named('preBuild').configure { dependsOn verifyTrackerUnicode }
 
+def verifyServiceContract = tasks.register('verifyServiceContract', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'python3', rootProject.file('scripts/check-service-contract.py').absolutePath
+}
+tasks.named('preBuild').configure { dependsOn verifyServiceContract }
+
 def verifyPackageContracts = tasks.register('verifyPackageContracts', Exec) {
     workingDir rootProject.projectDir
     commandLine 'python3', rootProject.file('scripts/check-package-contract.py').absolutePath
