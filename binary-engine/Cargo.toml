@@ -1,0 +1,22 @@
+[package]
+name = "die-binwalk-bridge"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+
+[lib]
+name = "diebinwalk"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+binwalk = { package = "die-binwalk-core", path = "upstream" }
+aho-corasick = "=1.1.5"
+jni = "=0.21.1"
+libc = "=0.2.177"
+serde_json = "=1.0.145"
+
+[profile.release]
+opt-level = 2
+debug = false
+lto = false
+overflow-checks = true

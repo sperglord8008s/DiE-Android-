@@ -19,7 +19,7 @@ public final class SystemExplorerActivity extends Activity {
  private TextView heading,detail;
  private EditText search;
  private ListView list;
- private int generation;
+ private volatile int generation;
  private static class Entry {
   final String label,description;final Runnable open;
   Entry(String l,String d,Runnable r){label=l;description=d;open=r;}
@@ -29,7 +29,7 @@ public final class SystemExplorerActivity extends Activity {
  private Button btn(String s,Runnable r){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setOnClickListener(v->r.run());return b;}
  @Override public void onCreate(Bundle b){
   super.onCreate(b);
-  root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(8),dp(8),dp(8),dp(8));root.setBackgroundColor(0xff15191e);
+  root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(8),dp(8),dp(8),dp(8));root.setBackgroundColor(0xff15191e);
   heading=new TextView(this);heading.setTextSize(18);root.addView(heading);
   detail=new TextView(this);detail.setTextSize(12);root.addView(detail);
   LinearLayout nav=new LinearLayout(this);for(String label:new String[]{"User apps","System apps","Files","Services"}){final String l=label;nav.addView(btn(l,()->{if(l.equals("Files"))browse(new File("/"));else if(l.equals("Services"))new AlertDialog.Builder(this).setTitle("Service inventory").setItems(new String[]{"App-declared services","OS Binder service registry"},(d,w)->{if(w==0)packages(2);else binderServices();}).show();else packages(l.equals("System apps")?1:0);}),new LinearLayout.LayoutParams(0,-2,1));}root.addView(nav);
@@ -67,21 +67,19 @@ public final class SystemExplorerActivity extends Activity {
   });
  }
  private void binderServices(){
-  final int ticket=begin("OS Binder service registry","Querying /system/bin/service list as this app's normal UID…");
+  final int ticket=begin("OS Binder service registry","Capturing the fixed platform service-list command as this app's normal UID…");
   worker.execute(()->{
-   List<Entry> result=new ArrayList<>();java.lang.Process process=null;ExecutorService reader=Executors.newSingleThreadExecutor();
+   File captured=null;
    try{
-    process=new ProcessBuilder("/system/bin/service","list").redirectErrorStream(true).start();
-    final java.lang.Process running=process;Future<String> output=reader.submit(()->{try(InputStream in=running.getInputStream()){return KnowledgeReport.read(in,1024*1024);}});
-    if(!process.waitFor(5,TimeUnit.SECONDS))throw new IOException("Service list timed out");
-    String text=output.get(2,TimeUnit.SECONDS);int exit=process.exitValue();
-    for(String line:text.split("\n")){
-     String raw=line.trim();if(raw.isEmpty())continue;int tab=raw.indexOf('\t');String label=tab>=0?raw.substring(tab+1):raw;
-     result.add(new Entry(label,"Raw service list record",()->new AlertDialog.Builder(this).setTitle("Binder registration").setMessage(raw+"\n\nBinder is Android's interprocess call mechanism. A listed service is registered and visible to this caller at query time. This does not prove a particular client is using it, grant permission to invoke it, or identify every service in the system.").setPositiveButton("Close",null).show()));
-    }
-    finishRows(ticket,result,"Exit="+exit+" • "+result.size()+" output lines • service visibility is restricted by UID and SELinux; errors are raw output, not service records");
-   }catch(Exception e){finishRows(ticket,result,"Binder registry unavailable to this app: "+e.getMessage());}
-   finally{if(process!=null)process.destroyForcibly();reader.shutdownNow();}
+    BinderServiceCapture.Captured value=BinderServiceCapture.capture(this,()->isDestroyed()||ticket!=generation||Thread.currentThread().isInterrupted());
+    captured=value.file;
+    final File input=captured;
+    runOnUiThread(()->{
+     if(isDestroyed()||ticket!=generation){input.delete();return;}
+     try{startActivity(new Intent(this,InvestigationActivity.class).putExtra("provider","binder-registry").putExtra("path",input.getAbsolutePath()).putExtra("name","Normal-UID Binder registry capture").putExtra("sha256",value.sha256).putExtra("sourceSize",value.size));detail.setText("Captured output opened • parsed registrations and diagnostics remain separate; no global visibility or client-use claim");}
+     catch(RuntimeException failure){input.delete();detail.setText("Cannot open captured registry: "+failure);}
+    });
+   }catch(Exception failure){if(captured!=null)captured.delete();finishRows(ticket,Collections.emptyList(),"Binder capture failed: "+failure);}
   });
  }
  private void packageDetails(String pkg){
@@ -91,6 +89,12 @@ public final class SystemExplorerActivity extends Activity {
     String meta="Package: "+pkg+"\nVersion: "+info.versionName+"\nUID: "+a.uid+" • min/target SDK: "+a.minSdkVersion+"/"+a.targetSdkVersion+"\nData directory: "+a.dataDir+"\nNative library directory: "+a.nativeLibraryDir+"\n\nUID is the Android/Linux security identity. Paths identify configured directories, not permission to read them. System-app status is not a trust guarantee.";
     entries.add(new Entry("Package identity","Tap for technical details",()->new AlertDialog.Builder(this).setTitle(pkg).setMessage(meta).setPositiveButton("Close",null).show()));
     entries.add(new Entry("Base APK",a.sourceDir,()->select(new File(a.sourceDir))));
+    ArrayList<String> packagePaths=new ArrayList<>();if(a.sourceDir!=null)packagePaths.add(a.sourceDir);if(a.splitSourceDirs!=null)Collections.addAll(packagePaths,a.splitSourceDirs);
+    entries.add(new Entry("Investigate captured base + split APK set",packagePaths.size()+" PackageManager paths • compiled declarations, dependencies and independent signing evidence",()->{
+     if(packagePaths.isEmpty()){Toast.makeText(this,"No APK source paths exposed for this package",Toast.LENGTH_LONG).show();return;}
+     startActivity(new Intent(this,InvestigationActivity.class).putExtra("provider","package-set").putExtra("path",packagePaths.get(0)).putExtra("name",pkg)
+      .putExtra("inventoryPackage",pkg).putStringArrayListExtra("packagePaths",packagePaths));
+    }));
     if(a.splitSourceDirs!=null)for(String p:a.splitSourceDirs)entries.add(new Entry("Split APK",p,()->select(new File(p))));
     if(a.nativeLibraryDir!=null)entries.add(new Entry("Native library directory",a.nativeLibraryDir,()->browse(new File(a.nativeLibraryDir))));
     if(a.dataDir!=null)entries.add(new Entry("Data directory (may be inaccessible)",a.dataDir,()->browse(new File(a.dataDir))));

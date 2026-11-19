@@ -50,6 +50,11 @@ JNIEXPORT void JNICALL Java_org_diemobile_Engine_cancelDesktopNative(JNIEnv *env
     atomic_store_explicit(&cancel_requested, true, memory_order_relaxed);
 }
 
+JNIEXPORT void JNICALL Java_org_diemobile_Engine_resetDesktopCancellationNative(JNIEnv *env, jclass cls) {
+    (void)env; (void)cls;
+    atomic_store_explicit(&cancel_requested, false, memory_order_relaxed);
+}
+
 static int append_tree(size_t parent, const char *text, const char *category,
                        const gui_backend_detection *d, void *user) {
     desktop_output *out = user;
@@ -82,6 +87,12 @@ static void error_report(xx_buf_t *b, const char *message) {
     xx_buf_append_str(b, "{\"ok\":false");
     string_field(b, "error", message);
     xx_buf_append_char(b, '}');
+}
+
+static int path_inside(const char *path, const char *directory) {
+    size_t length = strlen(STR(directory));
+    return length && path && !strncmp(path, directory, length) &&
+        (path[length] == '/' || path[length] == '\\');
 }
 
 static int configure(const char *main_db, const char *custom_db,
@@ -141,13 +152,14 @@ JNIEXPORT jbyteArray JNICALL Java_org_diemobile_Engine_desktopNative(
         xx_pd_struct pd = xx_pd_init();
         gui_backend_scan_info info = {0};
         char *report = NULL, *type = NULL;
-        atomic_store_explicit(&cancel_requested, false, memory_order_relaxed);
         xx_pd_observer previous = xx_pd_set_observer(&pd, observe, NULL);
         xx_buf_append_str(&out.buf, "{\"ok\":true,\"rows\":[");
         int ok = gui_backend_scan_tree(STR(v[0]), type_id, append_tree, &out,
                                        &report, &type, &info, &pd);
         (void)xx_pd_set_observer(previous.progress, previous.callback, previous.user_data);
         if (ok) {
+            uint64_t hits = 0, misses = 0;
+            gui_backend_cache_statistics(&hits, &misses);
             xx_buf_append_char(&out.buf, ']');
             string_field(&out.buf, "report", report);
             string_field(&out.buf, "type", type);
@@ -156,7 +168,12 @@ JNIEXPORT jbyteArray JNICALL Java_org_diemobile_Engine_desktopNative(
             string_field(&out.buf, "mode", info.mode);
             string_field(&out.buf, "format", info.type);
             string_field(&out.buf, "log", info.log);
-            xx_buf_appendf(&out.buf, ",\"signatureCount\":%d}", gui_backend_signature_count());
+            string_field(&out.buf, "engine", gui_backend_app_title());
+            string_field(&out.buf, "includeTags", STR(v[3]));
+            string_field(&out.buf, "excludeTags", STR(v[4]));
+            xx_buf_appendf(&out.buf, ",\"signatureCount\":%d,\"flags\":%u,\"typeId\":%d,\"databaseGeneration\":%llu,\"cacheHits\":%llu,\"cacheMisses\":%llu}",
+                gui_backend_signature_count(), (unsigned)flags, type_id,
+                U64(gui_backend_database_generation()), U64(hits), U64(misses));
         } else {
             error_report(&out.buf, out.capped ? "Detection report capped" :
                 atomic_load(&cancel_requested) ? "Scan cancelled" : "Desktop scan failed");
@@ -233,6 +250,17 @@ JNIEXPORT jbyteArray JNICALL Java_org_diemobile_Engine_desktopNative(
         string_field(&out.buf, "tags", tags);
         xx_buf_append_char(&out.buf, '}');
         gui_backend_free(tags);
+        break;
+    }
+    case 7: {
+        int custom_count = 0;
+        int total = gui_backend_signature_count();
+        for (int i = 0; i < total; i++) {
+            const char *path = NULL;
+            if (gui_backend_signature_entry(i, NULL, &path) && path_inside(path, v[2])) custom_count++;
+        }
+        xx_buf_appendf(&out.buf, "{\"ok\":true,\"signatureCount\":%d,\"mainCount\":%d,\"customCount\":%d,\"databaseGeneration\":%llu}",
+            total, total - custom_count, custom_count, U64(gui_backend_database_generation()));
         break;
     }
     default:

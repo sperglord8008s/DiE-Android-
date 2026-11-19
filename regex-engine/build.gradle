@@ -1,0 +1,11 @@
+plugins { id 'java-library' }
+
+// Complete checksum-retained upstream RE2/J, without binary runtime dependencies.
+java { sourceCompatibility = JavaVersion.VERSION_1_8; targetCompatibility = JavaVersion.VERSION_1_8 }
+tasks.withType(JavaCompile).configureEach { options.release = 8 }
+sourceSets.main.java.srcDirs = ['third_party/re2j']
+def verifySource = tasks.register('verifySource', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'python3', rootProject.file('scripts/check-regex-sources.py').absolutePath
+}
+tasks.named('compileJava').configure { dependsOn verifySource }

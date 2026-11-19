@@ -1,0 +1,13 @@
+{
+  "version": "15.0.0",
+  "sourceUrl": "https://www.unicode.org/Public/15.0.0/ucd/UnicodeData.txt",
+  "sourceSha256": "806e9aed65037197f1ec85e12be6e8cd870fc5608b4de0fffd990f689f376a73",
+  "license": "Unicode-3.0",
+  "licenseSha256": "e7a93b009565cfce55919a381437ac4db883e9da2126fa28b91d12732bc53d96",
+  "generatedSha256": "9f3a79c7bc3502fb309d03acb95a4b4223a596e85f3e46033f0fb18ae44293d2",
+  "codePointCounts": {
+    "WORD": 137936,
+    "DIGIT": 680,
+    "SPACE": 29
+  }
+}

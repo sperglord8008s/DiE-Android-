@@ -1,0 +1,54 @@
+RE2/J 1.8 — complete unmodified published Java source, built with Java 8 target.
+Source: https://github.com/google/re2j/tree/57278921a609461c14d9cdb057d7aa9511c8f7ac
+Published source JAR: com.google.re2j:re2j:1.8:sources
+Source JAR SHA-256: 4378db846db2d91c8028fe32efcb183a1f1b4157339d0a3b4c46b2c6b0655d7c
+Per-file identities: regex-engine/source-lock.json. No inspected input becomes code.
+
+This is a work derived from Russ Cox's RE2 in Go, whose license
+http://golang.org/LICENSE is as follows:
+
+Copyright (c) 2009 The Go Authors. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   * Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+
+   * Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in
+     the documentation and/or other materials provided with the
+     distribution.
+
+   * Neither the name of Google Inc. nor the names of its contributors
+     may be used to endorse or promote products derived from this
+     software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Original source notice — CharClass.java, CharGroup.java, Characters.java, Compiler.java, Inst.java, Machine.java, MachineInput.java, Matcher.java, Parser.java, Pattern.java, PatternSyntaxException.java, Prog.java, RE2.java, Regexp.java, Simplify.java, Unicode.java, UnicodeTables.java, Utils.java:
+/*
+ * Copyright (c) 2020 The Go Authors. All rights reserved.
+ *
+ * Use of this source code is governed by a BSD-style
+ * license that can be found in the LICENSE file.
+ */
+
+Original source notice — MatcherInput.java:
+/*
+ * Copyright (c) 2021 The Go Authors. All rights reserved.
+ *
+ * Use of this source code is governed by a BSD-style
+ * license that can be found in the LICENSE file.
+ */

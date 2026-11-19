@@ -1,7 +1,11 @@
 .gradle/
 **/build/
+**/target/
 **/.cxx/
 local.properties
 vendor/
 generated-assets/
+.ci-cache/
 *.apk
+__pycache__/
+*.pyc

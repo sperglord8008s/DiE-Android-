@@ -13,6 +13,7 @@ checkout() {
 checkout LibChecker-Rules https://github.com/LibChecker/LibChecker-Rules.git "$lc"
 checkout UAD-NG https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation.git "$uad"
 python3 scripts/compile-knowledge.py vendor/LibChecker-Rules generated-assets/knowledge/libchecker.json
+python3 scripts/compile-libchecker.py vendor/LibChecker-Rules generated-assets/knowledge/libchecker-v5.json
 cp vendor/UAD-NG/resources/assets/uad_lists.json generated-assets/knowledge/uad.json
 cp vendor/LibChecker-Rules/LICENSE generated-assets/knowledge/LibChecker-LICENSE.txt
 cp vendor/UAD-NG/LICENSE generated-assets/knowledge/UAD-LICENSE.txt

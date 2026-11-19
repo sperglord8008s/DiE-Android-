@@ -1,0 +1,167 @@
+--- a/com/google/devrel/gmscore/tools/apk/arsc/Chunk.java
++++ b/com/google/devrel/gmscore/tools/apk/arsc/Chunk.java
+@@ -260,23 +260,23 @@
+   public static Chunk newInstance(ByteBuffer buffer, @Nullable Chunk parent) {
+     Chunk result;
+     Type type = Type.fromCode(buffer.getShort());
+-    result =
+-        switch (type) {
+-          case STRING_POOL -> new StringPoolChunk(buffer, parent);
+-          case TABLE -> new ResourceTableChunk(buffer, parent);
+-          case XML -> new XmlChunk(buffer, parent);
+-          case XML_START_NAMESPACE -> new XmlNamespaceStartChunk(buffer, parent);
+-          case XML_END_NAMESPACE -> new XmlNamespaceEndChunk(buffer, parent);
+-          case XML_START_ELEMENT -> new XmlStartElementChunk(buffer, parent);
+-          case XML_END_ELEMENT -> new XmlEndElementChunk(buffer, parent);
+-          case XML_CDATA -> new XmlCdataChunk(buffer, parent);
+-          case XML_RESOURCE_MAP -> new XmlResourceMapChunk(buffer, parent);
+-          case TABLE_PACKAGE -> new PackageChunk(buffer, parent);
+-          case TABLE_TYPE -> new TypeChunk(buffer, parent);
+-          case TABLE_TYPE_SPEC -> new TypeSpecChunk(buffer, parent);
+-          case TABLE_LIBRARY -> new LibraryChunk(buffer, parent);
+-          default -> new UnknownChunk(buffer, parent);
+-        };
++    // Java 8 bytecode also avoids newer covariant NIO calls on API 26.
++    switch (type) {
++      case STRING_POOL: result = new StringPoolChunk(buffer, parent); break;
++      case TABLE: result = new ResourceTableChunk(buffer, parent); break;
++      case XML: result = new XmlChunk(buffer, parent); break;
++      case XML_START_NAMESPACE: result = new XmlNamespaceStartChunk(buffer, parent); break;
++      case XML_END_NAMESPACE: result = new XmlNamespaceEndChunk(buffer, parent); break;
++      case XML_START_ELEMENT: result = new XmlStartElementChunk(buffer, parent); break;
++      case XML_END_ELEMENT: result = new XmlEndElementChunk(buffer, parent); break;
++      case XML_CDATA: result = new XmlCdataChunk(buffer, parent); break;
++      case XML_RESOURCE_MAP: result = new XmlResourceMapChunk(buffer, parent); break;
++      case TABLE_PACKAGE: result = new PackageChunk(buffer, parent); break;
++      case TABLE_TYPE: result = new TypeChunk(buffer, parent); break;
++      case TABLE_TYPE_SPEC: result = new TypeSpecChunk(buffer, parent); break;
++      case TABLE_LIBRARY: result = new LibraryChunk(buffer, parent); break;
++      default: result = new UnknownChunk(buffer, parent); break;
++    }
+     result.init(buffer);
+     result.seekToEndOfChunk(buffer);
+     return result;
+--- a/com/google/devrel/gmscore/tools/apk/arsc/PackageChunk.java
++++ b/com/google/devrel/gmscore/tools/apk/arsc/PackageChunk.java
+@@ -68,7 +68,8 @@
+     lastPublicType = buffer.getInt();
+     keyStringsOffset = buffer.getInt();
+     lastPublicKey = buffer.getInt();
+-    typeIdOffset = buffer.getInt();
++    // The older 284-byte package header has no typeIdOffset field.
++    typeIdOffset = getHeaderSize() >= 288 ? buffer.getInt() : 0;
+   }
+ 
+   @Override
+@@ -110,6 +111,11 @@
+     return id;
+   }
+ 
++  /** Read-only type identifier adjustment; zero when absent in a legacy header. */
++  public int getTypeIdOffset() {
++    return typeIdOffset;
++  }
++
+   /** Sets the package id */
+   public void setId(int id) {
+     this.id = id;
+--- a/com/google/devrel/gmscore/tools/apk/arsc/ResourceConfiguration.java
++++ b/com/google/devrel/gmscore/tools/apk/arsc/ResourceConfiguration.java
+@@ -643,10 +643,12 @@
+ 
+   public final boolean isDensityCompatibleWith(int deviceDensityDpi) {
+     int configDensity = density();
+-    return switch (configDensity) {
+-      case DENSITY_DPI_UNDEFINED, DENSITY_DPI_ANY, DENSITY_DPI_NONE -> true;
+-      default -> configDensity <= deviceDensityDpi;
+-    };
++    switch (configDensity) {
++      case DENSITY_DPI_UNDEFINED:
++      case DENSITY_DPI_ANY:
++      case DENSITY_DPI_NONE: return true;
++      default: return configDensity <= deviceDensityDpi;
++    }
+   }
+ 
+   @Override
+--- a/com/google/devrel/gmscore/tools/apk/arsc/ResourceString.java
++++ b/com/google/devrel/gmscore/tools/apk/arsc/ResourceString.java
+@@ -63,8 +63,14 @@
+         buffer.position(origPosition);
+       }
+     } else {
+-      int length = characterCount * 2;
+-      return new String(buffer.array(), offset, length, type.charset());
++      // Resource pools contain UTF-16 code units, including isolated surrogates.
++      // Charset decoding would substitute those units and lose stored evidence.
++      char[] units = new char[characterCount];
++      for (int i = 0; i < units.length; i++) {
++        int at = offset + i * 2;
++        units[i] = (char) ((buffer.get(at) & 0xff) | ((buffer.get(at + 1) & 0xff) << 8));
++      }
++      return new String(units);
+     }
+   }
+ 
+--- a/com/google/devrel/gmscore/tools/apk/arsc/ResourceValue.java
++++ b/com/google/devrel/gmscore/tools/apk/arsc/ResourceValue.java
+@@ -145,24 +145,24 @@
+ 
+   @Override
+   public final String toString() {
+-    return switch (type()) {
+-      case NULL -> data() == 0 ? "null" : "empty";
+-      case REFERENCE -> "ref(" + dataHexString() + ")";
+-      case ATTRIBUTE -> "attr(" + dataHexString() + ")";
+-      case STRING -> "string(" + dataHexString() + ")";
+-      case FLOAT -> "float(" + data() + ")";
+-      case DIMENSION -> "dimen(" + data() + ")";
+-      case FRACTION -> "frac(" + data() + ")";
+-      case DYNAMIC_REFERENCE -> "dynref(" + dataHexString() + ")";
+-      case DYNAMIC_ATTRIBUTE -> "dynattr(" + dataHexString() + ")";
+-      case INT_DEC -> "dec(" + data() + ")";
+-      case INT_HEX -> "hex(" + dataHexString() + ")";
+-      case INT_BOOLEAN -> "bool(" + data() + ")";
+-      case INT_COLOR_ARGB8 -> "argb8(" + dataHexString() + ")";
+-      case INT_COLOR_RGB8 -> "rgb8(" + dataHexString() + ")";
+-      case INT_COLOR_ARGB4 -> "argb4(" + dataHexString() + ")";
+-      case INT_COLOR_RGB4 -> "rgb4(" + dataHexString() + ")";
+-      default -> "<invalid value>";
+-    };
++    switch (type()) {
++      case NULL: return data() == 0 ? "null" : "empty";
++      case REFERENCE: return "ref(" + dataHexString() + ")";
++      case ATTRIBUTE: return "attr(" + dataHexString() + ")";
++      case STRING: return "string(" + dataHexString() + ")";
++      case FLOAT: return "float(" + data() + ")";
++      case DIMENSION: return "dimen(" + data() + ")";
++      case FRACTION: return "frac(" + data() + ")";
++      case DYNAMIC_REFERENCE: return "dynref(" + dataHexString() + ")";
++      case DYNAMIC_ATTRIBUTE: return "dynattr(" + dataHexString() + ")";
++      case INT_DEC: return "dec(" + data() + ")";
++      case INT_HEX: return "hex(" + dataHexString() + ")";
++      case INT_BOOLEAN: return "bool(" + data() + ")";
++      case INT_COLOR_ARGB8: return "argb8(" + dataHexString() + ")";
++      case INT_COLOR_RGB8: return "rgb8(" + dataHexString() + ")";
++      case INT_COLOR_ARGB4: return "argb4(" + dataHexString() + ")";
++      case INT_COLOR_RGB4: return "rgb4(" + dataHexString() + ")";
++      default: return "<invalid value>";
++    }
+   }
+ }
+--- a/com/google/devrel/gmscore/tools/apk/arsc/StringPoolChunk.java
++++ b/com/google/devrel/gmscore/tools/apk/arsc/StringPoolChunk.java
+@@ -279,8 +279,11 @@
+     // After the array of offsets for the strings in the pool, we have an offset for the styles
+     // in this pool.
+     for (int i = 0; i < count; ++i) {
+-      int styleOffset = offset + buffer.getInt();
+-      result.add(StringPoolStyle.create(buffer, styleOffset, this));
++      int relativeOffset = buffer.getInt();
++      // 0xffffffff is an absent style entry, not a location before stylesStart.
++      result.add(relativeOffset == -1
++          ? StringPoolStyle.create(Collections.<StringPoolSpan>emptyList())
++          : StringPoolStyle.create(buffer, offset + relativeOffset, this));
+     }
+     return result;
+   }

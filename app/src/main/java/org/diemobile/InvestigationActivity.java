@@ -1,0 +1,489 @@
+// SPDX-License-Identifier: GPL-3.0-only
+package org.diemobile;
+
+import android.app.*;
+import android.content.*;
+import android.graphics.Typeface;
+import android.net.Uri;
+import android.os.*;
+import android.text.*;
+import android.view.*;
+import android.widget.*;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.json.*;
+
+/** Shared lazy-table navigation/export UI; binary/metadata logic lives in providers. */
+public final class InvestigationActivity extends Activity {
+    private static final int HISTORY_LIMIT = 64;
+    private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final ArrayDeque<Location> history = new ArrayDeque<>();
+    private InvestigationBackend backend;
+    private Location location, produced;
+    private EvidenceRows source;
+    private EvidenceRows.Selection selection;
+    private EvidenceRows.Page shown;
+    private List<InvestigationBackend.Link> roots = Collections.emptyList();
+    private String provenance = "{}", metadata = "{}";
+    private File bytes, exportDirectory;
+    private String inputName;
+    private String retentionState, pendingInputRequest;
+    private String inputNotice = "";
+    private long byteSize;
+    private volatile int generation;
+    private boolean busy, binding, pickerOpen, expired;
+    private AtomicBoolean cancellation = new AtomicBoolean();
+    private PreparedExport prepared, preview;
+    private EditText filter;
+    private Spinner pageSize;
+    private TextView title, context, status, mechanism;
+    private Button mechanismToggle;
+    private ExpandableHelp explanations;
+    private ListView records;
+    private Button back, views, reload, cancel, previous, next, search, export;
+
+    private static final class Location {
+        final String request, filter, draft;
+        final int page, pageSize;
+        Location(String request, String filter, String draft, int page, int pageSize) {
+            if (request != null && request.length() > 16384 || filter.length() > 1024 || draft.length() > 1024 || page < 0 || !(pageSize == 1 || pageSize == 10 || pageSize == 50)) throw new IllegalArgumentException("Invalid investigation location");
+            this.request = request; this.filter = filter; this.draft = draft; this.page = page; this.pageSize = pageSize;
+        }
+        Bundle bundle() {
+            Bundle value = new Bundle(); value.putString("request", request); value.putString("filter", filter); value.putString("draft", draft); value.putInt("page", page); value.putInt("pageSize", pageSize); return value;
+        }
+        static Location restore(Bundle value) {
+            return new Location(value.getString("request"), value.getString("filter", ""), value.getString("draft", ""), Math.max(0, value.getInt("page")), value.getInt("pageSize", 50));
+        }
+    }
+    private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
+    private TextView text(String value, int size) { TextView view = new TextView(this); view.setText(value); view.setTextSize(size); view.setTextColor(0xffe5eaf0); return view; }
+    private Button button(String label, Runnable action) { Button view = new Button(this); view.setText(label); view.setAllCaps(false); view.setTextSize(12); view.setOnClickListener(v -> action.run()); return view; }
+    private void add(LinearLayout row, View view) { row.addView(view, new LinearLayout.LayoutParams(0, -2, 1)); }
+
+    @Override public void onCreate(Bundle state) {
+        super.onCreate(state);
+        explanations = new ExpandableHelp(this);
+        String path = getIntent().getStringExtra("path"); if (path == null) { finish(); return; }
+        File root = new File(path); inputName = getIntent().getStringExtra("name"); if (inputName == null) inputName = root.getName();
+        if(state!=null) { retentionState=state.getString("providerState");pendingInputRequest=state.getString("pendingInputRequest");if(pendingInputRequest!=null)pickerOpen=true; }
+        exportDirectory = new File(getCacheDir(), "tool-exports");
+        if ("comparison".equals(getIntent().getStringExtra("provider"))) backend = new ComparisonBackend(root,new File(getCacheDir(),"comparison-snapshots"),inputName,getIntent().getStringExtra("sha256"),getIntent().getLongExtra("sourceSize",-1),retentionState);
+        else if ("desktop-batch".equals(getIntent().getStringExtra("provider"))) backend = new BatchScanBackend(new File(getFilesDir(),"desktop-batches"),new File(getCacheDir(),"batch-view-snapshots"),getIntent().getStringExtra("batchId"));
+        else if ("binder-registry".equals(getIntent().getStringExtra("provider"))) backend = new BinderRegistryBackend(root,new File(getCacheDir(),"binder-registry-snapshots"),BinderServiceCapture.directory(this),getIntent().getStringExtra("sha256"),getIntent().getLongExtra("sourceSize",-1),()->getAssets().open("references/android-15-service.cpp"));
+        else if ("binwalk".equals(getIntent().getStringExtra("provider"))) backend = new BinwalkBackend(root,new File(getCacheDir(),"binary-snapshots"),inputName,new BinaryWorkerClient(this));
+        else if ("photorec".equals(getIntent().getStringExtra("provider"))) backend = new PhotoRecBackend(root,new File(getCacheDir(),"carving-snapshots"),inputName,new BinaryWorkerClient(this,"photorec"));
+        else if ("mpv".equals(getIntent().getStringExtra("provider"))) backend = new MpvBackend(root,new File(getCacheDir(),"media-snapshots"),inputName,new BinaryWorkerClient(this,"mpv"));
+        else if ("resources".equals(getIntent().getStringExtra("provider"))) backend = new AndroidResourceBackend(root,new File(getCacheDir(),"resource-snapshots"),inputName,new BinaryWorkerClient(this,"resources"));
+        else if ("hashes".equals(getIntent().getStringExtra("provider"))) backend = new HashBackend(root,new File(getCacheDir(),"hash-snapshots"),inputName,new BinaryWorkerClient(this,"hashes"));
+        else if ("apk-signing".equals(getIntent().getStringExtra("provider"))) backend = new ApkSigningBackend(root,new File(getCacheDir(),"signing-snapshots"),inputName,
+            getIntent().getStringExtra("sha256"),getIntent().getLongExtra("sourceSize",-1),retentionState);
+        else if ("package-set".equals(getIntent().getStringExtra("provider"))) backend = new PackageSetBackend(root,new File(getCacheDir(),"package-snapshots"),inputName,
+            getIntent().getStringExtra("sha256"),getIntent().getLongExtra("sourceSize",-1),getIntent().getStringArrayListExtra("packagePaths"),getIntent().getStringExtra("inventoryPackage"),retentionState,new BinaryWorkerClient(this,"resources"));
+        else if ("sdk-rules".equals(getIntent().getStringExtra("provider"))) backend = new SdkCatalogBackend(()->getAssets().open("knowledge/libchecker-v5.json"),new File(getCacheDir(),"knowledge-snapshots"));
+        else if ("tracker-rules".equals(getIntent().getStringExtra("provider"))) backend = new TrackerCatalogBackend(()->new FileInputStream(new File(getFilesDir(),"exodus-trackers.json")),new File(getCacheDir(),"tracker-snapshots"));
+        else if ("metadata".equals(getIntent().getStringExtra("provider"))) backend = new MetadataBackend(root,new File(getCacheDir(),"metadata-snapshots"),inputName);
+        else if ("strings".equals(getIntent().getStringExtra("provider"))) backend = new StringBackend(root,new File(getCacheDir(),"string-snapshots"),inputName,ScanPreferences.load(this).minimumStringLength);
+        else backend = new DexBackend(root, new File(getCacheDir(), "investigation-inputs"), inputName,
+            getIntent().getStringExtra("sha256"), getIntent().getLongExtra("sourceSize", root.length()));
+        if (state != null) inputNotice = state.getString("inputNotice", "");
+        createViews(); location = new Location(null, "", "", 0, 50);
+        if (state != null) {
+            try {
+                Bundle saved = state.getBundle("location"); if (saved != null) location = Location.restore(saved);
+                ArrayList<Bundle> trail = state.getParcelableArrayList("history");
+                if (trail != null && trail.size() <= HISTORY_LIMIT) for (Bundle item : trail) history.addLast(Location.restore(item));
+                expired = state.getBoolean("expired");
+            } catch (RuntimeException e) { history.clear(); status.setText("Navigation state expired; reopening input"); }
+            if (state.getString("prepared") != null) try {
+                prepared = PreparedExport.restore(exportDirectory, state.getString("prepared"), state.getString("exportName"), state.getString("exportMime"), state.getLong("exportSize")); pickerOpen = true;
+            } catch (IOException e) { status.setText("Prepared export expired; prepare it again"); }
+        }
+        bind(location);
+        if (root.isFile()||"comparison".equals(getIntent().getStringExtra("provider"))&&retentionState!=null||"desktop-batch".equals(getIntent().getStringExtra("provider"))||"package-set".equals(getIntent().getStringExtra("provider"))||"apk-signing".equals(getIntent().getStringExtra("provider"))&&retentionState!=null||"sdk-rules".equals(getIntent().getStringExtra("provider"))||"tracker-rules".equals(getIntent().getStringExtra("provider"))) load(location, false);
+        else { status.setText("Input snapshot expired; reopen it from Scan. An available prepared export can still finish."); controls(); }
+    }
+    private void createViews() {
+        LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(0xff15191e); root.setPadding(dp(8), dp(8), dp(8), dp(8));
+        if (Build.VERSION.SDK_INT >= 30) {
+            getWindow().setDecorFitsSystemWindows(false);
+            root.setOnApplyWindowInsetsListener((view, insets) -> {
+                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                view.setPadding(bars.left + dp(8), bars.top + dp(8), bars.right + dp(8), bars.bottom + dp(8)); return insets;
+            });
+        }
+        title = text(inputName, 17); title.setMaxLines(2); title.setEllipsize(TextUtils.TruncateAt.MIDDLE); root.addView(title);
+        context = text("Loading investigation…", 12); context.setMaxLines(3); context.setEllipsize(TextUtils.TruncateAt.END);
+        context.setOnClickListener(v -> showText("Scope / provenance / interpretation", context.getText() + "\n\n" + mechanism.getText() + "\n\n" + pretty(metadata) + "\n\n" + pretty(provenance))); root.addView(context);
+        root.addView(explanations.controls(this));
+        mechanismToggle = button("Scope and interpretation", () -> {}); root.addView(mechanismToggle);
+        mechanism = text("", 12); mechanism.setTextIsSelectable(true); mechanism.setTag("explanation:investigation.scope"); root.addView(mechanism);
+        LinearLayout navigation = new LinearLayout(this);
+        back = button("Back", this::goBack); add(navigation, back); views = button("Root views", this::rootViews); add(navigation, views);
+        reload = button("Reload view", () -> load(capture(), false)); add(navigation, reload);
+        cancel = button("Cancel", () -> { cancellation.set(true); status.setText("Cancellation requested • waiting for current engine/I/O operation"); }); add(navigation, cancel); root.addView(navigation);
+        LinearLayout filtering = new LinearLayout(this); filter = new EditText(this); filter.setSingleLine(); filter.setHint("Search current evidence (press Search)");
+        filter.setFilters(new InputFilter[]{new InputFilter.LengthFilter(1024)}); filtering.addView(filter, new LinearLayout.LayoutParams(0, -2, 3));
+        search = button("Search", () -> { Location current = capture(); load(new Location(current.request, current.draft, current.draft, 0, current.pageSize), true); }); add(filtering, search); root.addView(filtering);
+        LinearLayout paging = new LinearLayout(this);
+        previous = button("Previous", () -> page(-1)); add(paging, previous); next = button("Next", () -> page(1)); add(paging, next);
+        pageSize = new Spinner(this); pageSize.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, new String[]{"50 rows", "10 rows", "1 row"})); add(paging, pageSize);
+        export = button("Export all", this::exportTable); add(paging, export); root.addView(paging);
+        status = text("Ready", 12); status.setMaxLines(3); status.setTextIsSelectable(true); root.addView(status);
+        records = new ListView(this); root.addView(records, new LinearLayout.LayoutParams(-1, 0, 1)); setContentView(root);
+        filter.setId(R.id.investigation_filter); records.setId(R.id.investigation_records); status.setId(R.id.investigation_status);
+        filter.addTextChangedListener(new TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            public void onTextChanged(CharSequence s, int start, int before, int count) { if (!binding && !busy && produced != null) status.setText("Search text changed • press Search; displaying captured results"); }
+            public void afterTextChanged(Editable value) {}
+        });
+        filter.setOnEditorActionListener((v, action, event) -> { if (!busy && !pickerOpen) search.performClick(); return true; });
+        pageSize.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            public void onNothingSelected(AdapterView<?> parent) {}
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (!binding && !busy && !pickerOpen && produced != null) {
+                    int count = new int[]{50,10,1}[position];
+                    if (produced.pageSize != count) load(new Location(produced.request, produced.filter, filter.getText().toString(), 0, count), true);
+                }
+            }
+        });
+        records.setOnItemClickListener((parent, view, index, id) -> { if (!busy && shown != null) details(shown.rows.get(index)); });
+    }
+    private void bind(Location value) {
+        binding = true; filter.setText(value.draft); pageSize.setSelection(value.pageSize == 50 ? 0 : value.pageSize == 10 ? 1 : 2); binding = false;
+    }
+    private Location capture() {
+        Location current = produced == null ? location : produced;
+        return new Location(current.request, current.filter, filter.getText().toString(), current.page, current.pageSize);
+    }
+    private int begin(String message) {
+        cancellation.set(true); cancellation = new AtomicBoolean(); int ticket = ++generation; busy = true; controls(); status.setText(message); return ticket;
+    }
+    private void controls() {
+        boolean enabled = !busy && !pickerOpen;
+        back.setEnabled(enabled && !history.isEmpty()); views.setEnabled(enabled && !roots.isEmpty()); reload.setEnabled(enabled); cancel.setEnabled(busy);
+        search.setEnabled(enabled && source != null); filter.setEnabled(enabled); pageSize.setEnabled(enabled); export.setEnabled(enabled && source != null);
+        records.setEnabled(enabled); previous.setEnabled(enabled && shown != null && shown.number > 0); next.setEnabled(enabled && shown != null && shown.number + 1 < shown.pageCount);
+    }
+    private void load(Location target, boolean reuse) {
+        if (pickerOpen && prepared == null) return;
+        final EvidenceRows retained = reuse && produced != null && Objects.equals(produced.request, target.request) ? source : null;
+        final EvidenceRows.Selection retainedSelection = retained != null && produced.filter.equals(target.filter) ? selection : null;
+        final int ticket = begin("Reading selected evidence scope…"); final AtomicBoolean stop = cancellation;
+        location = target; produced = null; source = null; selection = null; shown = null; records.setAdapter(null); bind(target);
+        worker.execute(() -> {
+            try {
+                EvidenceRows.check(stop::get); String request = target.request == null ? backend.initialRequest(stop::get) : target.request;
+                EvidenceRows rows = retained == null ? backend.open(request, stop::get) : retained;
+                EvidenceRows.Selection selected = retainedSelection == null ? rows.select(target.filter, stop::get) : retainedSelection;
+                EvidenceRows.Page page = selected.page(target.page, target.pageSize, stop::get);
+                String origin = backend.provenance().toString(), meta = rows.metadata().toString(); File input = backend.byteSource(); String display = backend.sourceName(); long size = input.length();
+                String retainedState=backend.retentionState();
+                List<InvestigationBackend.Link> rootViews = backend.roots(request, stop::get); EvidenceRows.check(stop::get);
+                runOnUiThread(() -> {
+                    if (isDestroyed() || ticket != generation) return;
+                    busy = false; source = rows; selection = selected; shown = page; roots = rootViews; bytes = input; inputName = display; byteSize = size; provenance = origin; metadata = meta;
+                    retentionState=retainedState;
+                    produced = new Location(request, target.filter, target.draft, page.number, target.pageSize); location = produced; present();
+                });
+            } catch (Exception | LinkageError | StackOverflowError error) { failed(ticket, "Investigation failed: " + error.getMessage()); }
+        });
+    }
+    private void failed(int ticket, String message) { runOnUiThread(() -> { if (!isDestroyed() && ticket == generation) { busy = false; controls(); status.setText(message); } }); }
+    private void present() {
+        title.setText(source.title); context.setText((backend.statusSummary().isEmpty()?"":backend.statusSummary()+"\n") + inputName + " • " + byteSize + " bytes • " + source.size() + " records in scope");
+        mechanism.setText(backend.help(produced.request));
+        explanations.bind("investigation."+getIntent().getStringExtra("provider")+"."+source.kind,"Scope and interpretation",mechanismToggle,mechanism,true,false);
+        records.setAdapter(new BaseAdapter() {
+            public int getCount() { return shown.rows.size(); }
+            public Object getItem(int i) { return shown.rows.get(i); }
+            public long getItemId(int i) { return shown.rows.get(i).index; }
+            public View getView(int i, View old, ViewGroup parent) {
+                TextView view = old instanceof TextView ? (TextView)old : text("", 12); view.setTypeface(Typeface.MONOSPACE); view.setPadding(dp(6), dp(8), dp(6), dp(8));
+                EvidenceRows.Row row = shown.rows.get(i); String name = row.name.length() > 180 ? row.name.substring(0,180) + "… [full record on tap]" : row.name;
+                String description = row.description.length() > 300 ? row.description.substring(0,300) + "…" : row.description;
+                view.setText("#" + row.index + " " + visible(name) + "\n" + visible(description) + "\nphysical=" + NativeTable.hexOffset(row.physicalOffset) + " • bytes=" + (row.sizeBytes == null ? "unknown/associated location" : row.sizeBytes)); return view;
+            }
+        });
+        status.setText(shown.matches + " matches of " + source.size() + " records • page " + (shown.number + 1) + "/" + shown.pageCount
+            + " • " + produced.pageSize + " rows/page" + (expired ? " • oldest Back location expired (64 retained)" : "")
+            + (!filter.getText().toString().equals(produced.filter) ? " • edited search not applied" : "")
+            + (inputNotice.isEmpty() ? "" : "\n" + inputNotice)); controls();
+    }
+    private void page(int delta) { if (produced == null || busy) return; Location current = capture(); load(new Location(current.request, current.filter, current.draft, Math.max(0,current.page + delta), current.pageSize), true); }
+    private void navigate(InvestigationBackend.Link link) {
+        if (busy || pickerOpen) return;
+        if (history.size() == HISTORY_LIMIT) { history.removeFirst(); expired = true; } history.addLast(capture());
+        int rows = location.pageSize; load(new Location(link.request, "", "", link.row < 0 ? 0 : link.row / rows, rows), false);
+    }
+    private void goBack() { if (busy || pickerOpen) return; Location target = history.pollLast(); if (target == null) { finish(); return; } load(target, false); }
+    @Override public void onBackPressed() {
+        if (busy) { cancellation.set(true); status.setText("Cancellation requested • wait for the operation to settle"); }
+        else if (!history.isEmpty() && !pickerOpen) goBack(); else super.onBackPressed();
+    }
+    private void rootViews() {
+        if (busy || pickerOpen) return; String[] names = new String[roots.size()]; for (int i = 0; i < names.length; i++) names[i] = roots.get(i).label;
+        new AlertDialog.Builder(this).setTitle("Root evidence views").setItems(names, (dialog, which) -> followLink(roots.get(which))).setNegativeButton("Cancel", null).show();
+    }
+    private void followLink(InvestigationBackend.Link link) {
+        if(link.input) selectAdditionalInput(link.request);
+        else if (link.binary) prepare(stop -> PreparedExport.bytes(exportDirectory,link.textName,backend.binaryValue(link.request,stop::get),stop::get));
+        else if (link.textName != null) renderText(link); else navigate(link);
+    }
+    private void selectAdditionalInput(String request) {
+        if (busy || pickerOpen) return;
+        if (!backend.inputRequiresDocument(request)) {
+            acceptAdditionalInput(request, null);
+            return;
+        }
+        pendingInputRequest = request;
+        pickerOpen = true;
+        controls();
+        try {
+            startActivityForResult(
+                    new Intent(Intent.ACTION_OPEN_DOCUMENT)
+                            .addCategory(Intent.CATEGORY_OPENABLE)
+                            .setType("*/*"),
+                    2);
+        } catch (RuntimeException error) {
+            pendingInputRequest = null;
+            pickerOpen = false;
+            controls();
+            status.setText("Cannot open input picker: " + error.getMessage());
+        }
+    }
+
+    private void acceptAdditionalInput(String request, Uri uri) {
+        inputNotice = "";
+        int ticket = begin("Acquiring / verifying selected supplemental input…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(
+                () -> {
+                    boolean adopted = false;
+                    try {
+                        if (uri == null) {
+                            backend.acceptInput(request, null, "", stop::get);
+                            adopted = true;
+                        } else {
+                            String name = "Selected supplemental input";
+                            try (android.database.Cursor cursor =
+                                    getContentResolver()
+                                            .query(
+                                                    uri,
+                                                    new String[] {
+                                                        android.provider.OpenableColumns
+                                                                .DISPLAY_NAME
+                                                    },
+                                                    null,
+                                                    null,
+                                                    null)) {
+                                if (cursor != null && cursor.moveToFirst() && !cursor.isNull(0))
+                                    name = cursor.getString(0);
+                            } catch (Exception ignored) {
+                                // Some readable providers do not implement metadata queries.
+                            }
+                            try (InputStream input = getContentResolver().openInputStream(uri)) {
+                                if (input == null)
+                                    throw new IOException("Selected document is unavailable");
+                                backend.acceptInput(request, input, name, stop::get);
+                                adopted = true;
+                            }
+                        }
+                        acceptedInput(ticket, "");
+                    } catch (Exception | LinkageError | StackOverflowError error) {
+                        if (adopted) {
+                            try {
+                                acceptedInput(ticket, "Selected input was adopted; provider close / follow-up failed: " + error.getMessage());
+                            } catch (Exception recovery) {
+                                failed(ticket, "Selected input was adopted, but its new view could not be restored: " + recovery.getMessage());
+                            }
+                        } else failed(ticket, "Supplemental input failed; prior captured evidence retained: " + error.getMessage());
+                    }
+                });
+    }
+
+    /** Called only after the backend commit point, even if provider close subsequently fails. */
+    private void acceptedInput(int ticket, String notice) throws Exception {
+        String retained = backend.retentionState();
+        String capturedNotice = notice.length() > 16384 ? notice.substring(0, 16384) + " [diagnostic preview capped]" : notice;
+        runOnUiThread(() -> {
+            if (isDestroyed() || ticket != generation) return;
+            retentionState = retained;
+            inputNotice = capturedNotice;
+            busy = false;
+            history.clear();
+            expired = false;
+            load(new Location(null, "", "", 0, location.pageSize), false);
+        });
+    }
+
+    private void showText(String caption, String value) {
+        ScrollView scroll = new ScrollView(this); String displayed = value.length() > 128 * 1024 ? value.substring(0,128 * 1024) + "\n\nDISPLAY PREVIEW: full scoped JSON remains available through export." : value;
+        TextView body = text(displayed, 13); body.setTextIsSelectable(true); body.setPadding(dp(12),dp(8),dp(12),dp(8)); scroll.addView(body);
+        body.setText(visible(displayed)); new AlertDialog.Builder(this).setTitle(caption).setView(scroll).setPositiveButton("Close", null).show();
+    }
+    private static String pretty(String value) { try { return new JSONObject(value).toString(2); } catch (JSONException e) { return value; } }
+    /** Keep invisible direction/control characters legible; exported values remain exact. */
+    private static String visible(String value) {
+        StringBuilder result = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (Character.getType(c) == Character.FORMAT || Character.isISOControl(c) && c != '\n' && c != '\t') result.append(String.format(Locale.ROOT,"\\u%04X",(int)c));
+            else result.append(c);
+        }
+        return result.toString();
+    }
+    private void details(EvidenceRows.Row row) {
+        ScrollView scroll = new ScrollView(this); String value = pretty(row.encoded);
+        TextView body = text((value.length() > 128 * 1024 ? value.substring(0,128 * 1024) + "\nDISPLAY PREVIEW • export the complete record/table for all values." : value)
+            + "\n\n" + backend.help(produced.request), 13); body.setTypeface(Typeface.MONOSPACE); body.setTextIsSelectable(true); body.setPadding(dp(12),dp(8),dp(12),dp(8)); scroll.addView(body);
+        body.setText(visible(body.getText().toString())); new AlertDialog.Builder(this).setTitle("Record " + row.index + " • " + source.kind).setView(scroll).setNegativeButton("Close", null)
+            .setPositiveButton("Actions", (dialog, which) -> rowActions(row)).show();
+    }
+    private void rowActions(EvidenceRows.Row row) {
+        if (busy || pickerOpen || produced == null) return;
+        final String request = produced.request; final EvidenceRows captured = source; final int ticket = begin("Resolving record relationships…"); final AtomicBoolean stop = cancellation;
+        worker.execute(() -> {
+            try {
+                List<InvestigationBackend.Link> links = backend.related(request, captured, row, stop::get); EvidenceRows.check(stop::get);
+                runOnUiThread(() -> { if (isDestroyed() || ticket != generation) return; busy = false; controls(); actionDialog(row, links); });
+            } catch (Exception | StackOverflowError error) { failed(ticket, "Relationship lookup failed: " + error.getMessage()); }
+        });
+    }
+    private void actionDialog(EvidenceRows.Row row, List<InvestigationBackend.Link> links) {
+        List<String> labels = new ArrayList<>(); List<Runnable> actions = new ArrayList<>();
+        for (InvestigationBackend.Link link : links) { labels.add(link.label); actions.add(() -> followLink(link)); }
+        if (row.physicalOffset != null && row.physicalOffset < byteSize) {
+            labels.add("Hex at associated physical offset"); actions.add(() -> {
+                if (!bytes.isFile() || bytes.length() != byteSize) { status.setText("Input snapshot expired or changed; reopen it from Scan"); return; }
+                openHex(row.physicalOffset);
+            });
+        }
+        if (row.physicalOffset != null && row.sizeBytes != null) try {
+            FileRange range = new FileRange(byteSize, row.physicalOffset, row.sizeBytes);
+            if (range.length > 0 && range.length <= FileRange.MAX_OPERATION_BYTES) {
+                labels.add("Analyze stored range: entropy / SHA-256 / CRC32"); actions.add(() -> rangeAnalysis(range));
+                labels.add("Export exact stored range"); actions.add(() -> prepare(stop -> PreparedExport.range(exportDirectory, "range-" + Long.toHexString(range.offset) + ".bin", bytes, range, stop::get)));
+            }
+        } catch (IllegalArgumentException ignored) { /* Invalid/associated ranges remain metadata, not extractable bytes. */ }
+        labels.add("Export complete selected record JSON"); actions.add(() -> {
+            final String origin = provenance, meta = metadata; final EvidenceRows captured = source;
+            EvidenceRows one = new EvidenceRows(capturedKind(), "Selected original record " + row.index) {
+                int size() { return 1; } Row row(int ignored, java.util.function.BooleanSupplier stop) throws Exception { EvidenceRows.check(stop); return row; }
+                JSONObject metadata() throws Exception { return new JSONObject(meta).put("recordSelection", row.index); }
+                @Override void writeSelectedRow(Writer out, Row selected, java.util.function.BooleanSupplier stop) throws Exception { captured.writeSelectedRow(out,selected,stop); }
+            };
+            prepare(stop -> PreparedExport.stream(exportDirectory, "evidence-record.json", "application/json", out -> one.writeReport(out, new JSONObject(origin), "", 0, stop::get), stop::get));
+        });
+        new AlertDialog.Builder(this).setTitle("Record actions").setItems(labels.toArray(new String[0]), (dialog, which) -> actions.get(which).run()).setNegativeButton("Cancel", null).show();
+    }
+    private String capturedKind() { return source == null ? "selected-record" : source.kind + "-record"; }
+    private void openHex(long offset) {
+        File input = bytes; String name = inputName; int ticket = begin("Preparing independent byte view…"); AtomicBoolean stop = cancellation;
+        worker.execute(() -> {
+            InputSnapshot snapshot = null;
+            try {
+                snapshot = InputSnapshot.acquire(input,new File(getCacheDir(),"shared-analysis-inputs"),FileRange.MAX_OPERATION_BYTES,stop::get);
+                EvidenceRows.check(stop::get); final InputSnapshot owned = snapshot;
+                runOnUiThread(() -> {
+                    if (isDestroyed() || ticket != generation) { owned.close(); return; }
+                    busy = false; controls(); status.setText("Independent byte snapshot prepared");
+                    try { startActivity(new Intent(this,NativeToolsActivity.class).putExtra("path",owned.file.getAbsolutePath()).putExtra("name",name).putExtra("tool",9).putExtra("offset",offset)
+                        .putExtra("sha256",owned.sha256).putExtra("sourceSize",owned.size).putExtra("ownedSnapshot",true)); }
+                    catch (RuntimeException error) { owned.close(); status.setText("Cannot open byte viewer: " + error.getMessage()); }
+                });
+            } catch (Exception error) { if (snapshot != null) snapshot.close(); failed(ticket,"Byte view preparation failed: " + error.getMessage()); }
+        });
+    }
+    private void rangeAnalysis(FileRange range) {
+        File input = bytes; int ticket = begin("Measuring stored physical range…"); AtomicBoolean stop = cancellation;
+        worker.execute(() -> {
+            try { RangeAnalysis.Result result = RangeAnalysis.inspect(input, range, stop::get);
+                runOnUiThread(() -> { if (isDestroyed() || ticket != generation) return; busy = false; controls();
+                    showText("Range evidence", "Physical offset: " + NativeTable.hexOffset(range.offset) + "\nBytes: " + range.length + "\nSHA-256: " + result.sha256 + "\nCRC32: " + result.crc32
+                        + "\nShannon entropy: " + result.entropy + " bits/byte\n\nThese measurements identify stored bytes. Entropy alone does not establish encryption, packing or behavior."); });
+            } catch (Exception e) { failed(ticket, "Range analysis failed: " + e.getMessage()); }
+        });
+    }
+    private interface Preparation { PreparedExport create(AtomicBoolean stop) throws Exception; }
+    private void prepare(Preparation preparation) {
+        if (busy || pickerOpen) return; int ticket = begin("Preparing immutable export…"); AtomicBoolean stop = cancellation;
+        worker.execute(() -> {
+            PreparedExport result = null;
+            try { result = preparation.create(stop); EvidenceRows.check(stop::get); }
+            catch (Exception | StackOverflowError e) { if (result != null) result.discard(); failed(ticket, "Export preparation failed: " + e.getMessage()); return; }
+            final PreparedExport staged = result;
+            runOnUiThread(() -> {
+                if (isDestroyed() || ticket != generation) { staged.discard(); return; }
+                busy = false; launchExport(staged);
+            });
+        });
+    }
+    private void exportTable() {
+        if (source == null || produced == null) return; EvidenceRows captured = source; Location view = produced; String origin = provenance;
+        prepare(stop -> PreparedExport.stream(exportDirectory, "evidence-" + captured.kind + ".json", "application/json",
+            out -> captured.writeReport(out, new JSONObject(origin), view.filter, view.page, view.pageSize, stop::get), stop::get));
+    }
+    private void launchExport(PreparedExport staged) {
+        if (prepared != null) prepared.discard(); prepared = staged; pickerOpen = true; controls();
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(staged.mime).putExtra(Intent.EXTRA_TITLE, staged.name); startActivityForResult(intent, 1);
+    }
+    private void renderText(InvestigationBackend.Link link) {
+        int ticket = begin("Rendering complete text…"); AtomicBoolean stop = cancellation;
+        worker.execute(() -> {
+            PreparedExport staged = null;
+            try {
+                String mime = link.textName.toLowerCase(Locale.ROOT).endsWith(".json") ? "application/json" : "text/plain";
+                staged = PreparedExport.stream(exportDirectory, link.textName, mime, out -> backend.writeText(link.request, out, stop::get), stop::get);
+                StringBuilder snippet = new StringBuilder(); char[] buffer = new char[4096]; boolean more;
+                try (Reader in = new InputStreamReader(new FileInputStream(staged.file), StandardCharsets.UTF_8)) { int count; while (snippet.length() < 65536 && (count = in.read(buffer, 0, Math.min(buffer.length, 65536 - snippet.length()))) >= 0) { EvidenceRows.check(stop::get); snippet.append(buffer,0,count); } more = in.read() >= 0; }
+                final PreparedExport ready = staged; final String text = snippet.toString(); final boolean truncated = more;
+                runOnUiThread(() -> {
+                    if (isDestroyed() || ticket != generation) { ready.discard(); return; }
+                    busy = false; controls(); if (preview != null) preview.discard(); preview = ready;
+                    ScrollView scroll = new ScrollView(this); HorizontalScrollView horizontal = new HorizontalScrollView(this); TextView body = text(text + (truncated ? "\n\nDISPLAY PREVIEW • export retains the complete rendered scope." : ""),12); body.setTypeface(Typeface.MONOSPACE); body.setTextIsSelectable(true); horizontal.addView(body); scroll.addView(horizontal);
+                    AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Rendered text • " + ready.size + " UTF-8 bytes").setView(scroll).setNegativeButton("Close", null)
+                        .setPositiveButton("Export complete text", (d,w) -> { preview = null; launchExport(ready); }).create();
+                    dialog.setOnDismissListener(d -> { if (preview == ready) { preview.discard(); preview = null; } }); dialog.show();
+                });
+            } catch (Exception | StackOverflowError e) { if (staged != null) staged.discard(); failed(ticket, "Text rendering failed: " + e.getMessage()); }
+        });
+    }
+    @Override protected void onActivityResult(int request, int result, Intent intent) {
+        super.onActivityResult(request,result,intent);
+        if(request==2) {
+            String pending=pendingInputRequest;pendingInputRequest=null;pickerOpen=false;
+            if(pending==null||result!=RESULT_OK||intent==null||intent.getData()==null) {
+                controls();status.setText("Supplemental input selection cancelled; prior evidence retained");
+                if(source==null)load(location,false);return;
+            }
+            acceptAdditionalInput(pending,intent.getData());return;
+        }
+        if (request != 1) return; pickerOpen = false;
+        PreparedExport staged = prepared; prepared = null;
+        if (staged == null) { controls(); status.setText("Prepared export expired; prepare it again"); return; }
+        if (result != RESULT_OK || intent == null || intent.getData() == null) { staged.discard(); controls(); status.setText("Export cancelled"); return; }
+        int ticket = begin("Writing prepared export…"); AtomicBoolean stop = cancellation; Uri destination = intent.getData();
+        worker.execute(() -> {
+            String message;
+            try (OutputStream out = getContentResolver().openOutputStream(destination,"wt")) { if (out == null) throw new IOException("Destination unavailable"); staged.copyTo(out,stop::get); message = "Export saved • " + staged.size + " bytes"; }
+            catch (Exception e) { message = "Export failed; destination may contain partial data: " + e.getMessage(); } finally { staged.discard(); }
+            final String response = message; runOnUiThread(() -> { if (!isDestroyed() && ticket == generation) { busy = false; controls(); status.setText(response + (source == null ? "\nReload view to resume investigation" : "")); } });
+        });
+    }
+    @Override protected void onSaveInstanceState(Bundle state) {
+        super.onSaveInstanceState(state); if (location == null) return; state.putBundle("location", capture().bundle()); ArrayList<Bundle> trail = new ArrayList<>(); for (Location value : history) trail.add(value.bundle()); state.putParcelableArrayList("history",trail); state.putBoolean("expired",expired);
+        state.putString("inputNotice", inputNotice);
+        if(retentionState!=null)state.putString("providerState",retentionState);
+        if(pendingInputRequest!=null)state.putString("pendingInputRequest",pendingInputRequest);
+        if (prepared != null && pickerOpen) { state.putString("prepared",prepared.file.getAbsolutePath()); state.putString("exportName",prepared.name); state.putString("exportMime",prepared.mime); state.putLong("exportSize",prepared.size); }
+    }
+    @Override protected void onDestroy() {
+        generation++; cancellation.set(true); if (preview != null) preview.discard(); if (!pickerOpen && prepared != null) prepared.discard();
+        boolean retainInputs=isChangingConfigurations();
+        worker.execute(() -> { try { backend.close(retainInputs); } catch (Exception ignored) {} }); worker.shutdown(); super.onDestroy();
+    }
+}
