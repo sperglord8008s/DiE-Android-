@@ -1,6 +1,6 @@
 # Development continuation point
 
-Work is on `codex/workbench-parity`, proposed in [draft PR #1](https://github.com/sperglord8008s/DiE-Android-/pull/1), based on main `0558a89`. The application remains `org.diemobile` / `0.4.0-alpha`, with the existing signing configuration. Full desktop parity and handset verification are not complete. Read AGENTS.md and the three design/parity documents before continuing.
+Work is on `codex/workbench-parity`, proposed in [draft PR #1](https://github.com/sperglord8008s/DiE-Android-/pull/1), based on main `0558a89`. The application remains `org.diemobile` / `0.5.0-alpha` (version code 5), with the existing signing configuration. Full desktop parity and handset verification are not complete. Read AGENTS.md and the three design/parity documents before continuing.
 
 ## Implemented and fixture-verified in this work
 

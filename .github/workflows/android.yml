@@ -53,6 +53,13 @@ jobs:
       - run: bash scripts/verify-apk.sh app/build/outputs/apk/debug/app-debug.apk
       - run: bash scripts/test-workbench-ui.sh
       - run: python3 scripts/package-photorec-sources.py
+      - run: python3 scripts/package-alpha.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: die-android-alpha-savepoint
+          if-no-files-found: error
+          retention-days: 90
+          path: app/build/alpha-checkpoint/*
       - uses: actions/upload-artifact@v4
         with:
           name: die-android-arm64-debug

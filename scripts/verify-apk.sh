@@ -17,15 +17,26 @@ fi
 "$tools/aapt2" dump permissions "$apk" > "$tmp/permissions.txt"
 "$tools/aapt2" dump badging "$apk" > "$tmp/badging.txt"
 "$tools/aapt2" dump xmltree "$apk" --file AndroidManifest.xml > "$tmp/manifest-tree.txt"
-python3 - "$tmp/permissions.txt" "$tmp/badging.txt" <<'PY'
+python3 - "$tmp/permissions.txt" "$tmp/badging.txt" app/build.gradle "$tmp/version.txt" <<'PY'
+import re
 import sys
 from pathlib import Path
-permissions, badging = (Path(path).read_text() for path in sys.argv[1:])
+permissions, badging, configuration = (Path(path).read_text() for path in sys.argv[1:4])
 if 'android.permission.INTERNET' in permissions:
     raise SystemExit('Unexpected INTERNET permission in the packaged application.')
 for expected in ("package: name='org.diemobile'", "minSdkVersion:'26'", "targetSdkVersion:'35'"):
     if expected not in badging:
         raise SystemExit('Packaged identity/API field missing: ' + expected + '\n' + badging)
+code = re.search(r"\bversionCode\s+([0-9]+)\b", configuration)
+name = re.search(r"\bversionName\s+'([^']+)'", configuration)
+if code is None or name is None:
+    raise SystemExit('Cannot identify the source application version in app/build.gradle.')
+package_line = next((line for line in badging.splitlines() if line.startswith('package: ')), '')
+for key, expected in (('versionCode', code.group(1)), ('versionName', name.group(1))):
+    actual = re.search(r"\b" + key + r"='([^']*)'", package_line)
+    if actual is None or actual.group(1) != expected:
+        raise SystemExit('Packaged application ' + key + ' differs from app/build.gradle.')
+Path(sys.argv[4]).write_text('Application version: ' + name.group(1) + ' (version code ' + code.group(1) + ')\n')
 PY
 python3 - "$tmp/manifest-tree.txt" <<'PY'
 from pathlib import Path
@@ -113,6 +124,7 @@ manifest="$(dirname "$apk")/build-manifest.txt"
   echo "Source revision: $source_revision"
   echo "Uncommitted source entries at verification: $source_changes"
   echo 'Configuration: debug, org.diemobile, API 26 minimum / API 35 target, ARM64'
+  cat "$tmp/version.txt"
   echo 'Pinned toolchain: JDK 17, Rust 1.90.0, Gradle 8.11.1, NDK 28.2.13676358, CMake 3.22.1, build-tools 35.0.0'
   sha256sum binary-engine/Cargo.lock
   sha256sum media-engine/runtime-lock.json media-engine/source-lock.json

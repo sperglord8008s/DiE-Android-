@@ -1,8 +1,10 @@
-# DiE Android (unofficial) — 0.4.0-alpha
+# DiE Android (unofficial) — 0.5.0-alpha
 
 Offline native Android frontend for the open-source Detect It Easy ecosystem. Independent project, not an official Horsicq application.
 
 Development alpha with host JNI, Android UI simulation and CI build checks; handset verification and a complete audit remain pending. Do not treat a signature match or its absence as proof of safety. Use appropriate isolation for hostile samples.
+
+The [0.5.0-alpha checkpoint notes](docs/releases/0.5.0-alpha.md) identify the save point, build checks and remaining runtime limits.
 
 ## Features
 
