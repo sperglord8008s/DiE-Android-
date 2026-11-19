@@ -20,3 +20,7 @@ app/src/main/assets/notices/unicode-15.0.0.txt -text whitespace=-blank-at-eol,-b
 app/src/main/java/org/diemobile/TrackerUnicode.java -text
 # Preserve the exact unmodified, hash-pinned upstream reference bytes.
 app/src/main/assets/references/android-15-service.cpp -text whitespace=-blank-at-eof
+
+# Generated original archive/codec copyright payloads retain upstream whitespace.
+archive-engine/NOTICE.txt -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+archive-engine/source-headers.txt -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab

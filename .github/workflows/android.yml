@@ -17,7 +17,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .ci-cache
-          key: host-inputs-v1-${{ runner.os }}-${{ hashFiles('scripts/*.sha256', 'scripts/fetch-*.sh', 'scripts/test-*.sh', 'regex-engine/*lock.json', 'signing-engine/*lock.json', 'resource-engine/build.gradle', 'metadata-engine/build.gradle') }}
+          key: host-inputs-v1-${{ runner.os }}-${{ hashFiles('scripts/*.sha256', 'scripts/fetch-*.sh', 'scripts/test-*.sh', 'regex-engine/*lock.json', 'signing-engine/*lock.json', 'resource-engine/build.gradle', 'metadata-engine/build.gradle', 'archive-engine/source-lock.json') }}
           restore-keys: host-inputs-v1-${{ runner.os }}-
       - uses: actions/setup-java@v4
         with:
@@ -48,11 +48,13 @@ jobs:
         with:
           targets: aarch64-linux-android
       - run: bash scripts/build-binwalk.sh android
+      - run: bash scripts/build-archive.sh android
       - run: bash scripts/check-binary-notices.sh
       - run: ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
       - run: bash scripts/verify-apk.sh app/build/outputs/apk/debug/app-debug.apk
       - run: bash scripts/test-workbench-ui.sh
       - run: python3 scripts/package-photorec-sources.py
+      - run: python3 scripts/package-archive-sources.py
       - run: python3 scripts/package-alpha.py
       - uses: actions/upload-artifact@v4
         with:
@@ -74,6 +76,13 @@ jobs:
           path: |
             app/build/photorec-sources/*.zip
             app/build/photorec-sources/*.sha256
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: archive-engine-and-codec-sources
+          path: |
+            app/build/archive-sources/*.zip
+            app/build/archive-sources/*.sha256
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
@@ -104,7 +113,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .ci-cache
-          key: host-inputs-v1-${{ runner.os }}-${{ hashFiles('scripts/*.sha256', 'scripts/fetch-*.sh', 'scripts/test-*.sh', 'regex-engine/*lock.json', 'signing-engine/*lock.json', 'resource-engine/build.gradle', 'metadata-engine/build.gradle') }}
+          key: host-inputs-v1-${{ runner.os }}-${{ hashFiles('scripts/*.sha256', 'scripts/fetch-*.sh', 'scripts/test-*.sh', 'regex-engine/*lock.json', 'signing-engine/*lock.json', 'resource-engine/build.gradle', 'metadata-engine/build.gradle', 'archive-engine/source-lock.json') }}
           restore-keys: host-inputs-v1-${{ runner.os }}-
       - uses: actions/setup-java@v4
         with:
@@ -142,6 +151,7 @@ jobs:
       - run: bash scripts/test-binwalk.sh
       - run: bash scripts/test-photorec.sh
       - run: bash scripts/test-gallerize.sh
+      - run: bash scripts/test-archive-engine.sh
       - run: bash scripts/check-binary-notices.sh
 
   media-integration:

@@ -390,3 +390,41 @@ errors or skips, plus core/80 MiB host fixtures, ARM64 assembly/lint and static
 APK checks. Actual handset/SAF/media/worker behavior remains unverified.
 Gallerize at `11b5af9` passed all five CI jobs in run 44552943212; its immutable
 CI savepoint artifact is 14545440333 and APK artifact is 14545510241.
+
+Broader archive core now exists in `archive-engine/`, with fully pinned original
+libarchive/bzip2/XZ/LZ4/Zstandard source archives, complete API/license contracts,
+verified notices and reproducible host/ARM64 builds. `ArchiveEngine` is the JNI
+contract; `archive_reader.cpp` owns regular positional input, explicit format/
+filter registration, complete or explicitly failed metadata scopes and exact
+selected-member logical output to a separate empty writable FD. No sample
+pathname, disk reader, path extraction or external-program filter is accepted.
+Source metadata/xattr/ACL/sparse/link/Mac state and raw/UTF-8 accessor bytes remain
+separate. Public digest getters return buffers even when unset; their presence
+is unknown rather than a claimed declared checksum.
+
+`test-archive-engine.sh` passes **25 captures and 37 exact acquisitions**, including
+independent TAR/PAX/ZIP and gzip/bzip2/XZ/LZMA/Zstandard/LZ4 frames, pinned 7z,
+RAR5, CAB STORE/MSZIP/LZX and compressed ISO references, a **16 MiB + 17-byte**
+member, embedded scopes, duplicate names, link/CRC/refusal/FD/size checks and a
+direct unmodified CAB header-position oracle. CAB positions vary when data is
+read versus skipped; both original observations are retained, excluded from
+stable identity and never promoted to physical offsets. LZMA memory estimates/
+decoder limits and Zstandard windows are capped at 64 MiB through linker
+wrappers; valid excessive-dictionary/window inputs are independently decoded
+then refused here. Those caps do not bound whole worker memory. Android
+cross-compilation/static 16 KiB alignment and direct program/path-import checks
+pass. The source ZIP was unpacked separately and rebuilt offline with the same
+host fixtures successfully; original archives, corresponding-source bundle and
+logs remain retained. The owned temporary standalone rebuild is reclaimed after
+verification. The unused NDK libclang-cpp tool-support library was reclaimed;
+compiler/linker/libclang C API inputs, sources and APK checkpoints remain intact.
+
+**Next integration is still required:** add descriptor-only archive inspect/
+selected-output IPC to the isolated worker/client, source-bound typed inventory
+and acquisition validation, hierarchy/nested Back/owned byte transfer, exports/
+preview links and APK notice/source packaging. Current app archive UI remains
+ZIP-family; do not claim the new core is exposed in the APK yet. New CI steps
+compile the ARM64 core, run real host fixtures and upload corresponding sources.
+See [module contracts](../archive-engine/README.md). Keep the current working
+Gallerize APK while this is wired. No device runtime, worker UID/Binder/cancel/
+crash/SAF, decoder/PDF/media or 16 KiB runtime behavior is verified.
