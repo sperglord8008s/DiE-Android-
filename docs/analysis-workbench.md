@@ -72,3 +72,11 @@ coordinates. Sparse and fully written 80 MiB data, 256 MiB limits, every returne
 real-APK magic witness and independent source rebuilding are checked. Binwalk
 retains its separate 64 MiB limit. The tagged 0.5.0-alpha save point remains
 unchanged; this work follows that checkpoint. See [PhotoRec](photorec-investigation.md).
+
+Binwalk adapter 2 now uses owned positional descriptor acquisition, fixing the
+shared-FD seek-position regression. Readable regular-file gates, source-change
+checks, explicit file-sized-copy/read accounting and a cooperative 30-second
+budget are preserved in reports. The 64 MiB copy limit remains separate from
+PhotoRec's streaming input limit. Six Rust tests and actual JNI/64 MiB seam/EOF
+fixtures verify the IO behavior; a parser callback remains non-preemptible and
+real worker/handset behavior remains unverified. See [Binwalk](binwalk-investigation.md).

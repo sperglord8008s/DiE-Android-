@@ -86,6 +86,7 @@ class CarvingBackend extends InvestigationBackend {
                 throw new IOException(
                         "PhotoRec worker scope differs from the requested buffer-only analysis");
             if (photoRec) validatePhotoRecCatalog(response, catalog);
+            else validateBinwalkInput(response);
             PhotoRecReport decoded = photoRec ? new PhotoRecReport(response, stop) : null;
             int limitedDataCandidates = 0, compactRejectedCandidates = 0;
             for (int i = 0; i < rows.length(); i++) {
@@ -189,6 +190,33 @@ class CarvingBackend extends InvestigationBackend {
 
     private JSONObject candidate(int ordinal) throws Exception {
         return photoRec ? photoRecReport.row(ordinal) : candidates.getJSONObject(ordinal);
+    }
+
+    private static void validateBinwalkInput(JSONObject response) throws Exception {
+        // Adapter 1 captures predate input-IO metadata. Keep their evidence
+        // readable without attributing adapter 2's guarantees to them.
+        if (!response.has("adapter")) return;
+        long size = response.getLong("fileSizeBytes");
+        long operations = response.getLong("sourceReadOperations");
+        if (!response.getString("adapter").equals("diemobile-binwalk-2")
+                || size < 0
+                || size > MAX_BYTES
+                || response.getLong("maxInputBytes") != MAX_BYTES
+                || !response.getString("inputReadMode").equals("owned-bounded-pread-copy")
+                || !response.getBoolean("inputSizedBufferAllocation")
+                || response.getLong("maximumInputReadBufferBytes") != MAX_BYTES
+                || response.getLong("inputReadBufferBytes") != size
+                || response.getLong("maximumSourceReadRequestBytes") != 65536
+                || response.getLong("sourceReadBytes") != size
+                || operations < (size + 65535) / 65536
+                || operations > size
+                || !response.getBoolean("ownedDescriptorDuplicate")
+                || !response.getBoolean("callerDescriptorPositionPreserved")
+                || !response.getBoolean("sourceMetadataUnchanged")
+                || response.getLong("cooperativeDeadlineMs") != 30000
+                || response.getBoolean("parserCallbacksPreemptible"))
+            throw new IOException(
+                    "Binwalk input/descriptor/budget accounting differs from its contract");
     }
 
     private static void validatePhotoRecCatalog(JSONObject response, JSONArray catalog)

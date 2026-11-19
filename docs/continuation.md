@@ -209,3 +209,22 @@ device behavior and all prior full-file/weak-signature/fragment-recovery gaps
 remain pending. See [PhotoRec contracts](photorec-investigation.md).
 
 The immutable `v0.5.0-alpha` save point remains at `55ebdde`; subsequent development is labeled `0.6.0-alpha-dev` / code 6 to distinguish its APKs from that checkpoint.
+
+Binwalk adapter 2 continuation: `binary-engine/src/input.rs` separates owned
+CLOEXEC positional acquisition from upstream contiguous-slice parsers. It fixes
+a reproduced caller seek-position change, refuses non-data/non-regular FDs,
+checks ordinary source changes and reports exact copy/read/deadline contracts.
+`scripts/test-binwalk.sh` now runs six Rust IO/budget tests and actual JNI
+position/legacy/accounting/64 MiB read-seam/EOF cases. The original upstream and
+Cargo pins remain unchanged. Keep its file-sized-copy limit distinct from
+PhotoRec's 1.25 MiB input-read windows; callbacks still require the isolated
+worker for external cancellation. See [Binwalk contracts](binwalk-investigation.md).
+
+PhotoRec adapter 3 at `1b6596b` passed all five CI jobs in run 44468890115,
+including 118 Android host checks, source packaging and versioned checkpoint
+packaging. Its CI savepoint artifact is 14503528311; the immutable local
+`0.6.0-alpha-dev-1b6596b` checkpoint records the matching source/byte identities.
+The later Binwalk adapter-2 local run also passes all 118 checks, ARM64 assembly,
+lint, signing/offline/identity/fourteen-library 16 KiB checks, required core/native
+suites and the shared PhotoRec streaming regressions. Real device verification
+remains pending.

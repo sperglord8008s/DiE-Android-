@@ -14,15 +14,17 @@ This supplies broad signature-guided resource carving and JPEG recovery behavior
 
 ## Source ownership and the worker boundary
 
-The parent acquires an owned private snapshot and fresh SHA-256 before binding. Android dispatches to a non-exported service in `:binary_worker` with `isolatedProcess=true`. Only a read-only input descriptor, an output pipe and a request token cross the boundary; no input/output filesystem path is provided. The service refuses ordinary app-UID execution and has no in-process fallback. The native library duplicates its input descriptor rather than closing the caller's descriptor. Report data travels through the pipe instead of exceeding Binder's transaction-size limit.
+The parent acquires an owned private snapshot and fresh SHA-256 before binding. Android dispatches to a non-exported service in `:binary_worker` with `isolatedProcess=true`. Only a read-only input descriptor, an output pipe and a request token cross the boundary; no input/output filesystem path is provided. The service refuses ordinary app-UID execution and has no in-process fallback. Adapter 2 uses a private `F_DUPFD_CLOEXEC` duplicate and positional reads, preserving the caller's descriptor and seek position. It refuses non-regular, write-only and `O_PATH` descriptors. Host path opens are nonblocking so a FIFO cannot stall before that gate. Report data travels through the pipe instead of exceeding Binder's transaction-size limit.
 
-Cancellation/deadline messages identify the owning token. A rejected second request must not cancel a different active job. The worker terminates its isolated process on matching cancellation or final unbinding; the client treats process death, incomplete JSON, mode/schema/count mismatches and missing UID isolation as failures. The request watchdog is **45 seconds**, with cooperative platform/Binder scheduling rather than a hard real-time guarantee. The service/native loader and protocol compile in the ARM64 app, but actual isolated UID/descriptor transfer, crash recovery, cancellation timing, backgrounding and API 26/35 lifecycle require handset verification.
+Cancellation/deadline messages identify the owning token. A rejected second request must not cancel a different active job. The worker terminates its isolated process on matching cancellation or final unbinding; the client treats process death, incomplete JSON, mode/schema/count mismatches and missing UID isolation as failures. A **30-second cooperative native deadline** is checked between acquisition reads and parser callbacks, after matching and before returning the result. A single upstream callback cannot be preempted by this observer; the separate worker cancellation/death mechanism remains necessary. The request watchdog is **45 seconds**, with cooperative platform/Binder scheduling rather than a hard real-time guarantee. The service/native loader and protocol compile in the ARM64 app, but actual isolated UID/descriptor transfer, crash recovery, cancellation timing, backgrounding and API 26/35 lifecycle require handset verification.
 
 The other CDiE, DEX and metadata tools have not been moved into this worker; their existing in-process limitations remain. The isolated service reduces the new engine's privileges but is not a claim that arbitrary hostile samples are safe. Process-death cache reclamation, per-format decompression/memory budgets and broader malformed-input coverage remain pending.
 
 ## Navigation, exports and limits
 
 The shared viewer supplies 50/10/1-row pages, decoded-field search, raw details, format/catalog links, Back/recreation, exact range measurement and immutable SAF staging. A candidate/group export contains every returned record in that scope, regardless of display filter/page. Catalog scope exports every compiled magic pattern. Source identity, raw match/accepted/rejected/panic counts, known-versus-unknown extents, worker metadata and mode choices remain explicit.
+
+Binwalk requires a contiguous slice for its original validators. Adapter 2 therefore retains a **file-sized native copy**, read with requests of at most 64 KiB; it does not claim PhotoRec's streaming-window memory bound. Before/after metadata checks cover device/inode/length/mtime/ctime through acquisition and analysis. They detect ordinary source changes, not an adversary restoring timestamps; the parent's private, SHA-256-identified snapshot remains authoritative. Native output exposes actual payload bytes, read operations, descriptor guarantees, deadline and callback-preemption limits. Memory used by validators/decompression, report values, allocators and the runtime is additional. Legacy adapter-1 captures remain readable without receiving adapter-2 guarantees.
 
 Limits: 64 MiB input, 20,000 raw magic matches, 10,000 catalog entries at the Java boundary and 32 MiB native/pipe report. Exceeding a limit returns an explicit failure rather than successful truncated evidence. The candidate model validates reported input size, source revision, row/catalog counts, physical bounds and requested mode. Private snapshots are deleted on failed acquisition or normal viewer close; pending exports survive independently.
 
@@ -33,3 +35,22 @@ Use `bash scripts/test-binwalk.sh` with JDK 17 and Rust 1.90.0. It builds the re
 Two API 28 Robolectric checks validate the private/isolated service manifest and refusal of ordinary UID execution, bringing the Android suite to **39 checks**. They do not create a genuine isolated OS UID or verify production Binder transfer. The Binwalk candidate UI uses the shared fixture-tested viewer, but its complete handset path is still unverified. Android CI cross-compiles the real ARM64 library and checks signing, offline packaging, source/license assets, packaged service flags and **both** native libraries' static 16 KiB alignment. Actual 16 KiB Android runtime remains pending.
 
 The engine and dependencies are openly licensed and pinned; full Binwalk, resolved crate/native and Rust standard-library notices are bundled. The desktop CLI/plotting browser-download dependency is not compiled. Once Git/Cargo/toolchain/SDK caches exist, offline builds preserve app privacy and require no data upload.
+
+## Positional acquisition regression
+
+The previous adapter duplicated an FD and then sought/read it. POSIX duplicates
+share an open-file description, so a real host scan moved the caller's position
+from byte 73 to 4,096. Adapter 2 fixes this with `FileExt::read_at`; the JNI
+regression now retains byte 17 while returning the same semantic evidence as
+the host path API. Some upstream encrypted-firmware patterns are generated from
+a HashMap; catalog indices are local to each report. Comparisons resolve each
+index to its exact pattern instead of assuming global numbering.
+
+The host script also runs six Rust tests: exact multi-read bytes, CLOEXEC and
+independent ownership, unreadable/O_PATH/directory/oversized inputs, nonblocking
+FIFO refusal, timestamp-change/short-read detection, acquisition-budget failure
+and an already-expired deadline. The actual JNI fixtures scan a complete sparse
+64 MiB file with PNGs spanning a 64 KiB read boundary and ending at EOF. Corrupt
+IO-accounting reports fail without leaking snapshots; original captures and
+prior media/nested/extent/export fixtures still pass. These are host checks;
+ARM64 compilation and static APK checks are separate from handset execution.
