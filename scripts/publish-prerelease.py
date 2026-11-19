@@ -16,6 +16,9 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
 import zipfile
 
 JOBS = {'build', 'native-integration', 'apk-signatures', 'binary-integration', 'media-integration'}
@@ -151,8 +154,13 @@ def gh(arguments, *, output=None, payload=None, optional=False):
     if result.returncode:
         if optional and b'HTTP 404' in result.stderr:
             return None
-        # Avoid emitting temporary signed download URLs or credentials in CI logs.
-        raise RuntimeError('GitHub operation failed: ' + arguments[0] + ' (exit ' + str(result.returncode) + ')')
+        # Retain actionable HTTP/CLI diagnostics while removing signed URLs and
+        # token-shaped text from errors. A failed upload stays in the draft.
+        detail = result.stderr.decode('utf-8', errors='replace')
+        detail = re.sub(r'https?://\S+', '<GitHub endpoint>', detail)
+        detail = re.sub(r'\b(?:github_pat_|gh[opsu]_)[A-Za-z0-9_]+', '[redacted]', detail)
+        raise RuntimeError('GitHub operation failed: ' + arguments[0] + ' (exit '
+                           + str(result.returncode) + '): ' + detail[:2000])
     return result.stdout
 
 
@@ -164,6 +172,44 @@ def api(path, payload=None, method=None, optional=False):
         arguments += ['--input', '-']
     raw = gh(arguments, payload=payload, optional=optional)
     return None if raw is None else json.loads(raw)
+
+
+class NoUploadRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, request, response, code, message, headers, url):
+        # Authorization belongs only to the fixed GitHub upload endpoint.
+        return None
+
+
+def upload_asset(repository, release_id, path, opener=None):
+    """Stream to a known draft ID; do not rediscover a draft through its tag."""
+    require(re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repository), 'Invalid repository')
+    require(type(release_id) is int and release_id > 0, 'Invalid draft release ID')
+    name = safe_name(path.name)
+    require(path.stat().st_size <= MAX_ARTIFACT_BYTES, 'Release asset exceeds the upload budget')
+    endpoint = ('https://uploads.github.com/repos/' + repository + '/releases/'
+                + str(release_id) + '/assets?' + urllib.parse.urlencode({'name': name}))
+    client = opener or urllib.request.build_opener(NoUploadRedirect())
+    with path.open('rb') as source:
+        request = urllib.request.Request(endpoint,
+            data=iter(lambda: source.read(65536), b''), method='POST', headers={
+                'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+                'Content-Type': 'application/octet-stream',
+                'Content-Length': str(path.stat().st_size),
+                'Accept': 'application/vnd.github+json',
+                'X-GitHub-Api-Version': '2022-11-28',
+                'User-Agent': 'GlassDigestor-verified-prerelease',
+            })
+        try:
+            with client.open(request, timeout=180) as response:
+                require(response.status == 201, 'GitHub did not create the asset: ' + name)
+                require(len(response.read(1024 * 1024 + 1)) <= 1024 * 1024,
+                        'Upload response exceeded its metadata budget')
+        except urllib.error.HTTPError as error:
+            raise RuntimeError('GitHub draft asset upload failed: HTTP ' + str(error.code)
+                               + ' for ' + name + '; the draft remains unpublished') from None
+        except urllib.error.URLError:
+            raise RuntimeError('GitHub draft asset upload connection failed for ' + name
+                               + '; the draft remains unpublished') from None
 
 
 def source_text(prefix, revision, path, maximum):
@@ -281,9 +327,9 @@ def publish(run_id, tag, repository, temporary):
                 and item['size'] == files[name].stat().st_size,
                 'Draft asset differs; overwriting is prohibited')
     api(prefix + '/releases/' + str(release['id']), {'body': notes}, 'PATCH')
-    missing = [str(path) for name, path in files.items() if name not in present]
-    if missing:
-        gh(['release', 'upload', tag, '--repo', repository, *missing])
+    for name, path in files.items():
+        if name not in present:
+            upload_asset(repository, release['id'], path)
     verify_remote_assets(prefix, release, files, temporary)
     reference = api(prefix + '/git/ref/tags/' + tag, optional=True)
     if reference is not None:
