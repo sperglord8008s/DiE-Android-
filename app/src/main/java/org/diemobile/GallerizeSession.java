@@ -196,42 +196,7 @@ final class GallerizeSession implements AutoCloseable {
     static InputSnapshot stageRange(
             InputSnapshot source, FileRange range, File directory, BooleanSupplier stop)
             throws Exception {
-        if (range.fileSize != source.size) throw new IOException("Range belongs to another source");
-        source.checkIdentity(stop);
-        InputSnapshot staged = null;
-        try (RandomAccessFile file = new RandomAccessFile(source.file, "r")) {
-            file.seek(range.offset);
-            InputStream slice =
-                    new InputStream() {
-                        long left = range.length;
-
-                        @Override
-                        public int read() throws IOException {
-                            if (left == 0) return -1;
-                            int value = file.read();
-                            if (value < 0) throw new EOFException("Selected bytes shortened");
-                            left--;
-                            return value;
-                        }
-
-                        @Override
-                        public int read(byte[] bytes, int offset, int length) throws IOException {
-                            if (length == 0) return 0;
-                            if (left == 0) return -1;
-                            int count = file.read(bytes, offset, (int) Math.min(left, length));
-                            if (count < 0) throw new EOFException("Selected bytes shortened");
-                            left -= count;
-                            return count;
-                        }
-                    };
-            staged = InputSnapshot.acquire(slice, directory, range.length, stop);
-            source.checkIdentity(stop);
-            InputSnapshot result = staged;
-            staged = null;
-            return result;
-        } finally {
-            if (staged != null) staged.close();
-        }
+        return OwnedContent.stageRange(source, range, directory, stop);
     }
 
     EvidenceRows raw() throws IOException {

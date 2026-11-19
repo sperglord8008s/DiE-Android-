@@ -137,3 +137,9 @@ parent identities, source expiry and rejection of a forged external path.
 Automatic preview also recognizes a strictly decoded printable UTF-8 header;
 manual modes remain available. Unused grid cells use magenta to distinguish
 them from valid grayscale byte measurements.
+
+The subsequent [recovered-content slice](recovered-content.md) reuses the exact
+range acquisition for Binwalk/PhotoRec previews and checked exports, adds direct
+preview byte export and validates independent private gallery handoffs. Four
+additional actual-JNI/widget cases bring the full Android host suite to 139.
+The same fully written 80 MiB + 17 byte gallery/grid fixture still passes.

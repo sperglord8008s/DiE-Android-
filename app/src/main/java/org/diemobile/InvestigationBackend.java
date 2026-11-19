@@ -73,6 +73,9 @@ abstract class InvestigationBackend implements AutoCloseable {
 
     abstract File byteSource();
 
+    /** Optional immutable input for checked stored-byte previews and recovery exports. */
+    InputSnapshot ownedByteSource() { return null; }
+
     abstract String sourceName();
 
     abstract String help(String request);

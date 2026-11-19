@@ -32,7 +32,7 @@ and Android application ID (`org.diemobile`) remain stable.
 |---|---|
 | **Any selected file** | Identify byte-based formats, run desktop DiE signatures, inspect all eight whole-file digests, page through hex and classify strings into overlapping evidence groups. |
 | **Mixed blobs & media** | Use **Gallerize** to see discovered images, audio, text and unknown regions; open owned previews, inspect EXIF/XMP and MPV codec metadata, and explore configurable byte/entropy grids. |
-| **Embedded content** | Run actual Binwalk and PhotoRec header/data checks, retain nested/overlapping findings, and export exact bounded stored ranges. |
+| **Embedded content** | Run actual Binwalk and PhotoRec header/data checks, retain nested/overlapping findings, preview exact bounded payloads, export checked recovered bytes, and hand the captured input to Gallerize. |
 | **Executables** | Explore typed PE/ELF/Mach-O structures, maps, imports, exports, symbols, resources and disassembly; follow supported coordinates back to original bytes. |
 | **Android apps** | Inspect DEX and smali, binary manifests/resources, APK signatures and certificates, captured base/split relationships, SDK name rules and locally imported tracker rules. |
 | **Archives** | Browse and analyze nested ZIP/APK members. A pinned libarchive + codec core for broader formats is host-tested; its Android browser integration is the next development slice. |
@@ -56,6 +56,10 @@ Android 8.0 / API 26 or later is required.
 
 Debug APKs have numbered, source-identified names, for example
 `GlassDigestor-0.6.0-pre-alpha.1-dev.g0123456789ab-arm64-v8a-debug.apk`.
+Current development builds use **0.6.0-pre-alpha.2** / code **8** and add the
+[checked recovered-content workflow](docs/recovered-content.md). The published
+0.6.0-pre-alpha.1 checkpoint remains unchanged.
+
 Tap the app title or **Options → Build details** to see the same version and
 full source revision. See [build versioning](docs/build-versioning.md).
 

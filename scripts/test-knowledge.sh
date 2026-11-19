@@ -15,5 +15,5 @@ if command -v rg >/dev/null; then rg --files regex-engine/third_party/re2j -g '*
 else find regex-engine/third_party/re2j -name '*.java' > "$tmp/sources"; fi
 javac --release 8 -d "$tmp/engine" @"$tmp/sources"
 javac -cp "$json_test_jar:$tmp/engine" -d "$tmp/classes" \
-  app/src/main/java/org/diemobile/{Inspector,EvidenceJson,EvidenceRows,InvestigationBackend,NameMatcher,KnowledgeCatalog,SdkCatalogBackend}.java tests/KnowledgeCatalogTest.java
+  app/src/main/java/org/diemobile/{Inspector,EvidenceJson,EvidenceRows,InputSnapshot,InvestigationBackend,NameMatcher,KnowledgeCatalog,SdkCatalogBackend}.java tests/KnowledgeCatalogTest.java
 java -cp "$tmp/classes:$tmp/engine:$json_test_jar" org.diemobile.KnowledgeCatalogTest "$tmp/catalog.json" "$tmp/fixtures.json" "$tmp"
