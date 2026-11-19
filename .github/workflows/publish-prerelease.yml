@@ -1,0 +1,39 @@
+name: Publish verified pre-release
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful Android and host workflow run to publish
+        required: true
+        default: '44606318262'
+        type: string
+      tag:
+        description: Numbered pre-release tag matching the captured source version
+        required: true
+        default: v0.6.0-pre-alpha.1
+        type: string
+permissions:
+  actions: read
+  contents: write
+concurrency:
+  group: prerelease-${{ github.repository }}-${{ inputs.tag }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 tests/test-prerelease-publication.py
+      - name: Verify and publish exact CI capture
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_RUN_ID: ${{ inputs.run_id }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: python3 scripts/publish-prerelease.py --run-id "$RELEASE_RUN_ID" --tag "$RELEASE_TAG"

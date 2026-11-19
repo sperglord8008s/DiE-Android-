@@ -32,3 +32,27 @@ Check the public signer digest in each build manifest before replacing an
 existing installation. A GitHub pre-release distributes this explicitly labeled
 debug APK for testing; it is not a production-key release or evidence of device
 acceptance. Keep exported reports and the prior APK when testing updates.
+
+## Publishing a verified GitHub pre-release
+
+Run **Actions → Publish verified pre-release** with the successful Android/host
+workflow run ID and its numbered tag. This separate workflow requests only
+`actions: read` and `contents: write`, using GitHub's normal workflow token.
+No personal token, signing-key upload or new signing configuration is needed.
+
+The publisher requires all five reviewed jobs to pass, downloads the original
+checkpoint and all three component-source artifacts, validates their GitHub
+SHA-256 digests and complete internal checksums, and compares the captured Git
+tree with the successful workflow head. The version/tag/code/filename and build
+manifest must agree with that exact source. CI may build a generated PR merge
+commit; the tag points to that precise revision so the installed version and
+source manifest remain reproducible.
+
+Uploads remain in a draft until every remote asset's size and SHA-256 agrees.
+An interrupted draft can resume. Existing different assets and tags are never
+removed, replaced or retargeted; a published release is immutable to this
+publisher. The APK is copied unchanged from CI, including its debug signer.
+`RELEASE-SHA256SUMS` covers every supplied asset except itself.
+
+Use `python3 tests/test-prerelease-publication.py` for local contract checks.
+The script inspects archives as data and never executes APKs or sample files.
