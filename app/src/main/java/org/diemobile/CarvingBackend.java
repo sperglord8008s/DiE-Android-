@@ -509,28 +509,34 @@ class CarvingBackend extends InvestigationBackend {
     }
 
     @Override
+    String statusSummary() {
+        return ((photoRec && header != null && header.optInt("dataCallbacksLimitedCount") > 0
+                                ? "PARTIAL DATA CHECKS: "
+                                        + header.optInt("dataCallbacksLimitedCount")
+                                        + " candidates reached a data-work budget; their extents"
+                                        + " remain unknown. "
+                                : "")
+                        + (photoRec && header != null
+                                ? "PARTIAL CATALOG COVERAGE: "
+                                        + header.optInt("searchedPatternCount")
+                                        + " / "
+                                        + header.optInt("patternCount")
+                                        + " patterns searched at every byte. One-byte/all-zero"
+                                        + " patterns remain catalogued with reasons. Full file"
+                                        + " checks/fragment recovery are pending. "
+                                : "")
+                        + (header != null && header.optInt("parserPanics") > 0
+                                ? "PARTIAL: "
+                                        + header.optInt("parserPanics")
+                                        + " upstream parser failures; inspect unresolved"
+                                        + " candidates. "
+                                : ""))
+                .trim();
+    }
+
+    @Override
     String help(String request) {
-        return (photoRec && header != null && header.optInt("dataCallbacksLimitedCount") > 0
-                        ? "PARTIAL DATA CHECKS: "
-                                + header.optInt("dataCallbacksLimitedCount")
-                                + " candidates reached a data-work budget; their extents remain"
-                                + " unknown. "
-                        : "")
-                + (photoRec && header != null
-                        ? "PARTIAL CATALOG COVERAGE: "
-                                + header.optInt("searchedPatternCount")
-                                + " / "
-                                + header.optInt("patternCount")
-                                + " patterns searched at every byte. One-byte/all-zero patterns"
-                                + " remain catalogued with reasons. Full file checks/fragment"
-                                + " recovery are pending. "
-                        : "")
-                + (header != null && header.optInt("parserPanics") > 0
-                        ? "PARTIAL: "
-                                + header.optInt("parserPanics")
-                                + " upstream parser failures; inspect unresolved candidates. "
-                        : "")
-                + engineName
+        return engineName
                 + " whole-blob investigation • accepted candidates, unresolved headers, overlaps"
                 + " and the full pattern catalog remain available. Parser confidence is not a"
                 + " verdict. Only reported bounded extents enable stored-range extraction; unknown"

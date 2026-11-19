@@ -6,3 +6,4 @@ javac -d "$tmp" app/src/main/java/org/diemobile/{Inspector,CustomRuleStore,Archi
 java -cp "$tmp" org.diemobile.InspectorTest
 java -cp "$tmp" org.diemobile.CustomRuleStoreTest
 java -cp "$tmp" org.diemobile.ArchiveStoreTest
+bash scripts/test-presentation.sh

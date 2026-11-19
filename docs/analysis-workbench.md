@@ -99,3 +99,11 @@ visibility/count limits stay explicit; recreation never reruns the command.
 Trusted-process host checks and three provider/widget cases pass (124 combined
 checks). Actual OS output, SELinux/visibility, provider/process-death and handset
 behavior remain unverified. See [Binder registry](binder-registry.md).
+
+The file presentation foundation now prioritizes observed type/identity, combines
+File 101/Reference into structured File info sections, shares individual/global
+definition controls, and groups all existing tools by investigative purpose.
+Raw facts and unsupported/partial status remain visible independently of optional
+help. Byte-based ordinary media/archive header recognition is expanded, without
+claiming full validation/decompression. See [presentation contracts](content-presentation.md)
+and the [active Gallerize requirements](gallerize-workbench.md).

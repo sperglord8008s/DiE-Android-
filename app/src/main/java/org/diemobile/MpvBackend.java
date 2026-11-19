@@ -85,9 +85,12 @@ final class MpvBackend extends InvestigationBackend {
     @Override JSONObject provenance() throws Exception { return document.provenance(); }
     @Override File byteSource() { return document == null ? input : document.snapshot.file; }
     @Override String sourceName() { return name; }
+    @Override String statusSummary() {
+        return document != null && !document.header.optBoolean("fileProbeComplete")
+                ? "UNSUPPORTED / INCOMPLETE MEDIA PROBE" : "";
+    }
     @Override String help(String request) {
-        return (document != null && !document.header.optBoolean("fileProbeComplete") ? "UNSUPPORTED / INCOMPLETE MEDIA PROBE • " : "")
-            +"Actual libmpv • file metadata, tracks, chapters, codec/container catalogs and exact unavailable-property errors. Search matches keys/value previews; open typed children or export JSON/text/bytes for complete values. Source-pinned technical references accompany properties. No physical tag offsets or complete decode verdict are inferred. Tap for engine/process/limits.";
+        return "Actual libmpv • file metadata, tracks, chapters, codec/container catalogs and exact unavailable-property errors. Search matches keys/value previews; open typed children or export JSON/text/bytes for complete values. Source-pinned technical references accompany properties. No physical tag offsets or complete decode verdict are inferred. Tap for engine/process/limits.";
     }
     @Override public void close() throws Exception { try { runner.close(); } finally { if (document != null) document.close(); } }
 }

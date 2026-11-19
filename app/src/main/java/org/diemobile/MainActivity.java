@@ -18,6 +18,7 @@ import org.json.*;
 public class MainActivity extends Activity {
  private final ExecutorService worker=Executors.newSingleThreadExecutor();
  private LinearLayout root,pane,tabs;
+ private ExpandableHelp explanations;
  private TextView status,fileLabel;
  private Button open,rescan,export,cancel;
  private final ArrayList<Button> reportFormatButtons=new ArrayList<>();
@@ -55,9 +56,9 @@ public class MainActivity extends Activity {
  private Button btn(String s,Runnable r){Button b=new Button(this);b.setText(s);b.setTextSize(12);b.setMinHeight(dp(38));b.setMinimumHeight(dp(38));b.setMinWidth(dp(48));b.setMinimumWidth(dp(48));b.setPadding(dp(8),0,dp(8),0);b.setAllCaps(false);b.setOnClickListener(v->r.run());return b;}
  private CheckBox opt(LinearLayout l,String s,boolean b){CheckBox c=new CheckBox(this);c.setText(s);c.setTextSize(12);c.setChecked(b);l.addView(c,new LinearLayout.LayoutParams(0,dp(42),1));return c;}
  @Override public void onCreate(Bundle s){
-  super.onCreate(s);ui();
+  super.onCreate(s);explanations=new ExpandableHelp(this);ui();
   if(s!=null){
-   selectedUri=s.getParcelable("selected");page=s.getInt("page",0);
+   selectedUri=s.getParcelable("selected");page=s.getInt("page",0);if(page==2)page=1;
    if(s.getString("scanTarget")!=null)try{scanTarget=ScanTarget.Request.restore(s.getString("scanTarget"));}catch(JSONException e){status.setText("Saved interpretation expired; Automatic selected");}
    if(s.getString("preparedReport")!=null){
     try{
@@ -89,7 +90,7 @@ public class MainActivity extends Activity {
   open=btn("…",()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);startActivityForResult(i,1);});open.setContentDescription("Browse for a file");fileRow.addView(open);root.addView(fileRow);
   LinearLayout actions=new LinearLayout(this);rescan=btn("Scan / Rescan",()->{if(selectedUri!=null)scan(selectedUri);});rescan.setEnabled(false);
   export=btn("Save report",this::prepareReport);
-  export.setEnabled(false);actions.addView(rescan,new LinearLayout.LayoutParams(0,-2,1));cancel=btn("Cancel",()->{if(busy&&scanCancellation!=null){scanCancellation.cancel();status.setText("Cancellation requested • waiting for analysis to stop");}});cancel.setEnabled(false);actions.addView(cancel,new LinearLayout.LayoutParams(0,-2,1));actions.addView(export,new LinearLayout.LayoutParams(0,-2,1));nativeTools=btn("Tools",()->openNativeTools());nativeTools.setEnabled(false);actions.addView(nativeTools,new LinearLayout.LayoutParams(0,-2,1));archiveTools=btn("Archive",()->openArchive());archiveTools.setEnabled(false);actions.addView(archiveTools,new LinearLayout.LayoutParams(0,-2,1));root.addView(actions);
+  export.setEnabled(false);actions.addView(rescan,new LinearLayout.LayoutParams(0,-2,1));cancel=btn("Cancel",()->{if(busy&&scanCancellation!=null){scanCancellation.cancel();status.setText("Cancellation requested • waiting for analysis to stop");}});cancel.setEnabled(false);actions.addView(cancel,new LinearLayout.LayoutParams(0,-2,1));actions.addView(export,new LinearLayout.LayoutParams(0,-2,1));nativeTools=btn("Tools",this::showToolMenu);nativeTools.setEnabled(false);actions.addView(nativeTools,new LinearLayout.LayoutParams(0,-2,1));archiveTools=btn("Archive",()->openArchive());archiveTools.setEnabled(false);actions.addView(archiveTools,new LinearLayout.LayoutParams(0,-2,1));root.addView(actions);
   ScanOptions prefs=ScanPreferences.load(this);
   optionPanel=vertical();
   LinearLayout r1=new LinearLayout(this),r2=new LinearLayout(this);
@@ -99,7 +100,8 @@ public class MainActivity extends Activity {
   min=new EditText(this);min.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);min.setText(""+prefs.minimumStringLength);
   for(CheckBox c:new CheckBox[]{deep,heuristic,recursive,aggressive,all})c.setOnCheckedChangeListener((b,v)->settingsChanged());
   tabs=new LinearLayout(this);HorizontalScrollView hs=new HorizontalScrollView(this);hs.setHorizontalScrollBarEnabled(false);hs.addView(tabs);root.addView(hs);
-  String[] labels={"Scan","File info","Reference","APK / SDKs","Entropy","Strings","Hex","Reports / Log"};for(int i=0;i<labels.length;i++){final int p=i;tabs.addView(btn(labels[i],()->{page=p;show();}));}
+  String[] labels={"Scan","File info",null,"APK / SDKs","Entropy","Strings","Hex","Reports / Log"};for(int i=0;i<labels.length;i++){if(labels[i]==null)continue;final int p=i;Button tab=btn(labels[i],()->{page=p;show();});tab.setTag(p);tabs.addView(tab);}
+  root.addView(explanations.controls(this));
   View line=new View(this);line.setBackgroundColor(0xff44525e);root.addView(line,new LinearLayout.LayoutParams(-1,dp(1)));
   ScrollView sc=new ScrollView(this);pane=vertical();sc.addView(pane);root.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
   progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setMax(100);progress.setProgress(0);root.addView(progress,new LinearLayout.LayoutParams(-1,dp(5)));
@@ -107,7 +109,7 @@ public class MainActivity extends Activity {
  }
  private ScanOptions currentOptions(){return ScanPreferences.load(this).withBasicFlags((deep.isChecked()?1:0)|(heuristic.isChecked()?2:0)|(all.isChecked()?4:0)|(recursive.isChecked()?8:0)|(aggressive.isChecked()?32:0),minLength());}
  private int currentFlags(){return currentOptions().flags;}
- @Override protected void onResume(){super.onResume();if(deep==null)return;loadingSettings=true;ScanOptions o=ScanPreferences.load(this);deep.setChecked((o.flags&1)!=0);heuristic.setChecked((o.flags&2)!=0);all.setChecked((o.flags&4)!=0);recursive.setChecked((o.flags&8)!=0);aggressive.setChecked((o.flags&32)!=0);min.setText(""+o.minimumStringLength);loadingSettings=false;settingsChanged();}
+ @Override protected void onResume(){super.onResume();if(explanations!=null)explanations.refresh();if(deep==null)return;loadingSettings=true;ScanOptions o=ScanPreferences.load(this);deep.setChecked((o.flags&1)!=0);heuristic.setChecked((o.flags&2)!=0);all.setChecked((o.flags&4)!=0);recursive.setChecked((o.flags&8)!=0);aggressive.setChecked((o.flags&32)!=0);min.setText(""+o.minimumStringLength);loadingSettings=false;settingsChanged();}
  private int minLength(){try{return Math.max(3,Math.min(64,Integer.parseInt(min.getText().toString())));}catch(Exception e){return 4;}}
  private void settingsChanged(){if(loadingSettings)return;ScanPreferences.save(this,currentOptions());settingsDirty=scannedOptions!=null&&(!currentOptions().sameAs(scannedOptions)||scannedTarget!=null&&!scanTarget.sameAs(scannedTarget.request));if(!busy&&selectedUri!=null&&settingsDirty){status.setText("Settings changed • press Scan / Rescan");}else if(!busy&&result!=null)finishedStatus();}
  private void optionsDialog() {
@@ -216,12 +218,11 @@ public class MainActivity extends Activity {
  }
  private String pretty(String s){try{return new JSONObject(s).toString(2);}catch(JSONException e){try{return new JSONArray(s).toString(2);}catch(JSONException ignored){return s;}}}
  private void show(){
-  pane.removeAllViews();reportFormatButtons.clear();for(int i=0;i<tabs.getChildCount();i++){Button b=(Button)tabs.getChildAt(i);b.setEnabled(i!=page);b.setTextColor(i==page?0xff80cbc4:0xffe5eaf0);}
+  if(page==2)page=1;explanations.clearBindings();pane.removeAllViews();reportFormatButtons.clear();for(int i=0;i<tabs.getChildCount();i++){Button b=(Button)tabs.getChildAt(i);boolean selected=((Integer)b.getTag())==page;b.setEnabled(!selected);b.setTextColor(selected?0xff80cbc4:0xffe5eaf0);}
   if(result==null){pane.addView(txt(busy?"Scan running on worker thread.":"Open or share a file to inspect it. No root or internet access required.",16));return;}
   switch(page){
-   case 0:pane.addView(btn("Next scan interpretation: "+scanTarget.label()+" • choose…",this::chooseInterpretation));pane.addView(txt("Explicit selections run one compatible native pass after Rescan. Automatic lets CDiE choose. New inputs start Automatic; saved flag/tag profiles and batches are separate.",12));if(scannedTarget!=null)field("Requested interpretation",scannedTarget.request.label()+" • backend selector "+(scannedTarget.nativeTypeId==null?"unresolved":scannedTarget.nativeTypeId),"Captured selection for the displayed scan. Explicit choices are compatible native scan passes, not validation of every format structure. Draft selection changes apply only after Rescan.");field("Type",evidence!=null&&evidence.ok?evidence.type:result.type,"Desktop parser interpretation when available; the local header identification is retained in File info and exported reports. Recognition does not validate every structure.");showNativeFacts();field("Size",String.format(Locale.ROOT,"%,d bytes (0x%X)",result.size,result.size),"Exact input length in decimal and hexadecimal. Offsets refer to byte positions within that length.");field("Entropy",String.format(Locale.ROOT,"%.4f / 8",result.entropy),"Shannon entropy of the observed byte histogram, from 0 to 8 bits per byte. Compression, encryption and ordinary media can all produce high entropy; this is not a packing or malware verdict.");heading("Detection results • desktop CDiE");pane.addView(btn("Desktop scan laboratory / signature editor",()->openDesktopScan()));showDetections();heading("Content identity");field("SHA-256",result.sha256,"A 256-bit digest of the exact bytes analyzed. Compare against a trusted digest to identify matching content; it is not a publisher signature.");field("Flags",String.format(Locale.ROOT,"0x%04X",scannedFlags),"Actual desktop-backend flags captured when the scan began. Laboratory options and tag filters apply here too. The export preserves their names and values.");field("Time",elapsedMs+" ms","Elapsed wall-clock time including local copying, file inspection, knowledge lookup and signature scanning.");heading("Technical interpretation");pane.addView(btn("File structure and interpretation",()->{page=1;show();}));if(result.type.contains("ZIP")||result.type.contains("DEX"))pane.addView(btn("APK / DEX evidence and SDK details",()->{page=3;show();}));break;
-   case 1:heading("File information");pane.addView(btn("Binary comparison / exact differing byte ranges",()->openInvestigation("comparison")));pane.addView(btn("Whole-file hashes / CRC32 / MD4 / MD5 / SHA-1 / SHA-2",()->openInvestigation("hashes")));pane.addView(btn("Binary Android manifest / resource tables / compiled XML",()->openInvestigation("resources")));pane.addView(btn("MPV / media codecs / containers / stream metadata",()->openInvestigation("mpv")));pane.addView(btn("Binwalk / whole-blob signatures / resource carving",()->openInvestigation("binwalk")));pane.addView(btn("PhotoRec / whole-blob formats / stored-byte carving",()->openInvestigation("photorec")));pane.addView(btn("Collected metadata / EXIF / IPTC / ICC / XMP",()->openInvestigation("metadata")));field("Name",name);field("Type",result.type);field("Size",String.format(Locale.ROOT,"%,d bytes (0x%X)",result.size,result.size));field("Entropy",String.format(Locale.ROOT,"%.4f bits/byte",result.entropy));heading("SHA-256");pane.addView(mono(result.sha256));heading("Structure and interpretation");readableReport(guide);break;
-   case 2:heading("Technical reference");readableReport(guide);break;
+   case 0:pane.addView(btn("Next scan interpretation: "+scanTarget.label()+" • choose…",this::chooseInterpretation));if(scannedTarget!=null)field("Requested interpretation",scannedTarget.request.label()+" • backend selector "+(scannedTarget.nativeTypeId==null?"unresolved":scannedTarget.nativeTypeId),"Captured selection for the displayed scan. Explicit choices are compatible native scan passes, not validation of every format structure. Draft selection changes apply only after Rescan.");field("Type",evidence!=null&&evidence.ok?evidence.type:result.type,"Desktop parser interpretation when available; the local header identification is retained in File info and exported reports. Recognition does not validate every structure.");showNativeFacts();field("Size",String.format(Locale.ROOT,"%,d bytes (0x%X)",result.size,result.size),"Exact input length in decimal and hexadecimal. Offsets refer to byte positions within that length.");field("Entropy",String.format(Locale.ROOT,"%.4f / 8",result.entropy),"Shannon entropy of the observed byte histogram, from 0 to 8 bits per byte. Compression, encryption and ordinary media can all produce high entropy; this is not a packing or malware verdict.");heading("Detection results • desktop CDiE");pane.addView(btn("Desktop scan laboratory / signature editor",()->openDesktopScan()));showDetections();heading("Content identity");field("SHA-256",result.sha256,"A 256-bit digest of the exact bytes analyzed. Compare against a trusted digest to identify matching content; it is not a publisher signature.");field("Flags",String.format(Locale.ROOT,"0x%04X",scannedFlags),"Actual desktop-backend flags captured when the scan began. Laboratory options and tag filters apply here too. The export preserves their names and values.");field("Time",elapsedMs+" ms","Elapsed wall-clock time including local copying, file inspection, knowledge lookup and signature scanning.");heading("Technical interpretation");pane.addView(btn("File structure and interpretation",()->{page=1;show();}));if(result.type.contains("ZIP")||result.type.contains("DEX"))pane.addView(btn("APK / DEX evidence and SDK details",()->{page=3;show();}));break;
+   case 1:showFileInfo();break;
    case 3:heading("APK / SDKs • static evidence");pane.addView(btn("APK signing / rotation / certificates / detached v4",()->openInvestigation("apk-signing")));pane.addView(btn("Package / split declarations / captured relationships",()->openInvestigation("package-set")));pane.addView(btn("Imported Exodus rules / metadata / diagnostics",this::openTrackerCatalog));pane.addView(btn("Canonical SDK / library rules / regex / source metadata",()->openInvestigation("sdk-rules")));if(result.type.contains("ZIP")||result.type.contains("DEX"))pane.addView(btn("DEX tables / bytecode / references / smali",()->openInvestigation("dex")));readableReport(apkReport);break;
    case 4:pane.addView(txt(String.format(Locale.ROOT,"Whole-file entropy: %.3f / 8",result.entropy),17));TextView detail=txt("Touch graph to inspect a block.",14);pane.addView(new Graph(result,detail),new LinearLayout.LayoutParams(-1,dp(230)));pane.addView(detail);pane.addView(txt("High entropy can indicate compression, encryption or randomness; not proof of packing.",14));break;
    case 5:pane.addView(btn("Grouped string classifier / endpoints / risk indicators",()->openInvestigation("strings")));pane.addView(txt("Whole-input UTF-8 and anchored UTF-16 candidate scanning, physical offsets, inspectable rules and complete group exports. Risk groups are observations requiring corroboration.",13));EditText q=new EditText(this);q.setSingleLine(true);q.setHint("Filter quick ASCII preview");pane.addView(q);pane.addView(txt("Quick preview limited to ~200k characters and 4096 characters per run; the classifier above has separate disclosed budgets.",12));TextView lines=mono(result.strings);pane.addView(lines);final String source=result.strings;q.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int a,int b,int c){}public void onTextChanged(CharSequence s,int a,int b,int c){StringBuilder o=new StringBuilder();String term=s.toString().toLowerCase(Locale.ROOT);for(String line:source.split("\n"))if(line.toLowerCase(Locale.ROOT).contains(term))o.append(line).append('\n');lines.setText(o.length()==0?"No matches":o.toString());}public void afterTextChanged(android.text.Editable e){}});break;
@@ -231,8 +232,55 @@ public class MainActivity extends Activity {
  }
  private void heading(String title){TextView h=txt(title,14);h.setTypeface(null,Typeface.BOLD);h.setTextColor(0xff80cbc4);h.setBackgroundColor(0xff26323a);h.setPadding(dp(8),dp(6),dp(8),dp(6));pane.addView(h,new LinearLayout.LayoutParams(-1,-2));}
  private void field(String key,String value){field(key,value,null);}
- private void field(String key,String value,String explanation){LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.TOP);row.setPadding(dp(6),dp(5),dp(6),dp(5));TextView k=txt(key,13);k.setTextColor(0xffaab8c4);row.addView(k,new LinearLayout.LayoutParams(dp(78),-2));TextView v=txt(value,13);v.setTextIsSelectable(true);row.addView(v,new LinearLayout.LayoutParams(0,-2,1));if(explanation!=null){Button help=btn("?",()->explain(key,value,explanation));help.setContentDescription("Explain "+key);row.addView(help,new LinearLayout.LayoutParams(dp(40),dp(40)));}pane.addView(row);rule(pane);}
- private void explain(String title,String value,String explanation){LinearLayout body=vertical();body.setPadding(dp(18),dp(12),dp(18),dp(12));body.addView(mono(value));TextView e=txt(explanation,14);e.setTextIsSelectable(true);e.setPadding(0,dp(12),0,0);body.addView(e);ScrollView sc=new ScrollView(this);sc.addView(body);new AlertDialog.Builder(this).setTitle(title).setView(sc).setPositiveButton("Close",null).show();}
+ private void field(String key,String value,String explanation){
+  LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.TOP);row.setPadding(dp(6),dp(5),dp(6),dp(5));
+  TextView k=txt(key,13);k.setTextColor(0xffaab8c4);row.addView(k,new LinearLayout.LayoutParams(dp(78),-2));
+  TextView v=txt(value,13);v.setTextIsSelectable(true);row.addView(v,new LinearLayout.LayoutParams(0,-2,1));
+  TextView why=null;Button toggle=null;
+  if(explanation!=null){toggle=btn("Explain",()->{});row.addView(toggle,new LinearLayout.LayoutParams(dp(78),-2));why=txt(explanation,13);why.setTextIsSelectable(true);why.setPadding(dp(8),dp(4),dp(8),dp(8));why.setTag("explanation:main."+page+"."+key);}
+  pane.addView(row);if(why!=null){pane.addView(why);explanations.bind("main."+page+"."+key,"Explain "+key,toggle,why,true,false);}rule(pane);
+ }
+ private void explain(String title,String value,String explanation){LinearLayout body=vertical();body.setPadding(dp(18),dp(12),dp(18),dp(12));body.addView(mono(value));body.addView(explanations.controls(this));explanations.paragraph(this,body,"dialog."+title,"Definition / interpretation",explanation,true,false);ScrollView sc=new ScrollView(this);sc.addView(body);new AlertDialog.Builder(this).setTitle(title).setView(sc).setPositiveButton("Close",null).show();}
+ private void showFileInfo(){
+  heading("File type");TextView type=txt(result.type,21);type.setTypeface(null,Typeface.BOLD);type.setPadding(dp(6),dp(8),dp(6),dp(8));pane.addView(type);
+  String lower=result.type.toLowerCase(Locale.ROOT);
+  boolean container=lower.contains("zip")||lower.contains("archive")||lower.contains("container")||lower.contains("compressed stream");
+  field("Layout",container?"Container / compressed content • inspect its contents":lower.startsWith("unknown")?"Unclassified bytes • whole-blob layout not yet determined":"Primary header format identified • embedded layout not yet determined", "The displayed type comes from bytes, not the filename. Header recognition does not establish homogeneous contents or complete validity. Whole-blob carving and archive inspection retain their separate evidence and limits.");
+  field("Name",name);field("Size",String.format(Locale.ROOT,"%,d bytes (0x%X)",result.size,result.size));
+  field("Entropy",String.format(Locale.ROOT,"%.4f bits/byte",result.entropy),"Whole-input Shannon entropy over byte counts. Regions, raw byte views and alternative interpretations remain available; compression, encryption and ordinary media can all have high entropy.");
+  field("SHA-256",result.sha256,"Digest of the exact acquired bytes. Captured reports and exported resources retain their own complete source identities.");
+  heading("Explore content and evidence");
+  for(ToolCatalog.Group group:ToolCatalog.GROUPS){
+   Button toggle=btn(group.label,()->{});toggle.setTag("tool-group-toggle:"+group.id);LinearLayout body=vertical();body.setTag("tool-group:"+group.id);
+   for(ToolCatalog.Tool tool:group.tools)body.addView(btn(tool.label,()->launchTool(tool)));
+   pane.addView(toggle);pane.addView(body);
+   boolean preferred=group.id.equals("general")||group.id.equals("contents")&&container||group.id.equals("media")&&(lower.contains("image")||lower.contains("audio")||lower.contains("media")||lower.equals("png"));
+   explanations.bind("tools."+group.id,group.label,toggle,body,false,preferred);
+  }
+  heading("Format mechanisms and observations");
+  int index=0;for(ReferenceSections.Section section:ReferenceSections.parse(guide))explanations.paragraph(this,pane,"reference."+index++,section.title,section.body,!section.observed,section.observed);
+ }
+ private void showToolMenu(){
+  if(busy||retainedFile==null||result==null)return;
+  final File captured=retainedFile;final String sha=result.sha256;
+  String[] labels=new String[ToolCatalog.GROUPS.size()];for(int i=0;i<labels.length;i++)labels[i]=ToolCatalog.GROUPS.get(i).label;
+  new AlertDialog.Builder(this).setTitle("Investigation tools").setItems(labels,(dialog,which)->{
+   if(busy||retainedFile!=captured||result==null||!result.sha256.equals(sha)){status.setText("Tool choices expired for this input");return;}
+   ToolCatalog.Group group=ToolCatalog.GROUPS.get(which);String[] tools=new String[group.tools.size()];for(int i=0;i<tools.length;i++)tools[i]=group.tools.get(i).label;
+   new AlertDialog.Builder(this).setTitle(group.label).setItems(tools,(d,index)->{
+    if(busy||retainedFile!=captured||result==null||!result.sha256.equals(sha)){status.setText("Tool choices expired for this input");return;}launchTool(group.tools.get(index));
+   }).setNegativeButton("Back",(d,w)->showToolMenu()).show();
+  }).setNegativeButton("Close",null).show();
+ }
+ private void launchTool(ToolCatalog.Tool tool){
+  if(busy||retainedFile==null)return;
+  if(tool.nativeTool>=0){openNativeToolAt(tool.nativeTool,-1);return;}
+  if(tool.provider!=null){openInvestigation(tool.provider);return;}
+  switch(tool.id){case "archive":openArchive();break;case "laboratory":openDesktopScan();break;
+   case "profiles":startActivity(new Intent(this,ScanProfilesActivity.class));break;
+   case "batch":startActivity(new Intent(this,BatchScanActivity.class));break;case "native-all":openNativeTools();break;
+   default:throw new IllegalArgumentException("Unknown tool action: "+tool.id);}
+ }
  private void readableReport(String content){
   // Preserve every line of the report; paragraphs use proportional text rather than one giant monospace block.
   String[] blocks=content.split("\\n\\s*\\n");for(String block:blocks){String trimmed=block.trim();if(trimmed.isEmpty())continue;TextView t=txt(trimmed,13);t.setTextIsSelectable(true);t.setPadding(dp(6),dp(5),dp(6),dp(5));pane.addView(t);}

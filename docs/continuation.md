@@ -284,3 +284,42 @@ offline, identity, source-reference and fourteen-library static 16 KiB checks.
 The corresponding MPV component-source archive was regenerated with all pins
 verified. Batch interpretations at `24e8b2b` passed all five CI jobs in run
 44473098270, including checkpoint/source packaging.
+
+The user has expanded the active scope to a content-first **Gallerize** view,
+collapsed/expandable definitions, prioritized file/composition summaries, grouped
+tools, labeled in-app media/text/contents previews, configurable byte/entropy
+grids with intelligent defaults and full overrides, and broader content-based
+archive recognition/decompression including embedded/disguised cases. Preserve
+all existing functions. The acceptance fixture is multiple concatenated media
+files plus text, visibly identified with exact source ranges. See
+[gallerize-workbench.md](gallerize-workbench.md); that document records requested
+work and is not an implementation claim.
+
+Presentation foundation continuation: `ExpandableHelp` owns persistent individual
+and global definition state, separate from facts/tool groups and scan settings.
+`ToolCatalog` keeps all native IDs 0–10 and prior provider/expert workflows behind
+purpose-based groups. Main prioritizes type/identity, removes the redundant
+Reference tab, and restores old page 2 to File info; `ReferenceSections` retains
+the guide with observed facts expanded. Generic/native views also collapse only
+help; `statusSummary` keeps MPV/resource/carving incomplete/partial facts visible.
+A targeted 27-case run exposed then verified the MPV status separation; the
+PhotoRec host contract now explicitly checks the factual status API. Run
+`scripts/test.sh` (which includes test-presentation), native tests and the full
+127-case Android suite. See [content-presentation.md](content-presentation.md).
+Gallerize/media rendering/grids and the broader archive engine remain active
+next work; prototype header recognition is not that archive implementation.
+The pinned libarchive release selected for investigation is 3.8.11, source
+commit 03036ffa409a2aa1c5bbad35be2202641a040fda; no libarchive integration is yet
+claimed. Keep the f56e397 working Binder checkpoint while this slice is verified.
+The f56e397 CI package-install timeout was infrastructure-related; rerunning the
+job passed all five checks in run 44477726846.
+
+The presentation foundation passes all 127 Android host checks with zero
+failures/errors/skips, ARM64 assembly and lint, required core/native suites and
+PhotoRec streaming regressions. Coverage assertions now check the visible
+status API independently of optional help. Source/reference/signature/offline/
+static alignment verification and corresponding-source archives accompany the
+checkpoint; real device behavior remains unverified. Local build headroom was
+increased by reclaiming only the owned extracted-CMake installer ZIP and unused
+NDK LLDB debugger library; compiler/linker/runtime inputs and original pinned
+engine source archives remain retained.

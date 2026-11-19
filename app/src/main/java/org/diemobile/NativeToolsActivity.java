@@ -31,6 +31,8 @@ public final class NativeToolsActivity extends Activity {
     private AtomicBoolean cancellation = new AtomicBoolean();
     private PreparedExport prepared;
 
+    private ExpandableHelp explanations;
+    private Button helpToggle;
     private Spinner tools, mode;
     private EditText offset, minimum, selector, filter;
     private CheckBox json, att;
@@ -55,6 +57,7 @@ public final class NativeToolsActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        explanations = new ExpandableHelp(this);
         String path = getIntent().getStringExtra("path");
         if (path == null || !new File(path).isFile()) { finish(); return; }
         file = new File(path); initialSize = getIntent().getLongExtra("sourceSize", file.length());
@@ -106,7 +109,9 @@ public final class NativeToolsActivity extends Activity {
         root.addView(parameters, new LinearLayout.LayoutParams(-1, 0, 1));
         tools = new Spinner(this); tools.setId(R.id.native_tool);
         tools.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, ToolReference.TITLES)); controls.addView(tools);
-        help = text("", 13); help.setTextIsSelectable(true); controls.addView(help);
+        controls.addView(explanations.controls(this));
+        helpToggle = button("Tool mechanism / interpretation", () -> {}); controls.addView(helpToggle);
+        help = text("", 13); help.setTag("explanation:native.tool"); help.setTextIsSelectable(true); controls.addView(help);
         mode = new Spinner(this); mode.setId(R.id.native_mode); controls.addView(mode);
         LinearLayout inputs = new LinearLayout(this);
         offset = new EditText(this); offset.setId(R.id.native_offset); offset.setSingleLine(); offset.setHint("Physical offset: auto / 0x…");
@@ -173,6 +178,7 @@ public final class NativeToolsActivity extends Activity {
         binding = true;
         ToolRequest request = location.controls; currentTool = request.tool; page = location.page;
         tools.setSelection(currentTool); help.setText(ToolReference.HELP[currentTool]);
+        explanations.bind("native.tool."+currentTool,"Tool mechanism / interpretation",helpToggle,help,true,false);
         mode.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, ToolReference.modes(currentTool)));
         int selection = request.mode;
         if (currentTool == 8) { int[] encodings = {14, 1, 2, 4, 8}; selection = 0; for (int i = 0; i < encodings.length; i++) if (encodings[i] == request.mode) selection = i; }
@@ -356,12 +362,13 @@ public final class NativeToolsActivity extends Activity {
     private void showRow(NativeTable source, NativeTable.Row row) {
         try {
             LinearLayout body = vertical(); body.setPadding(dp(12), dp(8), dp(12), dp(8));
+            body.addView(explanations.controls(this));
             JSONObject fields = row.toJson(); Iterator<String> keys = fields.keys();
             while (keys.hasNext()) {
                 String key = keys.next(); Object value = fields.get(key);
                 TextView rawField = text(key + " = " + (value == JSONObject.NULL ? "null (unavailable)" : value), 13);
                 rawField.setTypeface(Typeface.MONOSPACE); rawField.setTextIsSelectable(true); body.addView(rawField);
-                TextView explanation = text(ToolReference.field(key), 12); explanation.setPadding(0, 0, 0, dp(8)); body.addView(explanation);
+                explanations.paragraph(this,body,"native.field."+source.kind+"."+key,"Explain "+key,ToolReference.field(key),true,false);
             }
             if (!row.hasFileByte(source.fileSize)) body.addView(text("This record has no validated physical target byte. Source-table records and virtual-address mapping may still provide useful evidence.", 13));
             ScrollView scroll = new ScrollView(this); scroll.addView(body);

@@ -144,6 +144,7 @@ public final class MpvWorkbenchTest {
         for(int i=0;i<list().getAdapter().getCount();i++) assertTrue(row(i).json().getInt("errorCode")<0);
         destroy(); Files.write(input.toPath(),new byte[]{1,2,3,4}); open();
         assertTrue(ReflectionHelpers.<TextView>getField(activity,"context").getText().toString().contains("UNSUPPORTED / INCOMPLETE"));
+        assertEquals(android.view.View.GONE,ReflectionHelpers.<TextView>getField(activity,"mechanism").getVisibility());
         root("Input / engine / process"); assertFalse(row(0).json().getBoolean("fileProbeComplete"));
         destroy(); Files.write(input.toPath(),MetadataFixtureFactory.wav()); open();
         File snapshots = new File(activity.getCacheDir(),"media-snapshots");

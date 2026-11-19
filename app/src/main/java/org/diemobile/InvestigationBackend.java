@@ -77,6 +77,9 @@ abstract class InvestigationBackend implements AutoCloseable {
 
     abstract String help(String request);
 
+    /** Factual failures/coverage belong outside optional definitions. */
+    String statusSummary() { return ""; }
+
     void writeText(String request, Writer output, BooleanSupplier cancelled) throws Exception {
         throw new IOException("No text renderer for this scope");
     }

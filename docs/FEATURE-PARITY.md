@@ -39,7 +39,7 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | Custom database import and persistence | local ZIP snapshots, SHA-256 identity, native load check, activation/rollback and original-ZIP export wired; host import/CRC/path/size/persistence tests and native activation/tag/reload fixtures verified; Android picker/restart flows pending |
 | Full original Qt DiE rule compatibility comparison | pending |
 | Searchable typed evidence with source offsets and structured tool exports | desktop detection tree plus eight native record types and dedicated DEX/string/metadata/media/resource/hash models; search/50-row pages, field details/help and 64-location Back history implemented; captured parameters, full-table exports, staged range exports and recreation checked with host/Robolectric fixtures; remaining legacy strings/hex outputs also have dedicated classified/byte views; typed structures include raw/variant values, semantic flags, parent links and reviewed field domains; handset flow pending |
-| Comprehensive per-field documentation and investigative guidance | partial |
+| Comprehensive per-field documentation and investigative guidance | partial; shared individual/global expandable definitions in Main, native tools and investigation views; visible raw facts/failure/coverage statuses and complete guide/exports retained; content-first grouping/identity and three real-Main cases implemented; full Gallerize/media/grid/archive work and hardware flows remain pending/in progress; see [presentation contract](content-presentation.md) |
 | Cooperative cancellation and result cache | desktop cache hit and byte-change invalidation host verified; request-owned scan cancellation and Java streaming cancellation host verified; typed table queued-cancel/recovery checked with Robolectric/real JNI, active table calls settle before cancellation is shown; active scan interrupt latency and handset lifecycle tests pending |
 | Typed native structures and fields | actual CDiE PE/ELF/thin/fat Mach-O visitor, exact descriptors/values/text units, parent/storage links, reviewed RVA/slice references, selectors/inventory, budgets and active cooperative cancellation; independent native/Python byte and Unicode/IEEE/bounds fixtures and three actual-JNI UI cases pass; broader formats, per-field semantics, Qt parity and device/provider/isolation behavior remain incomplete/unverified; see [contracts](native-structures.md) |
 | Primary compatible-format selection | actual native compatible catalog, explicit facts/scan selector, source-bound captured reports, rescan-by-name/state, new-input Automatic and stale-dialog rejection; native known-rule/All-types/cache separation and three actual-engine UI/export cases pass; arbitrary forcing, interpretation profiles/per-file batch overrides, Qt settings and handset/provider flows remain incomplete/unverified; see [contracts](scan-interpretations.md) |
@@ -199,3 +199,13 @@ output caps, timeouts, cancellation and child cleanup; raw-byte oracles check
 Unicode/invalid UTF-8, duplicate/header/overflow and exact source lifetimes.
 Real OS service visibility, providers, process death and handset behavior remain
 unverified. See [Binder registry contracts](binder-registry.md).
+
+Content-first presentation adds file type/identity before tools, one structured
+File info guide, shared definition toggles and purpose-based tool groups. The
+complete catalog retains native IDs 0–10 and all prior providers/workflows.
+Three actual Main/CDiE cases cover data/settings identity, recreation, old
+Reference locations and stale tool actions; the new combined suite has 127
+checks. Partial/unsupported statuses remain outside collapsed definitions.
+Gallerize, real content/media galleries, visual grids and broad archive decoding
+remain active separate requirements, not completed claims. See
+[content presentation](content-presentation.md).

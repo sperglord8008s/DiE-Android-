@@ -39,7 +39,9 @@ public final class InvestigationActivity extends Activity {
     private PreparedExport prepared, preview;
     private EditText filter;
     private Spinner pageSize;
-    private TextView title, context, status;
+    private TextView title, context, status, mechanism;
+    private Button mechanismToggle;
+    private ExpandableHelp explanations;
     private ListView records;
     private Button back, views, reload, cancel, previous, next, search, export;
 
@@ -64,6 +66,7 @@ public final class InvestigationActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        explanations = new ExpandableHelp(this);
         String path = getIntent().getStringExtra("path"); if (path == null) { finish(); return; }
         File root = new File(path); inputName = getIntent().getStringExtra("name"); if (inputName == null) inputName = root.getName();
         if(state!=null) { retentionState=state.getString("providerState");pendingInputRequest=state.getString("pendingInputRequest");if(pendingInputRequest!=null)pickerOpen=true; }
@@ -114,7 +117,10 @@ public final class InvestigationActivity extends Activity {
         }
         title = text(inputName, 17); title.setMaxLines(2); title.setEllipsize(TextUtils.TruncateAt.MIDDLE); root.addView(title);
         context = text("Loading investigation…", 12); context.setMaxLines(3); context.setEllipsize(TextUtils.TruncateAt.END);
-        context.setOnClickListener(v -> showText("Scope / provenance / interpretation", context.getText() + "\n\n" + pretty(metadata) + "\n\n" + pretty(provenance))); root.addView(context);
+        context.setOnClickListener(v -> showText("Scope / provenance / interpretation", context.getText() + "\n\n" + mechanism.getText() + "\n\n" + pretty(metadata) + "\n\n" + pretty(provenance))); root.addView(context);
+        root.addView(explanations.controls(this));
+        mechanismToggle = button("Scope and interpretation", () -> {}); root.addView(mechanismToggle);
+        mechanism = text("", 12); mechanism.setTextIsSelectable(true); mechanism.setTag("explanation:investigation.scope"); root.addView(mechanism);
         LinearLayout navigation = new LinearLayout(this);
         back = button("Back", this::goBack); add(navigation, back); views = button("Root views", this::rootViews); add(navigation, views);
         reload = button("Reload view", () -> load(capture(), false)); add(navigation, reload);
@@ -188,7 +194,9 @@ public final class InvestigationActivity extends Activity {
     }
     private void failed(int ticket, String message) { runOnUiThread(() -> { if (!isDestroyed() && ticket == generation) { busy = false; controls(); status.setText(message); } }); }
     private void present() {
-        title.setText(source.title); context.setText(backend.help(produced.request) + "\n" + inputName);
+        title.setText(source.title); context.setText((backend.statusSummary().isEmpty()?"":backend.statusSummary()+"\n") + inputName + " • " + byteSize + " bytes • " + source.size() + " records in scope");
+        mechanism.setText(backend.help(produced.request));
+        explanations.bind("investigation."+getIntent().getStringExtra("provider")+"."+source.kind,"Scope and interpretation",mechanismToggle,mechanism,true,false);
         records.setAdapter(new BaseAdapter() {
             public int getCount() { return shown.rows.size(); }
             public Object getItem(int i) { return shown.rows.get(i); }

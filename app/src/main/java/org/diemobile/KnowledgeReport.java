@@ -69,7 +69,7 @@ final class KnowledgeReport {
    try{dexLibraries(catalog(c,cancelled),classes,o,cancelled);}catch(InterruptedIOException stopped){throw stopped;}catch(Exception error){o.item("LibChecker DEX matching incomplete: "+error.getMessage());}
    trackers(c,document.definedClassDescriptors(cancelled),o);
   }catch(Exception e){o.item("DEX inspection incomplete: "+e.getMessage());}
-  else o.apk.append("Not a recognized ZIP/APK or DEX input. Use File info / File 101 for general interpretation.\n");
+  else o.apk.append("Not a recognized ZIP/APK or DEX input. Use File info / format mechanisms for general interpretation.\n");
   return o;
  }
  static void elf(File file,Output o)throws IOException{

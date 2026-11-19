@@ -255,7 +255,7 @@ public final class PhotoRecInvestigationTest {
                         (input, stop) -> partial.toString())) {
             require(
                     backend.open("bounded", () -> false).size() > 0
-                            && backend.help("bounded").contains("PARTIAL DATA CHECKS"),
+                            && backend.statusSummary().contains("PARTIAL DATA CHECKS"),
                     "Provider hid explicit partial data coverage or valid later ranges");
             require(
                     backend.open("unresolved", () -> false).size() >= 34,
@@ -458,8 +458,8 @@ public final class PhotoRecInvestigationTest {
                     Arrays.equals(fixture.jpeg, recovered.toByteArray()),
                     "Immutable stored-byte carving changed bytes");
             require(
-                    backend.help("all").contains("581 / 774"),
-                    "Partial catalog coverage absent from UI help");
+                    backend.statusSummary().contains("581 / 774"),
+                    "Partial catalog coverage absent from visible status");
         }
         require(Objects.requireNonNull(snapshots.list()).length == 0, "Owned snapshot leaked");
         Files.write(source.toPath(), fixture.bytes);
