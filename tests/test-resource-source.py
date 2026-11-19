@@ -31,9 +31,16 @@ with tempfile.TemporaryDirectory(prefix='die-resource-source-') as temporary:
     def run(ok):
         result = subprocess.run(command, text=True, capture_output=True)
         assert (result.returncode == 0) == ok, result.stdout + result.stderr
-    run(True)
-    run(True)
     target = sandbox / 'vendor/android-resource-engine'
+    target.mkdir(parents=True)
+    unmanaged = target / 'contributor.txt'
+    unmanaged.write_text('unmanaged contributor source')
+    run(False)
+    assert unmanaged.read_text() == 'unmanaged contributor source'
+    unmanaged.unlink()
+    # Reproduce Gradle's precreated empty outputs.dir on a cold checkout.
+    run(True)
+    run(True)
     edited = target / 'src/com/google/devrel/gmscore/tools/apk/arsc/Chunk.java'
     original = edited.read_bytes()
     edited.write_bytes(original + b'\n// local contributor edit\n')

@@ -40,8 +40,11 @@ if (target / 'revision.json').is_file():
     if all(previous.get(key) == value for key,value in identity.items()):
         print('Prepared Google resource source/patch identity and all managed payloads verified.')
         sys.exit(0)
-elif target.exists():
+elif target.exists() and (not target.is_dir() or any(target.iterdir())):
     raise ValueError('Unrecognized existing resource-engine directory; refusing to replace it')
+# Gradle creates declared output directories before starting an Exec task.
+# Only a truly empty directory can be adopted without an inventory; unknown
+# files, symlinks and any edits to a managed source tree still fail above.
 target.parent.mkdir(parents=True,exist_ok=True)
 temporary = Path(tempfile.mkdtemp(prefix='resource-engine-stage-',dir=target.parent))
 backup = None
