@@ -1,5 +1,9 @@
 plugins { id 'com.android.application' }
 def nativeEnabled = providers.gradleProperty('withCdie').orElse('true').get().toBoolean()
+def buildIdentity = new groovy.json.JsonSlurper().parseText(providers.exec {
+    workingDir rootProject.projectDir
+    commandLine 'python3', rootProject.file('scripts/build-version.py').absolutePath
+}.standardOutput.asText.get())
 android {
     namespace 'org.diemobile'
     compileSdk 35
@@ -8,19 +12,159 @@ android {
         applicationId 'org.diemobile'
         minSdk 26
         targetSdk 35
-        versionCode 4
-        versionName '0.4.0-alpha'
+        versionCode buildIdentity.versionCode
+        versionName buildIdentity.baseVersionName
+        resValue 'string', 'app_name', buildIdentity.productName
+        buildConfigField 'String', 'PRODUCT_NAME', groovy.json.JsonOutput.toJson(buildIdentity.productName)
+        buildConfigField 'String', 'SOURCE_REVISION', groovy.json.JsonOutput.toJson(buildIdentity.sourceRevision)
+        buildConfigField 'boolean', 'SOURCE_DIRTY', (buildIdentity.sourceDirty != false).toString()
         if (nativeEnabled) {
             ndk { abiFilters 'arm64-v8a' }
-            externalNativeBuild { cmake { targets 'diemobile' } }
+            externalNativeBuild { cmake { targets 'diemobile', 'diehash' } }
+        }
+    }
+    buildFeatures { buildConfig true }
+    buildTypes {
+        debug { versionNameSuffix buildIdentity.versionName.substring(buildIdentity.baseVersionName.length()) }
+    }
+    applicationVariants.configureEach { variant ->
+        variant.outputs.configureEach {
+            outputFileName = "${buildIdentity.artifactName}-${variant.versionName}-arm64-v8a-${variant.name}.apk"
         }
     }
     if (nativeEnabled) {
         externalNativeBuild { cmake { path 'src/main/cpp/CMakeLists.txt'; version '3.22.1' } }
     }
     sourceSets { main { assets.srcDir '../generated-assets' } }
+    sourceSets { main { jniLibs.srcDir layout.buildDirectory.dir('generated-binwalk-jni') } }
+    sourceSets { main { jniLibs.srcDir layout.buildDirectory.dir('generated-mpv-jni') } }
+    sourceSets { main { jniLibs.srcDir layout.buildDirectory.dir('generated-photorec-jni') } }
+    sourceSets { test { java.srcDirs '../tests/fixtures/dex', '../tests/fixtures/metadata', '../tests/fixtures/resources', '../tests/fixtures/signing', '../tests/fixtures/carving' } }
+    packaging { resources { merges += ['LICENSE'] } }
+    packaging { jniLibs { keepDebugSymbols += ['**/libmpv.so', '**/libav*.so', '**/libsw*.so', '**/libc++_shared.so'] } }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    testOptions {
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            def hostLibraryDirectory = file(providers.gradleProperty('hostNativeLibraryDir').orElse(file('build/host-native').absolutePath).get())
+            def fixtureDirectory = file(providers.gradleProperty('nativeFixturesDir').orElse(file('build/host-ui-fixtures').absolutePath).get())
+            def binaryLibraryDirectory = file(providers.gradleProperty('hostBinaryLibraryDir').orElse(file('build/host-binwalk').absolutePath).get())
+            def mediaLibraryDirectory = file(providers.gradleProperty('hostMediaLibraryDir').orElse(file('build/host-mpv').absolutePath).get())
+            def carvingLibraryDirectory = file('build/host-photorec')
+            maxHeapSize = '1g'
+            systemProperty 'user.home', file('build/test-runtime-home').absolutePath
+            doFirst { file('build/test-runtime-home').mkdirs() }
+            jvmArgs "-Djava.library.path=${hostLibraryDirectory.absolutePath}${File.pathSeparator}${binaryLibraryDirectory.absolutePath}${File.pathSeparator}${mediaLibraryDirectory.absolutePath}${File.pathSeparator}${carvingLibraryDirectory.absolutePath}", '--add-opens=java.base/java.io=ALL-UNNAMED'
+            systemProperty 'die.fixture.dir', fixtureDirectory.absolutePath
+            // Native/fixture changes must invalidate a previous passing Test task,
+            // even when none of the Java sources or test parameters changed.
+            inputs.file(new File(hostLibraryDirectory, 'libdiemobile.so')).withPropertyName('hostNativeLibrary')
+            inputs.file(new File(hostLibraryDirectory, 'libdiehash.so')).withPropertyName('hostHashLibrary')
+            inputs.dir(fixtureDirectory).withPropertyName('nativeFixtures')
+            inputs.file(new File(binaryLibraryDirectory, 'libdiebinwalk.so')).withPropertyName('hostBinwalkLibrary')
+            inputs.file(new File(mediaLibraryDirectory, 'libdiempv.so')).withPropertyName('hostMpvLibrary')
+            inputs.file(new File(carvingLibraryDirectory, 'libdiephotorec.so')).withPropertyName('hostPhotoRecLibrary')
+            systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
+        }
+    }
 }
 
+def buildBinwalkAndroid = tasks.register('buildBinwalkAndroid', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'bash', rootProject.file('scripts/build-binwalk.sh').absolutePath, 'android'
+    environment 'ANDROID_HOME', android.sdkDirectory.absolutePath
+    if (gradle.startParameter.offline) environment 'CARGO_NET_OFFLINE', 'true'
+    inputs.files(rootProject.fileTree('binary-engine') { include '**/*.rs', '**/*.toml', 'Cargo.lock'; exclude '**/target/**' })
+    inputs.files(rootProject.fileTree('vendor/Binwalk/src') { include '**/*.rs' })
+    inputs.files(rootProject.files('scripts/build-binwalk.sh', 'scripts/fetch-binwalk.sh'))
+    outputs.file(layout.buildDirectory.file('generated-binwalk-jni/arm64-v8a/libdiebinwalk.so'))
+}
+tasks.named('preBuild').configure { dependsOn buildBinwalkAndroid }
+
+def buildMpvAndroid = tasks.register('buildMpvAndroid', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'bash', rootProject.file('scripts/build-mpv.sh').absolutePath, 'android'
+    environment 'ANDROID_HOME', android.sdkDirectory.absolutePath
+    if (gradle.startParameter.offline) environment 'DIE_OFFLINE', 'true'
+    inputs.files(rootProject.fileTree('media-engine') { include '**/*.c', '**/*.h', '*-lock.json' })
+    inputs.files(rootProject.files('scripts/build-mpv.sh', 'scripts/fetch-mpv.py'))
+    outputs.dir(layout.buildDirectory.dir('generated-mpv-jni/arm64-v8a'))
+}
+tasks.named('preBuild').configure { dependsOn buildMpvAndroid }
+
+def buildPhotoRecAndroid = tasks.register('buildPhotoRecAndroid', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'bash', rootProject.file('scripts/build-photorec.sh').absolutePath, 'android'
+    environment 'ANDROID_HOME', android.sdkDirectory.absolutePath
+    if (gradle.startParameter.offline) environment 'DIE_OFFLINE', 'true'
+    inputs.files(rootProject.fileTree('carving-engine') { include '**/*.cpp', '**/*.c', '**/*.h', '**/*.map', '*-lock.json', 'CMakeLists.txt' })
+    inputs.files(rootProject.files('scripts/build-photorec.sh', 'scripts/fetch-photorec.sh', 'scripts/prepare-photorec.py', 'scripts/fetch-verified.sh', 'scripts/photorec-notices.py'))
+    inputs.files(rootProject.files('app/src/main/assets/notices/photorec-7.2.txt', 'app/src/main/assets/notices/photorec-source-headers.txt'))
+    outputs.file(layout.buildDirectory.file('generated-photorec-jni/arm64-v8a/libdiephotorec.so'))
+}
+tasks.named('preBuild').configure { dependsOn buildPhotoRecAndroid }
+
+def verifyHashSources = tasks.register('verifyHashSources', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'python3', rootProject.file('scripts/check-hash-sources.py').absolutePath
+}
+tasks.named('preBuild').configure { dependsOn verifyHashSources }
+
+def verifyTrackerUnicode = tasks.register('verifyTrackerUnicode', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'python3', rootProject.file('scripts/tracker-unicode.py').absolutePath
+}
+tasks.named('preBuild').configure { dependsOn verifyTrackerUnicode }
+
+def verifyServiceContract = tasks.register('verifyServiceContract', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'python3', rootProject.file('scripts/check-service-contract.py').absolutePath
+}
+tasks.named('preBuild').configure { dependsOn verifyServiceContract }
+
+def verifyPackageContracts = tasks.register('verifyPackageContracts', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'python3', rootProject.file('scripts/check-package-contract.py').absolutePath
+}
+tasks.named('preBuild').configure { dependsOn verifyPackageContracts }
+
+// Verify the actual Maven bytecode used for signing inspection, independently
+// of Gradle cache/network state. Source contracts are checked by test-apk.sh.
+def apksigVerifier = configurations.create('apksigVerifier') {
+    canBeConsumed = false
+    visible = false
+    transitive = false
+}
+def verifyApksig = tasks.register('verifyApksig') {
+    inputs.files(apksigVerifier).withPropertyName('pinnedApksigArtifact')
+    inputs.file(rootProject.file('signing-engine/source-lock.json'))
+    doLast {
+        def lock = new groovy.json.JsonSlurper().parse(rootProject.file('signing-engine/source-lock.json'))
+        def digest = java.security.MessageDigest.getInstance('SHA-256')
+        apksigVerifier.singleFile.withInputStream { input ->
+            byte[] buffer = new byte[65536]
+            int count
+            while ((count = input.read(buffer)) >= 0) { if (count > 0) digest.update(buffer, 0, count) }
+        }
+        if (digest.digest().encodeHex().toString() != lock.binarySha256) {
+            throw new GradleException('APK signing verifier bytes differ from the reviewed source lock')
+        }
+        logger.lifecycle('Unmodified AOSP apksig artifact matches the reviewed signing-engine lock.')
+    }
+}
+tasks.named('preBuild').configure { dependsOn verifyApksig }
+
 // AOSP's standalone, Apache-2.0 APK signing-scheme verifier.
-dependencies { implementation 'com.android.tools.build:apksig:8.9.2' }
+dependencies {
+    implementation project(':metadata-engine')
+    implementation project(':resource-engine')
+    implementation project(':regex-engine')
+    implementation('com.android.tools.build:apksig:8.9.2') { version { strictly '8.9.2' } }
+    add('apksigVerifier', 'com.android.tools.build:apksig:8.9.2')
+    // Google's maintained BSD-3-Clause smali fork; data parsing/formatting only.
+    implementation 'com.android.tools.smali:smali-dexlib2:3.0.10'
+    implementation 'com.android.tools.smali:smali-baksmali:3.0.10'
+    implementation 'com.google.guava:guava:31.1-android'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.14.1'
+}

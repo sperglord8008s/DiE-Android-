@@ -1,0 +1,11 @@
+# Source-built metadata engines
+
+Run `bash scripts/fetch-metadata.sh`, then build normally. This module compiles metadata-extractor **2.22.0** (Apache-2.0, checksum-pinned source JAR) and Adobe XMP Core **5.1.0-jc003** from AOSP commit `c60127d527f8438b89f9e292200639ec14d1c3cf` (BSD-3-Clause). It does not package the separate Maven XMP binary. Source archives can be cached with `METADATA_DEPS_DIR`; their SHA-256 checks always run.
+
+Gitiles can regenerate archive compression/headers differently across servers. XMP integrity therefore uses `scripts/xmp-source-files.sha256`: the exact set of all 45 compiled Java sources plus `NOTICE` must match their pinned payload SHA-256 values before any extraction/patching. Unexpected, duplicate, missing or changed source/license paths fail. Unused archive metadata is not compiled. The metadata-extractor source JAR retains its whole-artifact hash check.
+
+`patches/metadata-engine.patch` is the complete, reviewable compatibility patch. It changes metadata-extractor's XMP imports to AOSP's public namespace, casts the old iterator's `Object` value to the string it returns, and removes a silent 1,000-item Photoshop ancestry restriction. The app instead fails explicitly at its XML/model budgets. The upstream XMP DOM entry point calls `XmlGate` before parsing and rejects external entity resolution. All changed upstream files carry a modification notice. No recognition tables or EXIF decoding algorithms are replaced.
+
+`XmlGate` is app code under GPL-3.0-only. It captures bounded XML, runs a SAX pass that rejects every DTD/external entity and checks depth/nodes/text, then gives the original content to upstream DOM parsing. A parser without required lexical callbacks fails explicitly. This is cooperative validation in the app process, not process isolation or a complete hostile-input guarantee. XMP normalization remains upstream behavior; original packet bytes and parsed properties have different meanings.
+
+The old BSD source is used deliberately to keep the complete build source and license reproducible. It is not represented as Adobe XMP 6.1.11 or as equivalent coverage. Check malformed XML, arrays, qualifiers, namespaces and Android behavior before broadening claims. Upstream desktop command-line tools are omitted from the metadata-extractor source set. Full Apache/BSD notices are bundled with the app.

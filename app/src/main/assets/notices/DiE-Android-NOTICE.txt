@@ -1,0 +1,82 @@
+DiE Android (unofficial)
+Frontend license: GPL-3.0-only; the full license is bundled as DiE-Android-LICENSE.txt.
+Corresponding source: https://github.com/sperglord8008s/DiE-Android-
+
+CDiE, xxfclib, the Detect-It-Easy signature database and knowledge sources retain
+their original licenses. Their pinned revisions and available upstream notices
+are bundled under assets/notices and assets/knowledge. AOSP apksig 8.9.2 is
+Apache-2.0; see apksig-8.9.2.txt. Imported custom rules retain the license notices
+provided by their source; import does not grant redistribution rights.
+
+Google smali/dexlib2 and baksmali 3.0.10 provide DEX interpretation and smali
+formatting. Their complete upstream licensing document is smali-3.0.10.txt;
+transitive dependency notices are in dex-dependencies.txt. Maven artifact/source
+checksums are recorded in scripts/dex-dependencies.sha256 and dex-sources.sha256
+in the corresponding source. analysis-engines.properties records the versions.
+
+This is an independent project, not an official Horsicq application.
+
+Metadata readers: metadata-extractor 2.22.0 (Apache-2.0) and Adobe XMP Core
+5.1.0-jc003 from AOSP c60127d527f8438b89f9e292200639ec14d1c3cf (BSD-3-Clause),
+built from pinned source archives with the documented compatibility/XML gate
+patch. Full terms and source notices: metadata-extractor-2.22.0.txt,
+xmp-aosp-BSD.txt and metadata-source-headers.txt. Corresponding source/build
+instructions are included in the repository's metadata-engine module.
+
+Binwalk 3.1.1 source commit 26713972e3f9f52dc37d4a421c4554b0bd9e82ef
+provides binary signatures/format validators under MIT (binwalk-3.1.1.txt).
+The GPL-3.0 JNI/scanning adapter uses a separate core-only Cargo manifest;
+the upstream library source is unmodified. Cargo.lock pins dependencies,
+including delink b58c93732c3578af08d39d2fc2aeaada5b1c3ee1. Full resolved
+dependency license texts are in binary-dependencies.txt. Linked Rust 1.90.0
+standard-library notices are in rust-stdlib-1.90.0.html. The two shared JNI
+workspace license files omitted by jni-sys-macros 0.4.1's crate archive are
+retained at their pinned source commit in binary-engine/licenses.
+
+PhotoRec 7.2 format registration/header/data sources are unmodified at
+281be432dd79121e08e0898887a9ee1f30fb3e96, GPL-2.0-or-later (compatible with
+this GPL-3.0 application). Full GPL terms and original source headers are in
+photorec-7.2.txt and photorec-source-headers.txt. carving-engine/source-lock.json
+pins the complete source archive and reviewed contracts. The source-built
+descriptor adapter, offline fetch/build scripts and corresponding-source ZIP
+recipe are included in carving-engine and scripts. No optional libjpeg/zlib,
+full file-check/rename callbacks or filesystem/fragment recovery are enabled.
+
+MPV media investigation additionally uses unmodified official mpv-android
+2026-09-17 ARM64 runtime libraries, with SHA-256 identities in
+media-engine/runtime-lock.json and exact published engine/dependency/submodule
+sources in media-engine/source-lock.json. libmpv source is
+0b7ed670f7c353dd3dd4f8ae0fc788a181a15aa6. The app-owned read-only descriptor
+probe and isolated-worker integration are GPL-3.0-only. The runtime includes
+GPL/version3 FFmpeg and openly licensed codec/text/graphics support libraries;
+full license and source attribution notices are in mpv-runtime.txt. The build
+publishes a separate component-source bundle containing all pinned MPV source
+archives and original build recipes. Engine property reference excerpts come
+from the same pinned MPV manual under GPL-2.0-or-later. The application does not
+request network permission or download engines while running.
+
+Compiled Android XML/resource inspection uses the complete source-built Google
+binary-resources 32.5.1 parser (Apache-2.0), with a documented Java 8/UTF-16/
+style-hole/legacy-package compatibility patch and app-owned bounds/report
+adapters. Exact published source SHA-256, URL, complete publisher NOTICE and
+modification details are in android-resources-32.5.1.txt. resource-engine and
+scripts/fetch-resources.sh reproduce the source acquisition and build. Guava
+Android runtime notices are already retained in dex-dependencies.txt; AutoValue
+and annotation dependencies are build-only, not shipped parser engines.
+
+Whole-file hashing adds unmodified RHash 1.4.5 MD4 and byte-order support at
+6ea6791024499524cf41f9e0b6b08d456bf4a5e2 under the BSD Zero Clause license.
+Original source, full COPYING/header notices and per-file SHA-256 values are
+retained in hash-engine/third_party/rhash, hash-engine/source-lock.json and
+rhash-md4-1.4.5.txt. Other digests reuse the pinned MIT xxfclib contexts,
+including its SHA-224/SHA-384/SHA-512 implementation. The descriptor adapter,
+evidence model and Android integration are GPL-3.0-only.
+
+SDK name matching additionally builds all 19 unmodified RE2/J 1.8 Java sources
+under the Go Authors' BSD-3-Clause license. Full license, all original source
+copyright/header variants and exact published source identity are retained in
+re2j-1.8.txt and regex-engine/source-lock.json. No prebuilt RE2/J runtime JAR is
+shipped. Canonical LibChecker v5 data is generated by its pinned upstream
+compiler from the already attributed Apache-2.0 source. Every active matcher
+and effective locale payload is retained; this local source build does not
+activate an upstream online data release or redistribute user-imported Exodus.

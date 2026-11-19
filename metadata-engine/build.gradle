@@ -1,0 +1,11 @@
+plugins { id 'java-library' }
+
+// Complete upstream source snapshots, acquired/checksummed/patched by fetch-metadata.sh.
+java { sourceCompatibility = JavaVersion.VERSION_1_8; targetCompatibility = JavaVersion.VERSION_1_8 }
+tasks.withType(JavaCompile).configureEach { options.release = 8 }
+sourceSets.main.java.srcDirs = ['src/main/java', '../vendor/metadata-engine/metadata', '../vendor/metadata-engine/xmp']
+tasks.named('compileJava').configure {
+    doFirst {
+        if (!file('../vendor/metadata-engine/revision.txt').isFile()) throw new GradleException('Run bash scripts/fetch-metadata.sh before building the metadata engine')
+    }
+}

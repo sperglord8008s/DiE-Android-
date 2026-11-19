@@ -1,12 +1,35 @@
-name: Android alpha build
+name: GlassDigestor Android and host checks
 on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
+env:
+  DEX_DEPS_DIR: ${{ github.workspace }}/.ci-cache/dex
+  JSON_JAR: ${{ github.workspace }}/.ci-cache/json/json-20240303.jar
+  APKSIG_JAR: ${{ github.workspace }}/.ci-cache/apksig/apksig-8.9.2.jar
+  RESOURCE_DEPS_DIR: ${{ github.workspace }}/.ci-cache/resources
+  METADATA_DEPS_DIR: ${{ github.workspace }}/.ci-cache/metadata
+  TRACKER_DEPS_DIR: ${{ github.workspace }}/.ci-cache/trackers
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Identify numbered build
+        id: version
+        run: |
+          python3 - <<'PY'
+          import os, runpy
+          identity = runpy.run_path('scripts/build-version.py')['identity']()
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('name=' + identity['versionName'] + '\n')
+              output.write('base=' + identity['baseVersionName'] + '\n')
+          print(identity['apkName'])
+          PY
+      - uses: actions/cache@v4
+        with:
+          path: .ci-cache
+          key: host-inputs-v1-${{ runner.os }}-${{ hashFiles('scripts/*.sha256', 'scripts/fetch-*.sh', 'scripts/test-*.sh', 'regex-engine/*lock.json', 'signing-engine/*lock.json', 'resource-engine/build.gradle', 'metadata-engine/build.gradle', 'archive-engine/source-lock.json') }}
+          restore-keys: host-inputs-v1-${{ runner.os }}-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -19,18 +42,71 @@ jobs:
           packages: 'platform-tools'
           log-accepted-android-sdk-licenses: 'false'
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;28.2.13676358' 'cmake;3.22.1'
+      - run: DIE_REQUIRE_AAPT2=true bash scripts/test-resources.sh
       - run: bash scripts/test.sh
       - run: bash scripts/fetch-engine.sh
       - run: bash scripts/fetch-knowledge.sh
-      - run: gradle --no-daemon :app:assembleDebug
+      - run: bash scripts/fetch-metadata.sh
+      - name: Install host media reference dependencies
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends libmpv2 ffmpeg
+      - run: python3 scripts/fetch-mpv-sources.py --bundle
+      - run: python3 scripts/mpv-notices.py --check && python3 scripts/mpv-references.py --check
+      - uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          targets: aarch64-linux-android
+      - run: bash scripts/build-binwalk.sh android
+      - run: bash scripts/build-archive.sh android
+      - run: bash scripts/check-binary-notices.sh
+      - run: ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
+      - run: bash scripts/verify-apk.sh
+      - run: bash scripts/test-workbench-ui.sh
+      - run: python3 scripts/package-photorec-sources.py
+      - run: python3 scripts/package-archive-sources.py
+      - run: python3 scripts/package-alpha.py
       - uses: actions/upload-artifact@v4
         with:
-          name: die-android-arm64-debug
-          path: app/build/outputs/apk/debug/*.apk
+          name: GlassDigestor-${{ steps.version.outputs.base }}-savepoint
+          if-no-files-found: error
+          retention-days: 90
+          path: app/build/alpha-checkpoint/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GlassDigestor-${{ steps.version.outputs.name }}-arm64-debug
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/debug/*.sha256
+            app/build/outputs/apk/debug/build-manifest.txt
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: photorec-upstream-and-adapter-sources
+          path: |
+            app/build/photorec-sources/*.zip
+            app/build/photorec-sources/*.sha256
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: archive-engine-and-codec-sources
+          path: |
+            app/build/archive-sources/*.zip
+            app/build/archive-sources/*.sha256
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mpv-android-component-sources
+          path: |
+            app/build/mpv-sources/*.zip
+            app/build/mpv-sources/*.sha256
           if-no-files-found: error
 
   native-integration:
     runs-on: ubuntu-latest
+    env:
+      NATIVE_BUILD_DIR: ${{ github.workspace }}/app/build/host-native
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -39,3 +115,70 @@ jobs:
           java-version: '17'
       - run: bash scripts/fetch-engine.sh
       - run: bash scripts/test-native.sh
+      - run: bash scripts/test-hashes.sh
+
+  apk-signatures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .ci-cache
+          key: host-inputs-v1-${{ runner.os }}-${{ hashFiles('scripts/*.sha256', 'scripts/fetch-*.sh', 'scripts/test-*.sh', 'regex-engine/*lock.json', 'signing-engine/*lock.json', 'resource-engine/build.gradle', 'metadata-engine/build.gradle', 'archive-engine/source-lock.json') }}
+          restore-keys: host-inputs-v1-${{ runner.os }}-
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: bash scripts/test-apk.sh
+      - run: bash tests/test-dependency-fetch.sh
+      - run: bash scripts/test-models.sh
+      - run: bash scripts/test-system-services.sh
+      - run: bash scripts/test-profiles.sh
+      - run: bash scripts/test-batch.sh
+      - run: bash scripts/test-comparison.sh
+      - run: bash scripts/test-scan-comparison.sh
+      - run: bash scripts/test-report-formats.sh
+      - run: bash scripts/test-dex.sh
+      - run: bash scripts/test-strings.sh
+      - run: bash scripts/test-metadata.sh
+      - run: bash scripts/test-resources.sh
+      - run: bash scripts/fetch-knowledge.sh
+      - run: bash scripts/test-knowledge.sh
+      - run: bash scripts/test-trackers.sh
+
+  binary-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: dtolnay/rust-toolchain@1.90.0
+      - run: bash scripts/test-binwalk.sh
+      - run: bash scripts/test-photorec.sh
+      - run: bash scripts/test-gallerize.sh
+      - run: bash scripts/test-archive-engine.sh
+      - run: bash scripts/check-binary-notices.sh
+
+  media-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install host media reference dependencies
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends libmpv2 ffmpeg
+      - run: bash scripts/test-mpv.sh
+      - run: python3 scripts/fetch-mpv-sources.py
+      - run: python3 scripts/mpv-notices.py --check && python3 scripts/mpv-references.py --check

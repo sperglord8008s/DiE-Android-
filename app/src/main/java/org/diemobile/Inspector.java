@@ -8,6 +8,7 @@ final class Inspector {
         long size; String type, sha256, hex, strings; double entropy; double[] blocks;
     }
     static String identify(byte[] b,int n) {
+        n=Math.max(0,Math.min(n,b.length));
         if(n>=4 && b[0]==127 && b[1]=='E'&&b[2]=='L'&&b[3]=='F') {
             String bits=n>4?(b[4]==2?"64-bit":b[4]==1?"32-bit":"unknown class"):"unknown class";
             int m=n>=20?(b[5]==2?((b[18]&255)<<8)|(b[19]&255):((b[19]&255)<<8)|(b[18]&255)):-1;
@@ -19,19 +20,52 @@ final class Inspector {
         if(n>=2&&b[0]=='M'&&b[1]=='Z')return "MZ executable candidate";
         if(n>=4&&b[0]=='%'&&b[1]=='P'&&b[2]=='D'&&b[3]=='F')return "PDF";
         if(n>=4&&(b[0]&255)==0x89&&b[1]=='P'&&b[2]=='N'&&b[3]=='G')return "PNG";
+        if(n>=3&&(b[0]&255)==0xff&&(b[1]&255)==0xd8&&(b[2]&255)==0xff)return "JPEG image";
+        if(header(b,n,0,"GIF87a")||header(b,n,0,"GIF89a"))return "GIF image / animation";
+        if(n>=12&&(header(b,n,0,"RIFF")||header(b,n,0,"RIFX"))){
+            if(header(b,n,8,"WEBP"))return "WebP image / animation";
+            if(header(b,n,8,"WAVE"))return "WAV audio / RIFF container";
+            if(header(b,n,8,"AVI "))return "AVI media container";
+        }
+        if(header(b,n,0,"fLaC"))return "FLAC audio";
+        if(header(b,n,0,"OggS"))return "Ogg media container";
+        if(header(b,n,0,"ID3"))return "ID3 metadata / audio candidate";
+        if(n>=12&&header(b,n,4,"ftyp")){
+            if(header(b,n,8,"avif")||header(b,n,8,"avis"))return "AVIF image / ISO BMFF container";
+            for(String brand:new String[]{"heic","heix","hevc","hevx","mif1","msf1"})
+                if(header(b,n,8,brand))return "HEIF image / ISO BMFF container";
+            return "MP4 / ISO BMFF media container";
+        }
+        if(n>=6&&b[0]=='7'&&b[1]=='z'&&(b[2]&255)==0xbc&&(b[3]&255)==0xaf&&b[4]==0x27&&b[5]==0x1c)return "7z archive";
+        if(n>=7&&header(b,n,0,"Rar!")&&b[4]==0x1a&&b[5]==7&&(b[6]==0||(n>=8&&b[6]==1&&b[7]==0)))return "RAR archive";
+        if(n>=3&&(b[0]&255)==0x1f&&(b[1]&255)==0x8b&&b[2]==8)return "gzip compressed stream";
+        if(n>=6&&(b[0]&255)==0xfd&&header(b,n,1,"7zXZ")&&b[5]==0)return "XZ compressed stream";
+        if(n>=4&&header(b,n,0,"BZh")&&b[3]>='1'&&b[3]<='9')return "bzip2 compressed stream";
+        if(n>=4&&(b[0]&255)==0x28&&(b[1]&255)==0xb5&&(b[2]&255)==0x2f&&(b[3]&255)==0xfd)return "Zstandard compressed stream";
+        if(header(b,n,0,"MSCF"))return "Microsoft CAB archive";
+        if(header(b,n,257,"ustar"))return "TAR archive header";
         return "Unknown / raw data";
+    }
+    private static boolean header(byte[] bytes,int available,int offset,String ascii) {
+        if(offset<0||offset>available-ascii.length())return false;
+        for(int i=0;i<ascii.length();i++)if((bytes[offset+i]&255)!=ascii.charAt(i))return false;
+        return true;
     }
     static double entropy(long[] counts,long n){ if(n==0)return 0; double h=0;for(long c:counts)if(c>0){double p=(double)c/n;h-=p*Math.log(p)/Math.log(2);}return h; }
     static Result scan(File f,int minString) throws Exception {
+        return scan(f,minString,()->false);
+    }
+    static Result scan(File f,int minString,java.util.function.BooleanSupplier cancelled) throws Exception {
+        if(cancelled.getAsBoolean())throw new InterruptedIOException("Inspection cancelled");
         Result r=new Result(); r.size=f.length(); MessageDigest md=MessageDigest.getInstance("SHA-256");
         long[] counts=new long[256]; int blockSize=(int)Math.max(4096,Math.min(Integer.MAX_VALUE,(r.size+255)/256));
         long[] hist=new long[256]; int used=0; ArrayList<Double> blocks=new ArrayList<>();
         byte[] buf=new byte[65536], head=new byte[4096]; int hlen=0; long pos=0,start=0; StringBuilder run=new StringBuilder(),strings=new StringBuilder();
-        try(InputStream in=new BufferedInputStream(new FileInputStream(f))){int n;while((n=in.read(buf))!=-1){md.update(buf,0,n);int copy=Math.min(n,head.length-hlen);System.arraycopy(buf,0,head,hlen,copy);hlen+=copy;
+        try(InputStream in=new BufferedInputStream(new FileInputStream(f))){int n;while((n=in.read(buf))!=-1){if(cancelled.getAsBoolean())throw new InterruptedIOException("Inspection cancelled");md.update(buf,0,n);int copy=Math.min(n,head.length-hlen);System.arraycopy(buf,0,head,hlen,copy);hlen+=copy;
             for(int i=0;i<n;i++,pos++){int v=buf[i]&255;counts[v]++;hist[v]++;if(++used==blockSize){blocks.add(entropy(hist,used));Arrays.fill(hist,0);used=0;}
                 if(v>=32&&v<=126){if(run.length()==0)start=pos;if(run.length()<4096)run.append((char)v);}else {append(strings,run,start,minString);run.setLength(0);}
             }
-        }}append(strings,run,start,minString);if(used>0)blocks.add(entropy(hist,used));r.entropy=entropy(counts,pos);r.blocks=new double[blocks.size()];for(int i=0;i<blocks.size();i++)r.blocks[i]=blocks.get(i);r.strings=strings.toString();r.type=identify(head,hlen);r.sha256=toHex(md.digest());
+        }}if(cancelled.getAsBoolean())throw new InterruptedIOException("Inspection cancelled");append(strings,run,start,minString);if(used>0)blocks.add(entropy(hist,used));r.entropy=entropy(counts,pos);r.blocks=new double[blocks.size()];for(int i=0;i<blocks.size();i++)r.blocks[i]=blocks.get(i);r.strings=strings.toString();r.type=identify(head,hlen);r.sha256=toHex(md.digest());
         StringBuilder hex=new StringBuilder();for(int i=0;i<hlen;i+=16){hex.append(String.format(Locale.ROOT,"%08X  ",i));for(int j=0;j<16;j++)hex.append(i+j<hlen?String.format(Locale.ROOT,"%02X ",head[i+j]&255):"   ");hex.append(" ");for(int j=i;j<Math.min(i+16,hlen);j++){int v=head[j]&255;hex.append(v>=32&&v<=126?(char)v:'.');}hex.append('\n');}r.hex=hex.toString();return r;
     }
     static void append(StringBuilder out,StringBuilder run,long offset,int min){if(run.length()>=min&&out.length()<200000)out.append(String.format(Locale.ROOT,"%08X  ",offset)).append(run).append('\n');}

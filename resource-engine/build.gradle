@@ -1,0 +1,28 @@
+plugins { id 'java-library' }
+
+// Google's published, checksum-pinned resource parser, with the documented patch.
+java { sourceCompatibility = JavaVersion.VERSION_1_8; targetCompatibility = JavaVersion.VERSION_1_8 }
+tasks.withType(JavaCompile).configureEach { options.release = 8 }
+sourceSets.main.java.srcDirs = ['src/main/java', '../vendor/android-resource-engine/src']
+def prepareSource = tasks.register('prepareSource', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'bash', rootProject.file('scripts/fetch-resources.sh').absolutePath
+    if (gradle.startParameter.offline) environment 'DIE_OFFLINE', 'true'
+    inputs.files(rootProject.files('scripts/fetch-resources.sh', 'scripts/prepare-resources.py', 'patches/android-resource-engine.patch'))
+    outputs.dir(rootProject.file('vendor/android-resource-engine'))
+}
+dependencies {
+    api 'com.google.guava:guava:31.1-android'
+    compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+    compileOnly 'com.google.errorprone:error_prone_annotations:2.11.0'
+    compileOnly 'org.checkerframework:checker-compat-qual:2.5.5'
+    compileOnly 'com.google.auto.value:auto-value-annotations:1.11.0'
+    annotationProcessor 'com.google.auto.value:auto-value:1.11.0'
+}
+tasks.named('compileJava').configure {
+    dependsOn prepareSource
+    doFirst {
+        if (!file('../vendor/android-resource-engine/revision.json').isFile())
+            throw new GradleException('Run bash scripts/fetch-resources.sh before building Android resource inspection')
+    }
+}

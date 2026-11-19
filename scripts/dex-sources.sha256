@@ -1,0 +1,10 @@
+6bde2a8845cea10623cc46434053bc002feb89a28437d0cc6dd15568039da06a https://dl.google.com/android/maven2/com/android/tools/smali/smali-dexlib2/3.0.10/smali-dexlib2-3.0.10-sources.jar
+8a8dda341c59fcc90b2dfba189841ee4cf7eea0a3f9117c0381ee4bc20d6a43a https://dl.google.com/android/maven2/com/android/tools/smali/smali-baksmali/3.0.10/smali-baksmali-3.0.10-sources.jar
+b7581c53d89ce8321e0352b95ef42494761d81460bc82f2210cabde2af7afc77 https://dl.google.com/android/maven2/com/android/tools/smali/smali-util/3.0.10/smali-util-3.0.10-sources.jar
+57f3d51d8095b148383f1cb402dd11ef8676c32974a67190c3ad4cf2ef2b2f0f https://repo.maven.apache.org/maven2/com/google/guava/guava/31.1-android/guava-31.1-android-sources.jar
+1c9e85e272d0708c6a591dc74828c71603053b48cc75ae83cce56912a2aa063b https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2-sources.jar
+092346eebbb1657b51aa7485a246bf602bb464cc0b0e2e1c7e7201fadce1e98f https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.1/failureaccess-1.0.1-sources.jar
+fd99a45195ed893803624d1030387056a96601013f5e61ccabd79abb4ddfa876 https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/3.12.0/checker-qual-3.12.0-sources.jar
+31a8f1bd791fb22c606af95049062a3c8252ce4b1b17555d00dc609e6371101d https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.11.0/error_prone_annotations-2.11.0-sources.jar
+ba4df669fec153fa4cd0ef8d02c6d3ef0702b7ac4cabe080facf3b6e490bb972 https://repo.maven.apache.org/maven2/com/google/j2objc/j2objc-annotations/1.3/j2objc-annotations-1.3-sources.jar
+99174ced79ced88359155c343bcb762bb815bd6b55e2296a2afe4bb4453e3247 https://repo.maven.apache.org/maven2/org/jcommander/jcommander/1.85/jcommander-1.85-sources.jar

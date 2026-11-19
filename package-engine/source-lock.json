@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "adapterVersion": 1,
+  "references": [
+    {
+      "adapter": "PackageManifest",
+      "platform": "android-15.0.0_r1",
+      "license": "Apache-2.0",
+      "url": "https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-15.0.0_r1/core/java/android/content/pm/parsing/ApkLiteParseUtils.java",
+      "sha256": "72f6bb9037f2f3f62d137647a9770ec3644ef32015fe0949a53d761af8fd10d5",
+      "cachedFile": "aosp-PackageLiteParseUtils-android35.java"
+    },
+    {
+      "adapter": "PackageSetGraph",
+      "platform": "android-15.0.0_r1",
+      "license": "Apache-2.0",
+      "url": "https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-15.0.0_r1/core/java/android/content/pm/split/SplitDependencyLoader.java",
+      "sha256": "7ebfe6d1f7704ff2d1fa7fa0587c62eff7be1aca75403048d2d5844da5dd54fb",
+      "cachedFile": "aosp-SplitDependencyLoader-android35.java"
+    }
+  ],
+  "compiledAttributeIds": {
+    "versionCode": "0x0101021b",
+    "versionCodeMajor": "0x01010576",
+    "revisionCode": "0x010104d5",
+    "versionName": "0x0101021c",
+    "isFeatureSplit": "0x0101055b",
+    "isSplitRequired": "0x01010591",
+    "isolatedSplits": "0x0101054b",
+    "requiredSplitTypes": "0x0101064e",
+    "splitTypes": "0x0101064f",
+    "minSdkVersion": "0x0101020c",
+    "targetSdkVersion": "0x01010270",
+    "applicationHasCode": "0x0101000c"
+  },
+  "usesSplitNameAttributeId": "0x01010003",
+  "scope": "Audited AOSP declaration/dependency knowledge and public SDK 35 IDs. These platform classes are not bundled, replaced, loaded or executed. Actual parsing/verification uses the separately pinned Google binary-resources and AOSP apksig engines."
+}

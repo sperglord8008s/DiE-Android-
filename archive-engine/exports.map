@@ -1,0 +1,6 @@
+{
+  global:
+    Java_org_diemobile_ArchiveEngine_inspectFd;
+    Java_org_diemobile_ArchiveEngine_extractFd;
+  local: *;
+};

@@ -1,0 +1,26 @@
+* text=auto
+gradlew text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
+# These are retained upstream license payloads; preserve their exact bytes and
+# existing whitespace so notice verification is stable on every Git platform.
+app/src/main/assets/notices/binary-dependencies.txt -text whitespace=-blank-at-eol,-blank-at-eof
+app/src/main/assets/notices/rust-stdlib-1.90.0.html -text whitespace=-blank-at-eol,-blank-at-eof
+binary-engine/licenses/* -text whitespace=-blank-at-eof
+app/src/main/assets/notices/mpv-runtime.txt -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+media-engine/licenses/* -text whitespace=-blank-at-eol,-blank-at-eof
+app/src/main/assets/notices/android-resources-32.5.1.txt -text whitespace=-blank-at-eol,-blank-at-eof
+app/src/main/assets/notices/photorec-7.2.txt -text whitespace=-blank-at-eol,-blank-at-eof
+app/src/main/assets/notices/photorec-source-headers.txt -text whitespace=-blank-at-eol,-blank-at-eof
+# Unified patch context uses a single space for an unchanged empty source line.
+patches/android-resource-engine.patch whitespace=-blank-at-eol
+hash-engine/third_party/rhash/* -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+regex-engine/third_party/re2j/** -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+app/src/main/assets/notices/unicode-15.0.0.txt -text whitespace=-blank-at-eol,-blank-at-eof
+app/src/main/java/org/diemobile/TrackerUnicode.java -text
+# Preserve the exact unmodified, hash-pinned upstream reference bytes.
+app/src/main/assets/references/android-15-service.cpp -text whitespace=-blank-at-eof
+
+# Generated original archive/codec copyright payloads retain upstream whitespace.
+archive-engine/NOTICE.txt -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+archive-engine/source-headers.txt -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab

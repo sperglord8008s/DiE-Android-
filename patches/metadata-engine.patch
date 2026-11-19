@@ -1,0 +1,133 @@
+--- a/metadata/com/drew/metadata/xmp/XmpDirectory.java
++++ b/metadata/com/drew/metadata/xmp/XmpDirectory.java
+@@ -1,3 +1,4 @@
++// Modified by DiE Android: use the source-built AOSP BSD XMP API; fail explicitly at app budgets instead of silently limiting a property.
+ /*
+  * Copyright 2002-2019 Drew Noakes and contributors
+  *
+@@ -20,12 +21,12 @@
+  */
+ package com.drew.metadata.xmp;
+ 
+-import com.adobe.internal.xmp.XMPException;
+-import com.adobe.internal.xmp.XMPIterator;
+-import com.adobe.internal.xmp.XMPMeta;
+-import com.adobe.internal.xmp.impl.XMPMetaImpl;
+-import com.adobe.internal.xmp.options.IteratorOptions;
+-import com.adobe.internal.xmp.properties.XMPPropertyInfo;
++import com.adobe.xmp.XMPException;
++import com.adobe.xmp.XMPIterator;
++import com.adobe.xmp.XMPMeta;
++import com.adobe.xmp.impl.XMPMetaImpl;
++import com.adobe.xmp.options.IteratorOptions;
++import com.adobe.xmp.properties.XMPPropertyInfo;
+ import com.drew.lang.annotations.NotNull;
+ import com.drew.lang.annotations.Nullable;
+ import com.drew.metadata.Directory;
+@@ -96,7 +97,7 @@
+                 for (XMPIterator i = _xmpMeta.iterator(options); i.hasNext(); ) {
+                     XMPPropertyInfo prop = (XMPPropertyInfo)i.next();
+                     String path = prop.getPath();
+-                    String value = prop.getValue();
++                    String value = (String)prop.getValue();
+                     if (path != null && value != null) {
+                         propertyValueByPath.put(path, value);
+                     }
+--- a/metadata/com/drew/metadata/xmp/XmpReader.java
++++ b/metadata/com/drew/metadata/xmp/XmpReader.java
+@@ -1,3 +1,4 @@
++// Modified by DiE Android: use the source-built AOSP BSD XMP API; fail explicitly at app budgets instead of silently limiting a property.
+ /*
+  * Copyright 2002-2019 Drew Noakes and contributors
+  *
+@@ -20,13 +21,13 @@
+  */
+ package com.drew.metadata.xmp;
+ 
+-import com.adobe.internal.xmp.XMPException;
+-import com.adobe.internal.xmp.XMPIterator;
+-import com.adobe.internal.xmp.XMPMeta;
+-import com.adobe.internal.xmp.XMPMetaFactory;
+-import com.adobe.internal.xmp.impl.ByteBuffer;
+-import com.adobe.internal.xmp.options.ParseOptions;
+-import com.adobe.internal.xmp.properties.XMPPropertyInfo;
++import com.adobe.xmp.XMPException;
++import com.adobe.xmp.XMPIterator;
++import com.adobe.xmp.XMPMeta;
++import com.adobe.xmp.XMPMetaFactory;
++import com.adobe.xmp.impl.ByteBuffer;
++import com.adobe.xmp.options.ParseOptions;
++import com.adobe.xmp.properties.XMPPropertyInfo;
+ import com.drew.imaging.jpeg.JpegSegmentMetadataReader;
+ import com.drew.imaging.jpeg.JpegSegmentType;
+ import com.drew.lang.SequentialByteArrayReader;
+@@ -68,7 +69,7 @@
+     // Limit photoshop:DocumentAncestors node as it can reach over 100000 items and make parsing extremely slow. 
+     // This is not a typical value but it may happen https://forums.adobe.com/thread/2081839
+     @NotNull
+-    private static final ParseOptions PARSE_OPTIONS = new ParseOptions().setXMPNodesToLimit(Collections.singletonMap("photoshop:DocumentAncestors", 1000));
++    private static final ParseOptions PARSE_OPTIONS = new ParseOptions();
+ 
+     /**
+      * Extended XMP constants
+@@ -245,7 +246,7 @@
+                 while (itr.hasNext()) {
+                     final XMPPropertyInfo pi = (XMPPropertyInfo) itr.next();
+                     if (ATTRIBUTE_EXTENDED_XMP.equals(pi.getPath())) {
+-                        return pi.getValue();
++                        return (String)pi.getValue();
+                     }
+                 }
+             } catch (XMPException e) {
+--- a/metadata/com/drew/metadata/xmp/XmpWriter.java
++++ b/metadata/com/drew/metadata/xmp/XmpWriter.java
+@@ -1,11 +1,12 @@
++// Modified by DiE Android: use the source-built AOSP BSD XMP API; fail explicitly at app budgets instead of silently limiting a property.
+ package com.drew.metadata.xmp;
+ 
+ import java.io.OutputStream;
+ 
+-import com.adobe.internal.xmp.XMPException;
+-import com.adobe.internal.xmp.XMPMeta;
+-import com.adobe.internal.xmp.XMPMetaFactory;
+-import com.adobe.internal.xmp.options.SerializeOptions;
++import com.adobe.xmp.XMPException;
++import com.adobe.xmp.XMPMeta;
++import com.adobe.xmp.XMPMetaFactory;
++import com.adobe.xmp.options.SerializeOptions;
+ import com.drew.metadata.Metadata;
+ 
+ public class XmpWriter
+--- a/xmp/com/adobe/xmp/impl/XMPMetaParser.java
++++ b/xmp/com/adobe/xmp/impl/XMPMetaParser.java
+@@ -1,3 +1,4 @@
++// Modified by DiE Android: validate bounded XML with a DTD-rejecting SAX pass before building a DOM; reject external resolution.
+ // =================================================================================================
+ // ADOBE SYSTEMS INCORPORATED
+ // Copyright 2006 Adobe Systems Incorporated
+@@ -268,13 +269,15 @@
+ 	{
+ 		try
+ 		{
++			source = org.diemobile.metadata.XmlGate.validate(source);
+ 			DocumentBuilder builder = factory.newDocumentBuilder();
++			builder.setEntityResolver((publicId, systemId) -> { throw new SAXException("External XML entities are not permitted"); });
+ 			builder.setErrorHandler(null);
+ 			return builder.parse(source);
+ 		}
+ 		catch (SAXException e)
+ 		{
+-			throw new XMPException("XML parsing failure", XMPError.BADXML, e);
++			throw new XMPException("XML parsing failure: " + e.getMessage(), XMPError.BADXML, e);
+ 		}
+ 		catch (ParserConfigurationException e)
+ 		{
+@@ -283,7 +286,7 @@
+ 		}
+ 		catch (IOException e)
+ 		{
+-			throw new XMPException("Error reading the XML-file", XMPError.BADSTREAM, e);
++			throw new XMPException("Error reading the XML-file: " + e.getMessage(), XMPError.BADSTREAM, e);
+ 		}
+ 	}
+ 	

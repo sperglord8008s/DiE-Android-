@@ -1,10 +1,18 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
     <!-- Local package inventory is a core function. No INTERNET permission. -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
-    <application android:label="DiE Android" android:theme="@style/AppTheme" android:allowBackup="false" android:supportsRtl="true">
+    <!-- Broad user/system package investigation requires inventory beyond fixed query targets. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission"/>
+    <application android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:theme="@style/AppTheme" android:allowBackup="false" android:supportsRtl="true">
+        <service android:name=".BinaryWorkerService" android:exported="false" android:isolatedProcess="true" android:process=":binary_worker" android:stopWithTask="true"/>
+        <activity android:name=".RuleDatabaseActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
+        <activity android:name=".ScanProfilesActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
+        <activity android:name=".BatchScanActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
         <activity android:name=".DesktopScanActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
         <activity android:name=".ArchiveExplorerActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
         <activity android:name=".NativeToolsActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
+        <activity android:name=".GallerizeActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
+        <activity android:name=".ContentPreviewActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
+        <activity android:name=".InvestigationActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
         <activity android:name=".SystemExplorerActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>

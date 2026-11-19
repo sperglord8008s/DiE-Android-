@@ -1,0 +1,83 @@
+{
+  "schema": "org.diemobile.archive-sources",
+  "schemaVersion": 1,
+  "components": [
+    {
+      "name": "libarchive",
+      "version": "3.8.11",
+      "revision": "03036ffa409a2aa1c5bbad35be2202641a040fda",
+      "archive": "libarchive-3.8.11.tar.gz",
+      "archiveSha256": "87d05df74305b7f16b784852e49f434e09ce2b3bb29423461f717fc988742a78",
+      "url": "https://codeload.github.com/libarchive/libarchive/tar.gz/03036ffa409a2aa1c5bbad35be2202641a040fda",
+      "prefix": "libarchive-03036ffa409a2aa1c5bbad35be2202641a040fda",
+      "excludedCliSymlinks": {},
+      "contractFileSha256": {
+        "libarchive/archive.h": "7c1f9a5858cf11b4097e61489eb498ea955067287a9f754312c60cce3a3e54de",
+        "libarchive/archive_entry.h": "0f76dc1de6cd51be76c946c27ab5af0e9b29b3f0991d50a498cf17e0ee0c2ffc",
+        "COPYING": "30e556b3959e3985d66efefec5eaac51d4995053caa1d3cffe6eb916f146f229"
+      }
+    },
+    {
+      "name": "bzip2",
+      "version": "1.0.8",
+      "revision": null,
+      "archive": "bzip2-1.0.8.tar.gz",
+      "archiveSha256": "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269",
+      "url": "https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz",
+      "prefix": "bzip2-1.0.8",
+      "excludedCliSymlinks": {},
+      "contractFileSha256": {
+        "bzlib.h": "6ac62e811669598ee30c9e1c379b9e627f6ff17a5a3dc1e0b4fa8b8ea75e580d",
+        "LICENSE": "c6dbbf828498be844a89eaa3b84adbab3199e342eb5cb2ed2f0d4ba7ec0f38a3"
+      }
+    },
+    {
+      "name": "xz",
+      "version": "5.8.4",
+      "revision": "d3e650e63c110e830fd5391e7f8b45df0b91d3da",
+      "archive": "xz-5.8.4.tar.gz",
+      "archiveSha256": "b5aad5c776b324a39a46bbd588d4b5c001266b87ed3887aea1dc2854702d041c",
+      "url": "https://codeload.github.com/tukaani-project/xz/tar.gz/d3e650e63c110e830fd5391e7f8b45df0b91d3da",
+      "prefix": "xz-d3e650e63c110e830fd5391e7f8b45df0b91d3da",
+      "excludedCliSymlinks": {},
+      "contractFileSha256": {
+        "src/liblzma/api/lzma.h": "6829350ef1ee35fae25481cc87a4f4b17c4b6c2a3df26f2b34dc1804df75c0d9",
+        "src/liblzma/api/lzma/version.h": "9dec302470df2f505474cad90065a12eed8f65a7944e44ae1844499e72a4bb9f",
+        "COPYING": "616a3ad264ce29b8f1cb97e53037b139d406899ca8d1f799651e17bfa09830b8",
+        "COPYING.0BSD": "0b01625d853911cd0e2e088dcfb743261034a091bb379246cb25a14cc4c74bf1"
+      }
+    },
+    {
+      "name": "lz4",
+      "version": "1.10.0",
+      "revision": "ebb370ca83af193212df4dcbadcc5d87bc0de2f0",
+      "archive": "lz4-1.10.0.tar.gz",
+      "archiveSha256": "eb1a93e934d4fd29df6e2061ba0bf447568561764d758f4a5662c0e29370ffa9",
+      "url": "https://codeload.github.com/lz4/lz4/tar.gz/ebb370ca83af193212df4dcbadcc5d87bc0de2f0",
+      "prefix": "lz4-ebb370ca83af193212df4dcbadcc5d87bc0de2f0",
+      "excludedCliSymlinks": {},
+      "contractFileSha256": {
+        "lib/lz4.h": "26b82efc53d1570f3b54eef02e9c4764c1ad374ff03cac04e2ced5ea4d4c552f",
+        "lib/lz4frame.h": "b845db4b7ee1bfa64b8f641a94f62e7f636a8b5d673cc61766413782283aaad1",
+        "lib/LICENSE": "8b58c446121a109ccf32edc094bba3010a3d85e4ee3702950db55e4d3e87736c"
+      }
+    },
+    {
+      "name": "zstd",
+      "version": "1.5.7",
+      "revision": "f8745da6ff1ad1e7bab384bd1f9d742439278e99",
+      "archive": "zstd-1.5.7.tar.gz",
+      "archiveSha256": "4b0bd1f0cfb25e61b9103c35f27395530ff5b4c0d2513a00fd745849e85ea52c",
+      "url": "https://codeload.github.com/facebook/zstd/tar.gz/f8745da6ff1ad1e7bab384bd1f9d742439278e99",
+      "prefix": "zstd-f8745da6ff1ad1e7bab384bd1f9d742439278e99",
+      "excludedCliSymlinks": {
+        "tests/cli-tests/bin/unzstd": "zstd",
+        "tests/cli-tests/bin/zstdcat": "zstd"
+      },
+      "contractFileSha256": {
+        "lib/zstd.h": "9b4bc8245565c98ccfc61c07749928b57e7c0f6fddb0530c4f6aa1971893d88b",
+        "LICENSE": "7055266497633c9025b777c78eb7235af13922117480ed5c674677adc381c9d8"
+      }
+    }
+  ]
+}
