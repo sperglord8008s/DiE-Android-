@@ -51,13 +51,13 @@ System visibility follows Android's permissions and sandbox.
 
 Download the ARM64 APK and its checksum/build manifest from
 [GitHub Releases](https://github.com/sperglord8008s/DiE-Android-/releases).
-The published numbered checkpoint is **0.6.0-pre-alpha.2** (Android version code **8**), including [checked recovery previews and exports](docs/recovered-content.md).
+The published numbered checkpoint is **0.6.0-pre-alpha.3** (Android version code **9**), including the [native archive workbench](docs/native-archives.md) and [checked recovery previews/exports](docs/recovered-content.md).
 Android 8.0 / API 26 or later is required.
 
 Debug APKs have numbered, source-identified names, for example
-`GlassDigestor-0.6.0-pre-alpha.2-dev.g0123456789ab-arm64-v8a-debug.apk`.
-Current development builds use **0.6.0-pre-alpha.3** / code **9** and add the
-[broader native archive workbench](docs/native-archives.md). Earlier published
+`GlassDigestor-0.6.0-pre-alpha.3-dev.g0123456789ab-arm64-v8a-debug.apk`.
+Current development builds use **0.6.0-pre-alpha.4** / code **10** and add
+[source-bound links from embedded findings into the archive browser](docs/archive-launches.md). Earlier published
 checkpoints remain unchanged.
 
 Tap the app title or **Options → Build details** to see the same version and
@@ -70,14 +70,14 @@ from separate CI runners can differ. The historical
 
 ## What has been verified
 
-The published recovery checkpoint passed **all five GitHub Actions jobs** and
-**139 Android host checks**, using real JNI/parsers
+The published archive checkpoint passed **all five GitHub Actions jobs** and
+**147 Android host checks**, using real JNI/parsers
 where documented. ARM64 compilation, APK signature/offline packaging, static
 16 KiB alignment, source identities and independent host fixtures are checked.
 
-The current archive integration additionally passes **147 Android host tests**,
-ARM64 assembly/lint and the APK verifier for fifteen native libraries; its CI
-gate is tracked in the [archive contracts](docs/native-archives.md).
+The current embedded-offset integration additionally passes **151 Android host
+tests**, ARM64 assembly/lint and the APK verifier for fifteen native libraries;
+its CI gate is tracked in the [archive launch contracts](docs/archive-launches.md).
 
 **This remains a pre-alpha workbench.** Actual handset/SAF/isolated-UID/media
 runtime tests and full desktop Detect It Easy parity are incomplete. Header

@@ -39,6 +39,7 @@ final class NativeArchiveSession implements AutoCloseable {
         }
     }
 
+    ArchiveLaunch launch;
     final File directory;
     private final ArchiveRunner runner;
     private final ArrayList<Location> trail = new ArrayList<>();
@@ -59,6 +60,19 @@ final class NativeArchiveSession implements AutoCloseable {
             ArchiveRunner runner,
             BooleanSupplier stop)
             throws Exception {
+        return open(source, name, base, offset, length, runner, null, stop);
+    }
+
+    static NativeArchiveSession open(
+            File source,
+            String name,
+            File base,
+            long offset,
+            long length,
+            ArchiveRunner runner,
+            ArchiveLaunch launch,
+            BooleanSupplier stop)
+            throws Exception {
         if (!base.isDirectory() && !base.mkdirs())
             throw new IOException("Cannot create archive sessions");
         File directory = File.createTempFile("archive-session-", ".owned", base);
@@ -68,6 +82,13 @@ final class NativeArchiveSession implements AutoCloseable {
         InputSnapshot input = null;
         try {
             input = InputSnapshot.acquire(source, directory, NativeArchiveStore.MAX_INPUT, stop);
+            if (launch != null) {
+                launch.requireSource(input);
+                if (launch.offset != offset || launch.length != length)
+                    throw new IOException(
+                            "Archive launch interval differs from its requested native scope");
+            }
+            session.launch = launch;
             Location root = new Location(input, name, -1, null);
             session.trail.add(root);
             input = null;
@@ -230,6 +251,8 @@ final class NativeArchiveSession implements AutoCloseable {
         return new JSONObject()
                 .put("schema", "org.diemobile.archive-session")
                 .put("schemaVersion", 1)
+                .put("originalLaunch", launch == null ? JSONObject.NULL : launch.json())
+                .put("originalLaunchRaw", launch == null ? JSONObject.NULL : launch.raw)
                 .put("locations", chain)
                 .put("failedAttempts", failureEvidence())
                 .put("physicalMemberOffsets", JSONObject.NULL)
@@ -273,6 +296,7 @@ final class NativeArchiveSession implements AutoCloseable {
         String state =
                 new JSONObject()
                         .put("version", 1)
+                        .put("launch", launch == null ? JSONObject.NULL : launch.raw)
                         .put("directory", directory.getName())
                         .put("locations", locations)
                         .put("failures", failureDescriptors())
@@ -388,6 +412,10 @@ final class NativeArchiveSession implements AutoCloseable {
                                 .put("sha256", descriptor.getString("sha256"))
                                 .put("evidence", new JSONObject(raw)));
             }
+        if (!value.isNull("launch")) {
+            session.launch = ArchiveLaunch.parse(value.getString("launch"));
+            session.launch.requireSource(session.trail.get(0).input);
+        }
         long[] usage = session.privateUsage();
         if (usage[0] > MAX_NESTED_BYTES || usage[1] > MAX_REPORT_BYTES)
             throw new IOException("Restored private archive cache exceeds budgets");

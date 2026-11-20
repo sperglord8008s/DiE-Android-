@@ -43,6 +43,11 @@ an explicit analysis scope, **not an inferred recovered archive extent**. The
 browser does not claim arbitrary deobfuscation, password recovery or exhaustive
 recognition of every archive format.
 
+Binwalk and PhotoRec row actions can open a [source-bound archive parsing
+interval](archive-launches.md), including findings with unknown extents. The
+original finding/provenance remains in the resulting archive packet, and caller
+SHA-256/size expectations are verified before parsing.
+
 ## Formats, filters and evidence
 
 The adapter registers reviewed readers for 7z, ar, CAB, cpio, empty input,

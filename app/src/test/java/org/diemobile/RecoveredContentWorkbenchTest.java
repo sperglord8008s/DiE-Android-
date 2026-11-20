@@ -359,4 +359,99 @@ public final class RecoveredContentWorkbenchTest {
         assertNull(ReflectionHelpers.getField(tool, "prepared"));
         assertArrayEquals(fixture.bytes, Files.readAllBytes(original.toPath()));
     }
+
+    @Test
+    public void unknownFindingOpensAnExplicitArchiveTailAndReceivesPreviewAfterParentExpiry()
+            throws Exception {
+        open("photorec");
+        openRoot("Rejected / unresolved magic candidates");
+        int index = -1;
+        EvidenceRows.Row selected = null;
+        for (int i = 0; i < list().getAdapter().getCount(); i++) {
+            EvidenceRows.Row row = (EvidenceRows.Row) list().getAdapter().getItem(i);
+            if (row.physicalOffset != null && row.sizeBytes == null) {
+                index = i;
+                selected = row;
+                break;
+            }
+        }
+        assertNotNull("Actual PhotoRec unknown-extent row required", selected);
+        actions(index);
+        choose("Inspect archive / compressed stream");
+        settle(tool);
+        var request = Shadows.shadowOf(tool).getNextStartedActivityForResult();
+        assertNotNull(request);
+        assertEquals(3, request.requestCode);
+        assertEquals(
+                NativeArchiveExplorerActivity.class.getName(),
+                request.intent.getComponent().getClassName());
+        ArchiveLaunch launch = ArchiveLaunch.parse(request.intent.getStringExtra("archiveLaunch"));
+        InputSnapshot parent =
+                ReflectionHelpers.<InvestigationBackend>getField(tool, "backend").ownedByteSource();
+        assertEquals(parent.sha256, launch.sha256);
+        assertEquals(selected.physicalOffset.longValue(), launch.offset);
+        assertEquals(parent.size - launch.offset, launch.length);
+        assertEquals(selected.encoded, launch.json().getString("findingRecordRaw"));
+        assertNull(selected.sizeBytes);
+        assertTrue(launch.json().isNull("recoveredExtentBytes"));
+        tool.onActivityResult(3, Activity.RESULT_CANCELED, null);
+        assertTrue(status(tool).contains("cancelled"));
+        tool.onActivityResult(
+                3,
+                Activity.RESULT_OK,
+                new Intent()
+                        .putExtra("path", original.getAbsolutePath())
+                        .putExtra("archiveRootSha256", "bad"));
+        assertTrue(original.isFile());
+        assertTrue(status(tool).contains("no valid captured parent"));
+        File directory = new File(tool.getCacheDir(), "archive-snapshots");
+        directory.mkdirs();
+        File member = File.createTempFile("archive-member-", ".snapshot", directory);
+        Files.write(member.toPath(), fixture.png);
+        String sha =
+                Inspector.toHex(
+                        java.security.MessageDigest.getInstance("SHA-256").digest(fixture.png));
+        parent.file.delete();
+        original.delete();
+        tool.onActivityResult(
+                3,
+                Activity.RESULT_OK,
+                new Intent()
+                        .putExtra("path", member.getAbsolutePath())
+                        .putExtra("display", "known archive result / fixture PNG")
+                        .putExtra("memberSha256", sha)
+                        .putExtra("archiveRootSha256", launch.sha256)
+                        .putExtra("archiveRootSize", launch.size));
+        settle(tool);
+        assertFalse(member.exists());
+        Intent preview = Shadows.shadowOf(tool).getNextStartedActivity();
+        assertNotNull(status(tool), preview);
+        assertEquals(ContentPreviewActivity.class.getName(), preview.getComponent().getClassName());
+        assertEquals(launch.sha256, preview.getStringExtra("originalSha256"));
+        assertFalse(preview.hasExtra("originalOffset"));
+        File child = new File(preview.getStringExtra("path"));
+        assertArrayEquals(fixture.png, Files.readAllBytes(child.toPath()));
+        child.delete();
+    }
+
+    @Test
+    public void boundedBinwalkFindingKeepsItsReportedExtentSeparateFromArchiveScope()
+            throws Exception {
+        open("binwalk");
+        int index = pngRow();
+        EvidenceRows.Row row = (EvidenceRows.Row) list().getAdapter().getItem(index);
+        actions(index);
+        choose("Inspect archive / compressed stream");
+        settle(tool);
+        var request = Shadows.shadowOf(tool).getNextStartedActivityForResult();
+        assertNotNull(request);
+        assertEquals(3, request.requestCode);
+        ArchiveLaunch launch = ArchiveLaunch.parse(request.intent.getStringExtra("archiveLaunch"));
+        assertEquals(fixture.pngAt, launch.offset);
+        assertEquals(fixture.bytes.length - fixture.pngAt, launch.length);
+        assertTrue(launch.length > row.sizeBytes);
+        assertEquals(row.encoded, launch.json().getString("findingRecordRaw"));
+        assertTrue(launch.json().isNull("recoveredExtentBytes"));
+        tool.onActivityResult(3, Activity.RESULT_CANCELED, null);
+    }
 }

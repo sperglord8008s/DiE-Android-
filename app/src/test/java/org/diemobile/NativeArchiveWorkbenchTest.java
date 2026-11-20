@@ -406,6 +406,12 @@ public final class NativeArchiveWorkbenchTest {
                         .getJSONObject(0)
                         .getString("sha256");
         assertEquals(expectedSha, result.getStringExtra("memberSha256"));
+        assertEquals(
+                new JSONObject(readText(fixtures.resolve("expected.json")))
+                        .getJSONObject("mislabeled.bin")
+                        .getString("sha256"),
+                result.getStringExtra("archiveRootSha256"));
+        assertEquals(original.length(), result.getLongExtra("archiveRootSize", -1));
         assertTrue(result.getStringExtra("display").contains("世界.txt"));
         File directory = session().directory;
         close(controller);
@@ -426,6 +432,105 @@ public final class NativeArchiveWorkbenchTest {
                     readText(acquired.file.toPath()));
         }
         assertFalse(member.exists());
+    }
+
+    @Test
+    public void callerIdentityMismatchIsRefusedBeforeAnyNativeInspection() throws Exception {
+        File original = temporary.resolve("different-source.bin").toFile();
+        Files.copy(fixtures.resolve("mislabeled.bin"), original.toPath());
+        Intent intent =
+                new Intent(RuntimeEnvironment.getApplication(), NativeArchiveExplorerActivity.class)
+                        .putExtra("path", original.getAbsolutePath())
+                        .putExtra("sha256", "0".repeat(64))
+                        .putExtra("sourceSize", original.length());
+        controller =
+                Robolectric.buildActivity(NativeArchiveExplorerActivity.class, intent)
+                        .setup()
+                        .visible();
+        activity = controller.get();
+        settle(activity);
+        assertNull(session());
+        assertEquals(0, nativeCalls.get());
+        assertTrue(
+                status(activity),
+                status(activity).contains("requested captured source SHA-256/size"));
+        assertTrue(original.isFile());
+        File base = new File(activity.getCacheDir(), "native-archives");
+        assertEquals(0, base.list().length);
+    }
+
+    @Test
+    public void findingContextKeepsItsUnknownExtentAcrossManualScopeAndRecreation()
+            throws Exception {
+        File original = temporary.resolve("origin.blob").toFile();
+        Files.copy(fixtures.resolve("embedded.blob"), original.toPath());
+        long offset =
+                new JSONObject(readText(fixtures.resolve("expected.json")))
+                        .getJSONObject("embedded.blob")
+                        .getLong("offset");
+        ArchiveLaunch launch;
+        try (InputSnapshot expected =
+                InputSnapshot.acquire(
+                        original,
+                        temporary.resolve("expectation").toFile(),
+                        NativeArchiveStore.MAX_INPUT,
+                        () -> false)) {
+            EvidenceRows.Row row =
+                    new EvidenceRows.Row(
+                            17,
+                            "controlled TAR origin",
+                            "Independent origin metadata fixture; no Binwalk scan is substituted",
+                            offset,
+                            null,
+                            new JSONObject().put("parserAccepted", false));
+            JSONObject provenance =
+                    new JSONObject()
+                            .put(
+                                    "input",
+                                    new JSONObject()
+                                            .put("sha256", expected.sha256)
+                                            .put("sizeBytes", expected.size));
+            launch = ArchiveLaunch.fromFinding(expected, "binwalk-candidates", row, provenance);
+        }
+        Intent intent =
+                new Intent(RuntimeEnvironment.getApplication(), NativeArchiveExplorerActivity.class)
+                        .putExtra("path", original.getAbsolutePath())
+                        .putExtra("offset", launch.offset)
+                        .putExtra("length", launch.length)
+                        .putExtra("archiveLaunch", launch.raw);
+        controller =
+                Robolectric.buildActivity(NativeArchiveExplorerActivity.class, intent)
+                        .setup()
+                        .visible();
+        activity = controller.get();
+        settle(activity);
+        assertTrue(status(activity), session().current().inventory.complete);
+        assertEquals(1, nativeCalls.get());
+        assertTrue(status(activity), status(activity).contains("row #17"));
+        session().changeScope(0, session().current().input.size, () -> false);
+        ReflectionHelpers.callInstanceMethod(activity, "render");
+        Bundle state = new Bundle();
+        controller.saveInstanceState(state);
+        close(controller);
+        controller = null;
+        original.delete();
+        controller =
+                Robolectric.buildActivity(NativeArchiveExplorerActivity.class, intent)
+                        .create(state)
+                        .start()
+                        .restoreInstanceState(state)
+                        .resume()
+                        .visible();
+        activity = controller.get();
+        settle(activity);
+        assertEquals(2, nativeCalls.get());
+        assertEquals(0, session().current().inventory.offset);
+        assertEquals(launch.raw, session().evidence().getString("originalLaunchRaw"));
+        assertTrue(
+                new JSONObject(session().launch.json().getString("findingRecordRaw"))
+                        .isNull("sizeBytes"));
+        assertEquals(offset, session().launch.offset);
+        assertEquals(Integer.valueOf(17), session().launch.findingIndex);
     }
 
     private String readText(Path file) throws IOException {

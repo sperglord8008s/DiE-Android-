@@ -249,3 +249,16 @@ checks, archive model/core oracles, ARM64 assembly/lint and the fifteen-library
 APK static verifier pass. Real Android process/UID/Binder/SAF/codec/crash/storage
 and 16 KiB runtime acceptance remain separate and unverified. See
 [native archive contracts](native-archives.md).
+
+Embedded archive launch contexts are implemented: actual Binwalk/PhotoRec row
+starts can supply explicit native parsing tails without changing null or known
+finding extents. Complete row/provenance/source identity is retained; new caller
+identity checks run before native parsing. Actual Binwalk → prefixed TAR and
+PhotoRec unknown-extent gzip → libarchive payload host chains pass independent
+hash expectations and source expiry/restoration/Unicode/refusal checks. Focused
+viewer/result cases and the full **151-case** Android host suite pass with zero
+failures/errors/skips, plus required generic/native checks, archive regressions,
+ARM64 assembly/lint and fifteen-library APK static verification. Source CI
+remains the next gate. See
+[archive launch contracts](archive-launches.md). Device behavior and per-preview
+native-origin history remain unverified/incomplete.

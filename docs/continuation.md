@@ -562,3 +562,40 @@ cross-scan parent history, smarter archive/media gallery presentation, then the
 sourced practical/deep package knowledge cards and remaining desktop parity.
 Actual device UID/Binder/SAF/media/PDF/cancel/crash/cache-pressure and 16 KiB
 runtime are not verified by these host or compile checks.
+
+## Archive checkpoint published; embedded finding links
+
+Archive commit `021622632859c743264ab653234dea53ec5a994c` passed all five
+jobs in run `44650839550` (#132), merged through PR #5 to main
+`cb21238b7ddadd9b40fc303510ee592ceb7afb43`. Pre-alpha.3 is public from
+exact generated CI merge `78edded6db49efdfb9bc3e823182c18e7d6854ee`;
+publisher run `44652686204` succeeded. CI savepoint `14590878892`, APK SHA-256
+`4f7ecc417b2138a23e5089cedd96c3a98e367cc029bc997867ec7c2c337c200d`.
+Downloaded checkpoint, all three exact CI component bundles and all public
+sizes/digests agree; the exact-source fifteen-library static APK verifier passes.
+The separate clean local 0.6.0-pre-alpha.3 checkpoint at `0216226` has local
+signer/bytes and SHA-256
+`6492b74c77cf34fd97d483898132f9730a2c613e2d7b589b6f94ad91a7ca2426`.
+
+The next source slice advances to **0.6.0-pre-alpha.4 / code 10** on
+`codex/embedded-archive-links`. `ArchiveLaunch` captures complete original
+finding/provenance/source identity in a bounded, UTF-16-preserving typed
+request. Binwalk/PhotoRec row actions can try a native parsing tail even with
+unknown reported extent; they do not change the original range or enable its
+automatic stored-byte recovery. Main/Gallerize/preview caller expectations are
+verified before native parsing. Original launch context survives manual scope
+changes and restoration and is included in complete native archive exports.
+Selected-member results carry root source identity; the investigation viewer
+uses the checked private handoff to preview them even after its parent cache
+expires. Classic ZIP forwarding preserves those root fields too.
+
+Standalone actual Binwalk → embedded TAR and PhotoRec unknown-extent gzip →
+libarchive chains pass independent decoded-byte expectations and source-expiry,
+restoration-without-rescan, exact Unicode/provenance, type/identity/budget
+refusals. Four new Android host cases bring the full suite to **151**, with
+zero failures/errors/skips. Generic/required scanner-native, 25/37 archive model,
+ARM64 assembly/lint and fifteen-library APK static checks pass. Source CI is
+the next gate; see `docs/archive-launches.md`. Persistent per-preview native
+origin sidecars/all-visited-node history, richer gallery presentation, sourced
+practical/deep package knowledge and remaining desktop parity are still next.
+Device UID/Binder/SAF/cancel/crash/media/cache/16 KiB runtime is unverified.

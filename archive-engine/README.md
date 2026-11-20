@@ -76,7 +76,10 @@ identities; `NativeArchiveSession` owns bounded nested captures; and
 `NativeArchiveExplorerActivity` presents virtual folders, complete indexed
 entries, raw metadata, nested Back, explicit scopes, checked previews/member
 return and full current-chain exports. The original ZIP browser remains
-available. See [Android workbench contracts](../docs/native-archives.md) for
+available. `ArchiveLaunch` also retains source-bound original Binwalk/PhotoRec
+finding/provenance packets for explicit parsing intervals, with caller identity
+checks before native parsing and no inferred recovered extent. See
+[launch contracts](../docs/archive-launches.md) and [Android workbench contracts](../docs/native-archives.md) for
 implemented/host-verified/device-unverified scope and all remaining limits.
 This module does not claim universal obfuscation, encryption, multi-volume or
 fragmented recovery.
