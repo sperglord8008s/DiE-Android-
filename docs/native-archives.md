@@ -151,6 +151,7 @@ bash scripts/verify-apk.sh
 The full **147-case Android host suite** passes with zero failures/errors/skips,
 as do ARM64 assembly, lint and static APK checks for its fifteen native
 libraries, source notices, version, signature, offline permissions and 16 KiB
-alignment. Source CI is the next gate for this integration slice. Actual ARM64/device/API 26/API 35/Binder/UID/SAF/cancel/crash,
+alignment. All five source CI jobs passed in run `44650839550`; pre-alpha.3
+is published from exact CI source `78edded6db49efdfb9bc3e823182c18e7d6854ee`. Actual ARM64/device/API 26/API 35/Binder/UID/SAF/cancel/crash,
 16 KiB runtime, storage-pressure and media/PDF decoding acceptance remain
 unverified. Full desktop DiE parity remains incomplete.

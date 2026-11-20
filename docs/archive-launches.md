@@ -82,7 +82,8 @@ protocol's independent known payload is separate from the standalone native
 pipeline proof. The full **151-case Android host suite** passes with zero failures/errors/skips,
 as do required generic/native checks, the 25-capture/37-acquisition archive
 model regressions, ARM64 assembly, lint and the fifteen-library static APK
-verifier. Source CI is the next gate for this slice.
+verifier. All five source CI jobs passed in run `44654569828`; pre-alpha.4
+is published from exact CI source `97ba888a9284719f1e399b05a330fef1db2aadc4`.
 
 Actual Android UID/Binder, process death, SAF/media/PDF, cancel/crash, cache
 pressure and 16 KiB runtime behavior remain unverified. The action does not

@@ -9,13 +9,20 @@ import java.io.*;
 /** Local bounded image decoding; unknown extents are never passed to a decoder. */
 final class ContentPreview {
     static boolean looksLikeText(byte[] header) {
+        return looksLikeText(header, true);
+    }
+
+    static boolean looksLikeText(byte[] header, boolean completeInput) {
         try {
-            String value =
+            java.nio.CharBuffer output = java.nio.CharBuffer.allocate(header.length);
+            java.nio.charset.CoderResult decoded =
                     java.nio.charset.StandardCharsets.UTF_8
                             .newDecoder()
                             .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
-                            .decode(java.nio.ByteBuffer.wrap(header))
-                            .toString();
+                            .decode(java.nio.ByteBuffer.wrap(header), output, completeInput);
+            if (decoded.isError()) return false;
+            output.flip();
+            String value = output.toString();
             if (value.isEmpty()) return false;
             boolean visible = false;
             for (int i = 0; i < value.length(); ) {
@@ -26,7 +33,7 @@ final class ContentPreview {
                 visible |= !Character.isWhitespace(code);
             }
             return visible;
-        } catch (java.nio.charset.CharacterCodingException invalid) {
+        } catch (RuntimeException invalid) {
             return false;
         }
     }

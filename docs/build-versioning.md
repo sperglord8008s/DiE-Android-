@@ -1,7 +1,7 @@
 # Build and checkpoint versions
 
 `version.properties` is the reviewed version source. Published checkpoints use
-`major.minor.patch-pre-alpha.sequence` (the published checkpoint is `0.6.0-pre-alpha.3`; current development is `0.6.0-pre-alpha.4`). Increase
+`major.minor.patch-pre-alpha.sequence` (the published checkpoint is `0.6.0-pre-alpha.4`; current development is `0.6.0-pre-alpha.5`). Increase
 the sequence and Android `version.code` for each newly published checkpoint.
 The numeric code must always exceed the previous published code; the version
 name itself does not determine Android update ordering.
@@ -14,7 +14,7 @@ GitHub run number. This is an identity convention, not a promise of identical
 APK bytes or signing keys.
 
 For example, a clean debug build produces
-`GlassDigestor-0.6.0-pre-alpha.3-dev.g0123456789ab-arm64-v8a-debug.apk`.
+`GlassDigestor-0.6.0-pre-alpha.5-dev.g0123456789ab-arm64-v8a-debug.apk`.
 The installed version name includes the same suffix. Tap the main title or
 open **Options → Build details** to inspect the version code, build variant,
 full source revision and source status.

@@ -1,6 +1,6 @@
 # Development continuation point
 
-The verified workbench is on main through PR #1 and continues as GlassDigestor in `sperglord8008s/DiE-Android-`. Active development uses `codex/workbench-parity`; the application remains `org.diemobile` with the existing debug signing configuration. The published `0.6.0-pre-alpha.1` checkpoint is immutable; current development is `0.6.0-pre-alpha.2` / code 8. See [versioning](build-versioning.md). Full desktop parity and handset verification remain incomplete. Read AGENTS.md and the three design/parity documents before changes.
+The verified workbench is on main through PR #6 as GlassDigestor in `sperglord8008s/DiE-Android-`. Current work uses `codex/text-evidence-paging`; application ID remains `org.diemobile` with the existing debug signing configuration. Published pre-alpha.1–.4 checkpoints are immutable; current development is **0.6.0-pre-alpha.5 / code 11**. See [versioning](build-versioning.md). Full desktop parity and handset verification remain incomplete. Read AGENTS.md and the three design/parity documents before changes.
 
 ## Implemented and fixture-verified in this work
 
@@ -599,3 +599,39 @@ the next gate; see `docs/archive-launches.md`. Persistent per-preview native
 origin sidecars/all-visited-node history, richer gallery presentation, sourced
 practical/deep package knowledge and remaining desktop parity are still next.
 Device UID/Binder/SAF/cancel/crash/media/cache/16 KiB runtime is unverified.
+
+
+## Published embedded links; large text and report paging
+
+Embedded-link commit `53935a2f3850247d89ce8dae0d31721052ba8c69` passed all
+five jobs in run `44654569828` (#135), merged through PR #6 to main
+`82ef741006dcf6f9e89c756065bd48ae40ad7c91`. Pre-alpha.4 is public from
+exact generated CI source `97ba888a9284719f1e399b05a330fef1db2aadc4`;
+publisher run `44657520167` succeeded. APK SHA-256
+`2debb181b15dc486dfdb3a876c64ebfa51688fb7f355d21907befd340e939e42`.
+The downloaded checkpoint/public inventory and exact-source static APK verifier
+pass. The publisher checked all three corresponding-source bundles; the local
+independent audit did not redownload those .4 component archives. The clean
+local .4 fallback at `53935a2` is distinct, SHA-256
+`41d42e8c928902c3bc06dc170c61a106b051872977835bcdbe643cd0f36b547e`.
+
+The next slice replaces the one-MiB UTF-8 / first-page Hex preview with exact
+bounded pages, byte offsets, history and Tail. `Utf8Pages` preserves codepoint
+seams and explicit failures; source identity checks surround preview page IO.
+`PagedTextDialog` reads complete staged rendered reports, retaining the full
+export and allowing Close before the first frame without a busy-state leak.
+Five added Android host cases bring the full suite to **156** with zero
+failures/errors/skips. Independent host tests reconstruct 161,892 pages and a
+fully written 24,117,266-byte text file. Required generic/native checks, ARM64
+assembly/lint and fifteen-library APK checks pass; source CI is the next gate.
+See [text paging](text-paging.md) for exact contracts, commands and limits.
+Selected-record fact dialogs retain the explicit 128 KiB display cap; UTF-8
+paging does not imply other encoding support or whole-input text validation.
+
+Next: persistent per-preview native-origin sidecars and full witness export,
+richer useful gallery presentation, then sourced practical/deep package cards
+and remaining desktop parity. The existing pinned UAD-NG catalog already
+contains 5,399 exact package records; reuse it with provenance and typed
+relationships rather than adding another unattributed catalog. Real device
+UID/Binder/SAF/media/PDF/cancel/crash/process-death/16 KiB runtime remains
+unverified. Preserve the working local and public APK fallbacks.
