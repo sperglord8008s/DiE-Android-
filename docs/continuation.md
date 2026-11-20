@@ -1,6 +1,6 @@
 # Development continuation point
 
-The verified workbench is on main through PR #7 as GlassDigestor in `sperglord8008s/DiE-Android-`. Current work uses `codex/content-origin-evidence`; application ID remains `org.diemobile` with the existing debug signing configuration. Published pre-alpha.1–.5 checkpoints are immutable; current development is **0.6.0-pre-alpha.6 / code 12**. See [versioning](build-versioning.md). Full desktop parity and handset verification remain incomplete. Read AGENTS.md and the three design/parity documents before changes.
+The verified workbench is on main through PR #8 as GlassDigestor in `sperglord8008s/DiE-Android-`. Current work uses `codex/package-knowledge-cards`; application ID remains `org.diemobile` with the existing debug signing configuration. Published pre-alpha.1–.6 checkpoints are immutable; current development is **0.6.0-pre-alpha.7 / code 13**. See [versioning](build-versioning.md). Full desktop parity and handset verification remain incomplete. Read AGENTS.md and the three design/parity documents before changes.
 
 ## Implemented and fixture-verified in this work
 
@@ -673,3 +673,54 @@ model is being prototyped outside the repository before integration; do not
 claim it as implemented until it is committed and tested. Reuse the bundled
 5,399-record UAD-NG snapshot with full unknown fields and explicit community
 claims, exact IDs, directed dependency occurrences and source revision/hash.
+
+
+## Origin checkpoint published; sourced package knowledge
+
+Origin commit `ae4f87b655b15a9d4b42bc1ca037e6e7ad5ddc54` passed all five
+jobs in run `44664429934` (#141), merged through PR #8 to main
+`9aba6076e7db448c6ecc876f2c54e4eaec34651e`. Pre-alpha.6 is public from
+exact CI source `92c8851204836d3a65182e78438af5f88bd53d75`; publisher run
+`44718456325` succeeded. Public APK SHA-256
+`aad652601fa005848d5cc2826b1b57965c46537ae0709d70900aaee3579074b3`.
+The separate clean local .6 checkpoint at `ae4f87b` has SHA-256
+`cac6d38ca6a49b89499b4ee0c085c2753f6f7a993dba6f827efdf93200e85db6`.
+Public .5's downloaded checkpoint/public inventory and exact-source static APK
+verifier passed; .6's complete checkpoint/public inventory and exact-source
+static APK verifier also pass. The .6 audit did not independently redownload the
+three component source archives; the publisher verified them.
+Publisher gates include all three corresponding-source artifacts. Original
+component pins and packaged identities/signing configuration remain unchanged.
+
+The .7 source slice replaces one-value package lookup with a lossless typed
+UAD-NG catalog and owned investigation backend. The original file actually
+contains **5,402 record occurrences / 5,399 distinct IDs**: three duplicate-ID
+pairs carry differing descriptions/categories. The new reader exposes every
+occurrence and uses original indices for exact record/value actions; it never
+selects a preferred source claim. The optional collection-duplicate mode leaves
+existing tracker/default duplicate rejection unchanged. APK summaries now
+preserve these duplicate community records too.
+
+File-independent catalog/main options and exact installed-ID links expose
+practical descriptions first, every original/unknown field with context, full
+search, category/coverage groups, directed dependency occurrences/reverse
+references, source identity/licensing and complete record/value/source exports.
+Private source snapshots survive recreation; pending exports survive expiry.
+Claims remain separate from APK/signer/static observations and runtime behavior;
+no package removal/disabling/execution or network operation is provided.
+
+Six new API 28 host cases bring the complete suite to **167**, with zero
+failures/errors/skips. Independent 128 MiB-JVM/Python oracles reconstruct every
+actual source record and UTF-16 unit, exact numeric/raw/unknown values, graph
+occurrences, source restoration without reopening, pin/type/index/budget/cancel
+refusals and prepared-export ownership. Required generic/native checks, 924
+tracker pinned-reference/strict-import and shared prefilter regressions, ARM64
+assembly/lint and fifteen-library APK verification pass. Source CI is next; see
+[knowledge contracts](package-knowledge.md) and the .7 release note.
+
+Next: gallery per-card embedded archive parsing and explicit manual inspection
+ranges, then inherited origin chains, broader useful media presentation and
+remaining desktop parity. Knowledge follow-up includes captured APK/signer
+correlation, more attributed sources, user overlays and version/device scopes.
+Real handset/UID/Binder/SAF/media/PDF/process-death/heap/cache/16 KiB runtime
+acceptance remains unverified. Preserve current/fallback APKs and exact sources.

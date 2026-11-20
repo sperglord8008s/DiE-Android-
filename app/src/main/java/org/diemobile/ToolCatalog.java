@@ -70,7 +70,12 @@ final class ToolCatalog {
                             new Group(
                                     "contents",
                                     "Archives, embedded content and carving",
-                                    new Tool("archive", "Browse ZIP / APK contents", null, -1),
+                                    new Tool(
+                                            "archive",
+                                            "Browse archives / compressed streams / parsing"
+                                                + " intervals",
+                                            null,
+                                            -1),
                                     provider(
                                             "photorec",
                                             "PhotoRec whole-blob formats / stored-byte carving"),
@@ -90,6 +95,10 @@ final class ToolCatalog {
                                     provider(
                                             "package-set",
                                             "Base / split declarations and captured relationships"),
+                                    provider(
+                                            "package-knowledge",
+                                            "What does a package do? / sourced community"
+                                                + " knowledge"),
                                     provider("sdk-rules", "Canonical SDK / library rule catalog"),
                                     provider(
                                             "tracker-rules",

@@ -48,6 +48,7 @@ jobs:
       - run: bash scripts/test-content-origin.sh
       - run: bash scripts/fetch-engine.sh
       - run: bash scripts/fetch-knowledge.sh
+      - run: bash scripts/test-package-knowledge.sh
       - run: bash scripts/fetch-metadata.sh
       - name: Install host media reference dependencies
         timeout-minutes: 12

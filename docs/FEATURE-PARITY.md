@@ -26,6 +26,7 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | ZIP/APK nested member selection/extraction | complete bounded inventories, searchable 50-row folder pages, nested Back/recreation, private extraction with full-directory revalidation, size/CRC32/SHA-256 checks; host malformed/stale/duplicate/cancel fixtures and five Robolectric navigation/lifecycle/budget cases verified; handset flow and persistent cross-scan parent history pending |
 | Broader archive engine / codecs | implemented native worker/typed source-bound inventory, content-based virtual tree/All entries, indexed duplicate-name acquisition, nested Back/retention, explicit embedded scope, checked preview/member return and complete native-chain/failed-attempt exports; pinned libarchive 3.8.11 + four source-built codecs/platform zlib; 25 captures / 37 payloads independently verified at core and model levels, plus five actual-JNI API 28 browser cases, Main/CDiE member-result boundary and worker refusal/descriptor guards pass; full 147-case suite, ARM64 assembly/lint and fifteen-library APK static checks pass; all five source CI jobs passed and pre-alpha.3 published; real UID/Binder/SAF/handset, exhaustive reader subtype coverage, arbitrary deobfuscation/passwords and current-chain per-preview origin captures implemented; all-visited/cross-Activity history remains incomplete; device behavior remains unverified; see [contracts](native-archives.md) |
 | Native resource payload extraction | selected resource or manually validated physical range staged for exact SAF byte export; host payload equality and Robolectric picker-delay/recreation/output checks verified; real document-provider flow pending |
+| Practical / technical package knowledge | implemented: all 5,402 original pinned UAD-NG record occurrences / 5,399 distinct IDs, all unknown fields, three explicit duplicate-ID pairs, practical descriptions, contextual field meanings, full-value search, source categories and exact directed/reverse relationship occurrences; installed-ID and file-independent entry points, complete paged records/fields/source exports and snapshot recreation; independent actual-corpus/Python/all-UTF-16/numeric/ownership/refusal fixtures, six Android host cases and 167-case full suite pass; real device/SAF/PackageManager behavior, selected-APK/signer correlation, user overlays, more sources, version conditions and transitive/runtime analysis remain incomplete/unverified; see [contracts](package-knowledge.md) |
 | Binary manifest/resource tables | source-built Google binary-resources 32.5.1 plus bounded wire inventory; fourteen tables cover chunks/pools/styles, XML events/duplicate attributes, packages/configurations, dense/offset16/sparse/compact entries, absent/aliased slots and every duplicate bag mapping; local resource-ID/value links, whole-parent APK SHA-256/CRC acquisition and complete JSON/encoded-byte/UTF-16LE exports; actual engine/report/ownership/boundary host fixtures, independent ordinary/sparse/deduplicated AAPT2 references and five Robolectric cases verified; opaque overlay/staged aliases, canonical XML reconstruction, framework/split resolution and production worker/handset flows remain incomplete/unverified |
 | DEX metadata, Unicode class names and bytecode | pinned Google smali/dexlib2 + baksmali 3.0.10; Unicode/MUTF-8 report indexing and explicit integrity/table evidence; lazy Android tables, classified strings, payloads/debug/handlers, reference/caller links, exact offsets, range actions and actual method smali; classic 035–040/041 shared containers host verified; four report and seven viewer Robolectric cases verified; compact/optimized formats, inherited/framework/cross-split resolution and handset flow pending |
 | MPV/media codec and container inspection | actual libmpv/FFmpeg integration, official hash-pinned mpv-android 2026-09-17 ARM64 runtime plus source-built descriptor probe; 53 audited file/engine getters, complete typed descendants/errors, track/chapter/tag views, codec/container/property catalogs and offline source references; WAV/Matroska/PCM/FFV1/SubRip/Unicode/large-tag/reference-HTTP/ownership/export host fixtures, four actual-JNI Robolectric cases and ARM64/static 16 KiB packaging verified; production Binder/isolated UID, ARM64 codec/device runtime, broader media and complete decoding remain unverified |
@@ -285,7 +286,23 @@ with zero failures/errors/skips; actual Binwalk/PhotoRec/Gallerize cases also
 assert the produced captures. Independent raw-byte/Python all-UTF-16/unknown
 field/mutation/ownership/refusal checks, required generic/native/archive model
 checks, ARM64 assembly/lint and the fifteen-library APK verifier pass. Source
-CI is the next gate for this slice. Main return-and-rescan, Classic ZIP and
+CI passed all five jobs in run `44664429934`; pre-alpha.6 is published. Main return-and-rescan, Classic ZIP and
 cross-Activity ancestry inheritance remain incomplete; actual device/SAF/UID/
 process-death/cache-pressure acceptance is unverified.
 See [origin contracts](content-origins.md).
+
+
+Sourced package knowledge brings the full Android host suite to **167 tests**,
+with zero failures/errors/skips. All 5,402 original UAD-NG occurrences (5,399
+IDs, three duplicate-ID pairs) and 85 relationship declarations are preserved.
+Six API 28 cases cover practical/ambiguous cards, paging/categories/full search,
+exact occurrence rendering, directed references/Back, private restoration and
+pending source export after expiry, main/inventory entry points and the
+duplicate-preserving APK summary. Independent 128 MiB-JVM/Python oracles
+reconstruct every original field and UTF-16 unit with exact numeric/raw data,
+unknowns, graph and refusal/ownership fixtures. Required generic/native, 924
+tracker reference/strict-import and shared prefilter checks, ARM64 assembly/lint
+and fifteen-library APK checks pass. Source CI is the next gate. Community
+claims are not measured device behavior; handset/SAF/PackageManager acceptance
+and broader knowledge/correlation remain incomplete. See
+[package knowledge](package-knowledge.md).
