@@ -22,10 +22,21 @@ final class ContentGalleryAdapter extends BaseAdapter implements AutoCloseable {
     private final Map<Integer, MediaFrame.Result> media = new HashMap<>();
     private final Set<Integer> pending = new HashSet<>();
     private volatile boolean closed;
+    private final java.util.function.Consumer<ContentMap.Card> exportFile;
 
     ContentGalleryAdapter(
             Context context, List<ContentMap.Card> cards, InputSnapshot input, Executor worker) {
+        this(context, cards, input, worker, null);
+    }
+
+    ContentGalleryAdapter(
+            Context context,
+            List<ContentMap.Card> cards,
+            InputSnapshot input,
+            Executor worker,
+            java.util.function.Consumer<ContentMap.Card> exportFile) {
         if (cards.size() > 24) throw new IllegalArgumentException("Gallery page exceeds 24 cards");
+        this.exportFile = exportFile;
         this.context = context;
         this.cards = Collections.unmodifiableList(new ArrayList<>(cards));
         this.input = input;
@@ -66,16 +77,17 @@ final class ContentGalleryAdapter extends BaseAdapter implements AutoCloseable {
         tile.setOrientation(LinearLayout.VERTICAL);
         tile.setPadding(dp(8), dp(8), dp(8), dp(8));
         tile.setBackgroundColor(0xff26323a);
-        TextView label = text(card.label, 14);
+        TextView label =
+                text(RecoveredFiles.fileCard(card) ? RecoveredFiles.name(card) : card.label, 14);
         label.setMaxLines(3);
         tile.addView(label);
         tile.addView(
                 text(
                         card.kind.name()
-                                + " · 0x"
-                                + Long.toHexString(card.offset)
-                                + "\n"
-                                + (card.length == null ? "Extent unknown" : card.length + " bytes"),
+                                + " · "
+                                + (card.length == null
+                                        ? "File size not recovered"
+                                        : card.length + " bytes"),
                         12));
         if ((card.kind == ContentMap.Kind.IMAGE
                         || card.kind == ContentMap.Kind.AUDIO
@@ -112,6 +124,17 @@ final class ContentGalleryAdapter extends BaseAdapter implements AutoCloseable {
                                             + " inspection bytes"
                                     : "Tap to preview, inspect or export exact bytes",
                             12));
+        if (exportFile != null && card.length != null) {
+            Button save = new Button(context);
+            save.setText("Save file");
+            save.setAllCaps(false);
+            save.setTextSize(12);
+            save.setFocusable(false);
+            save.setFocusableInTouchMode(false);
+            save.setTag("save-recovered-file:" + card.offset + ":" + card.length);
+            save.setOnClickListener(view -> exportFile.accept(card));
+            tile.addView(save);
+        }
         return tile;
     }
 

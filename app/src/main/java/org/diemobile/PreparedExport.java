@@ -9,6 +9,7 @@ import java.util.function.BooleanSupplier;
 /** Private, immutable export staging decouples the document picker from live UI state. */
 final class PreparedExport {
     interface TextProducer { void write(Writer output) throws Exception; }
+    interface ByteProducer { void write(OutputStream output) throws Exception; }
     final File file;
     final String name, mime;
     final long size;
@@ -58,6 +59,30 @@ final class PreparedExport {
                 producer.write(out); if (cancelled.getAsBoolean()) throw new InterruptedIOException("Export cancelled");
             }
             success = true; return new PreparedExport(staged, name, mime, staged.length());
+        } finally { if (!success) staged.delete(); }
+    }
+    /** Bounded binary staging for actual recovered-file bundles, independent of picker state. */
+    static PreparedExport streamBytes(File directory, String name, String mime, ByteProducer producer,
+            BooleanSupplier cancelled) throws Exception {
+        File staged = create(directory);
+        boolean success = false;
+        try {
+            try (OutputStream file = new FileOutputStream(staged); OutputStream output = new FilterOutputStream(file) {
+                private long written;
+                @Override public void write(int value) throws IOException { write(new byte[]{(byte)value}, 0, 1); }
+                @Override public void write(byte[] data, int offset, int length) throws IOException {
+                    if (cancelled.getAsBoolean()) throw new InterruptedIOException("Export cancelled");
+                    if (length > FileRange.MAX_OPERATION_BYTES - written)
+                        throw new IOException("Binary export exceeds the 256 MiB staging budget");
+                    out.write(data, offset, length);
+                    written += length;
+                }
+            }) {
+                producer.write(output);
+                if (cancelled.getAsBoolean()) throw new InterruptedIOException("Export cancelled");
+            }
+            success = true;
+            return new PreparedExport(staged, name, mime, staged.length());
         } finally { if (!success) staged.delete(); }
     }
     static PreparedExport restore(File directory, String path, String name, String mime, long size) throws IOException {

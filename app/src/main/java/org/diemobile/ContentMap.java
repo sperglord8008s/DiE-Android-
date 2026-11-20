@@ -23,6 +23,47 @@ final class ContentMap {
         UNASSIGNED
     }
 
+    /** A reference to an unchanged row in one retained engine capture. */
+    static final class NativeRef {
+        final String engine;
+        final int row;
+        final long offset;
+        final Long length;
+
+        NativeRef(String engine, int row, long offset, Long length) {
+            this.engine = engine;
+            this.row = row;
+            this.offset = offset;
+            this.length = length;
+        }
+
+        JSONObject json(long cardOffset, Long cardLength, boolean inspection) throws Exception {
+            return new JSONObject()
+                    .put("engine", engine)
+                    .put("rowIndex", row)
+                    .put("physicalOffset", offset)
+                    .put("sizeBytes", length == null ? JSONObject.NULL : length)
+                    .put(
+                            "supportsDisplayedExtent",
+                            !inspection
+                                    && length != null
+                                    && offset == cardOffset
+                                    && Objects.equals(length, cardLength));
+        }
+    }
+
+    static final class Source {
+        final String engine;
+        final EvidenceRows rows;
+
+        Source(String engine, EvidenceRows rows) {
+            if (!engine.equals("photorec") && !engine.equals("binwalk"))
+                throw new IllegalArgumentException("Unknown gallery engine");
+            this.engine = engine;
+            this.rows = rows;
+        }
+    }
+
     static final class Card {
         final Kind kind;
         final String label, format, preview;
@@ -30,6 +71,8 @@ final class ContentMap {
         final Long length;
         final int nativeRow;
         final boolean explicitInterval;
+        final String nativeEngine;
+        final List<NativeRef> findings;
 
         Card(
                 Kind kind,
@@ -51,6 +94,29 @@ final class ContentMap {
                 String preview,
                 int nativeRow,
                 boolean explicitInterval) {
+            this(
+                    kind,
+                    label,
+                    format,
+                    offset,
+                    length,
+                    preview,
+                    nativeRow < 0
+                            ? Collections.emptyList()
+                            : Collections.singletonList(
+                                    new NativeRef("photorec", nativeRow, offset, length)),
+                    explicitInterval);
+        }
+
+        private Card(
+                Kind kind,
+                String label,
+                String format,
+                long offset,
+                Long length,
+                String preview,
+                List<NativeRef> findings,
+                boolean explicitInterval) {
             this.explicitInterval = explicitInterval;
             this.kind = kind;
             this.label = label;
@@ -58,7 +124,9 @@ final class ContentMap {
             this.offset = offset;
             this.length = length;
             this.preview = preview;
-            this.nativeRow = nativeRow;
+            this.findings = Collections.unmodifiableList(new ArrayList<>(findings));
+            this.nativeRow = findings.isEmpty() ? -1 : findings.get(0).row;
+            this.nativeEngine = findings.isEmpty() ? null : findings.get(0).engine;
         }
 
         static Card inspection(Card associated, long sourceSize, long offset, long length)
@@ -83,11 +151,14 @@ final class ContentMap {
                     offset,
                     length,
                     "",
-                    associated.nativeRow,
+                    associated.findings,
                     true);
         }
 
         JSONObject json() throws Exception {
+            JSONArray witnesses = new JSONArray();
+            for (NativeRef finding : findings)
+                witnesses.put(finding.json(offset, length, explicitInterval));
             return new JSONObject()
                     .put("kind", kind.name())
                     .put("label", label)
@@ -95,6 +166,8 @@ final class ContentMap {
                     .put("physicalOffset", offset)
                     .put("sizeBytes", length == null ? JSONObject.NULL : length)
                     .put("nativeRowIndex", nativeRow < 0 ? JSONObject.NULL : nativeRow)
+                    .put("nativeEngine", nativeEngine == null ? JSONObject.NULL : nativeEngine)
+                    .put("nativeFindings", witnesses)
                     .put("textPreview", preview)
                     .put("explicitInspectionInterval", explicitInterval)
                     .put(
@@ -104,7 +177,8 @@ final class ContentMap {
                                     : explicitInterval
                                             ? "Associated original finding; selected inspection"
                                                     + " bytes need not match its reported range"
-                                            : "Original native finding for this card")
+                                            : "Original findings; each reported extent remains"
+                                                    + " separate in nativeFindings")
                     .put(
                             "extentMeaning",
                             explicitInterval
@@ -179,6 +253,12 @@ final class ContentMap {
     static ContentMap build(
             InputSnapshot input, String name, EvidenceRows raw, BooleanSupplier stop)
             throws Exception {
+        return build(input, name, Collections.singletonList(new Source("photorec", raw)), stop);
+    }
+
+    static ContentMap build(
+            InputSnapshot input, String name, List<Source> sources, BooleanSupplier stop)
+            throws Exception {
         List<Card> cards = new ArrayList<>();
         List<FileRange> bounded = new ArrayList<>();
         byte[] head = new byte[(int) Math.min(4096, input.size)];
@@ -187,27 +267,75 @@ final class ContentMap {
         }
         String type = Inspector.identify(head, head.length);
         add(cards, new Card(Kind.INPUT, "Selected input · " + name, type, 0, input.size, "", -1));
-        int accepted = 0;
-        for (int i = 0; i < raw.size(); i++) {
-            EvidenceRows.check(stop);
-            EvidenceRows.Row row = raw.row(i, stop);
-            JSONObject value = row.json();
-            if (!value.getBoolean("parserAccepted")) continue;
-            accepted++;
-            String format = value.optString("reportedExtension", row.name);
-            if (format.isEmpty()) format = row.name;
-            add(
-                    cards,
-                    new Card(
-                            kind(format),
-                            format + (row.sizeBytes == null ? " · header only" : " · stored range"),
-                            format,
-                            row.physicalOffset,
-                            row.sizeBytes,
-                            "",
-                            row.index));
-            if (row.sizeBytes != null)
-                bounded.add(new FileRange(input.size, row.physicalOffset, row.sizeBytes));
+        int accepted = 0, rawCount = 0;
+        Map<String, List<Card>> types = new LinkedHashMap<>();
+        for (Source discovery : sources) {
+            rawCount += discovery.rows.size();
+            for (int i = 0; i < discovery.rows.size(); i++) {
+                EvidenceRows.check(stop);
+                EvidenceRows.Row row = discovery.rows.row(i, stop);
+                JSONObject value = row.json();
+                if (!value.getBoolean("parserAccepted")) continue;
+                if (++accepted > MAX_CARDS)
+                    throw new IOException("Content map exceeds 50,000 accepted findings");
+                String format = value.optString("reportedExtension", row.name);
+                if (format.isEmpty()) format = row.name;
+                format = RecoveredFiles.extension(format);
+                String key = row.physicalOffset + ":" + format;
+                List<Card> matches = types.computeIfAbsent(key, ignored -> new ArrayList<>());
+                Card match = null;
+                for (Card candidate : matches)
+                    if (Objects.equals(candidate.length, row.sizeBytes)) {
+                        match = candidate;
+                        break;
+                    }
+                List<NativeRef> witnesses = new ArrayList<>();
+                if (match != null) witnesses.addAll(match.findings);
+                witnesses.add(
+                        new NativeRef(
+                                discovery.engine, row.index, row.physicalOffset, row.sizeBytes));
+                Card merged =
+                        new Card(
+                                kind(format),
+                                format
+                                        + (row.sizeBytes == null
+                                                ? " · header only"
+                                                : " · recovered file"),
+                                format,
+                                row.physicalOffset,
+                                row.sizeBytes,
+                                "",
+                                witnesses,
+                                false);
+                if (match == null) matches.add(merged);
+                else matches.set(matches.indexOf(match), merged);
+            }
+        }
+        for (List<Card> matches : types.values()) {
+            Card header = null;
+            for (Card card : matches) if (card.length == null) header = card;
+            for (Card card : matches) {
+                // An unknown PhotoRec extent can accompany a Binwalk file without acquiring its
+                // boundary. Conflicting bounded extents remain separate alternative files.
+                if (card.length == null && matches.size() > 1) continue;
+                if (card.length != null && header != null) {
+                    List<NativeRef> witnesses = new ArrayList<>(card.findings);
+                    witnesses.addAll(header.findings);
+                    card =
+                            new Card(
+                                    card.kind,
+                                    card.label,
+                                    card.format,
+                                    card.offset,
+                                    card.length,
+                                    card.preview,
+                                    witnesses,
+                                    false);
+                }
+                add(cards, card);
+                if (card.length != null)
+                    bounded.add(new FileRange(input.size, card.offset, card.length));
+            }
         }
         bounded.sort(Comparator.comparingLong(range -> range.offset));
         List<FileRange> gaps = new ArrayList<>();
@@ -267,7 +395,7 @@ final class ContentMap {
                 cards,
                 type,
                 composition,
-                raw.size(),
+                rawCount,
                 accepted,
                 bounded.size(),
                 texts,
@@ -276,7 +404,7 @@ final class ContentMap {
     }
 
     static Kind kind(String format) {
-        String f = format.toLowerCase(Locale.ROOT);
+        String f = RecoveredFiles.extension(format);
         if (Arrays.asList(
                         "jpg", "jpeg", "png", "gif", "webp", "bmp", "tif", "tiff", "ico", "heic",
                         "avif", "psd")

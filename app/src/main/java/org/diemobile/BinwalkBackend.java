@@ -5,6 +5,19 @@ import java.io.File;
 
 /** Actual Binwalk parsers, including retained rejected and overlapping candidates. */
 final class BinwalkBackend extends CarvingBackend {
+    /** Caller owns the exact source snapshot shared with other discovery engines. */
+    BinwalkBackend(InputSnapshot input, String name, BinaryRunner runner) {
+        super(
+                input.file,
+                input.file.getParentFile(),
+                name,
+                runner,
+                "Binwalk",
+                "org.diemobile.binwalk-evidence",
+                "26713972e3f9f52dc37d4a421c4554b0bd9e82ef",
+                input);
+    }
+
     BinwalkBackend(File root, File directory, String name, BinaryRunner runner) {
         super(
                 root,

@@ -46,8 +46,8 @@ Gallerize session. It releases only an eligible private handoff, including
 failure cleanup; a forged external path is not deleted. Recreation restores
 the captured gallery without rescanning or requiring the old handoff.
 
-This opens Gallerize's separate PhotoRec-based discovery over the captured
-input. It does not relabel the original Binwalk results as PhotoRec evidence
+This opens Gallerize's separate combined PhotoRec/Binwalk discovery over the
+captured input; see [actual recovered-file gallery and exports](recovered-file-gallery.md). It does not relabel the original Binwalk results as PhotoRec evidence
 or claim that their validators have identical coverage. Every native report
 and its source/engine context retains its own scope.
 

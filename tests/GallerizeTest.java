@@ -68,6 +68,9 @@ public final class GallerizeTest {
                             size,
                             null,
                             nativeRunner(calls),
+                            (file, stop) -> {
+                                throw new AssertionError("Over-budget Binwalk was invoked");
+                            },
                             () -> false)) {
                 ContentMap map = session.digest(() -> false);
                 require(
@@ -87,6 +90,31 @@ public final class GallerizeTest {
                                                         && card.offset == size - text.length
                                                         && card.length == text.length),
                         "Large-file tail text omitted");
+                require(
+                        session.statusSummary().contains("exceeds Binwalk's 64 MiB"),
+                        "Skipped Binwalk scope was not made explicit");
+                ContentMap.Card recovered =
+                        map.cards.stream()
+                                .filter(
+                                        c ->
+                                                c.offset == pngAt
+                                                        && c.length != null
+                                                        && c.length == png.length
+                                                        && c.kind == ContentMap.Kind.IMAGE)
+                                .findFirst()
+                                .orElseThrow();
+                PreparedExport actual =
+                        RecoveredFiles.file(
+                                session.input,
+                                recovered,
+                                root.resolve("large-exports").toFile(),
+                                () -> false);
+                require(
+                        actual.mime.equals("image/png")
+                                && actual.name.endsWith(".png")
+                                && Arrays.equals(png, Files.readAllBytes(actual.file.toPath())),
+                        "Beyond-64-MiB recovered PNG export changed");
+                actual.discard();
                 ByteGrid.Result grid =
                         ByteGrid.measure(
                                 session.input,

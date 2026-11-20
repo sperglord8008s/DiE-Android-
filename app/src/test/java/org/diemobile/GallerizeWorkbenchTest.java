@@ -38,18 +38,29 @@ import java.util.function.BooleanSupplier;
 @Config(sdk = 28, shadows = GallerizeWorkbenchTest.HostPhotoRec.class)
 @LooperMode(LooperMode.Mode.PAUSED)
 public final class GallerizeWorkbenchTest {
-    static final AtomicInteger nativeCalls = new AtomicInteger();
+    static final AtomicInteger nativeCalls = new AtomicInteger(),
+            binwalkCalls = new AtomicInteger();
 
     @Implements(value = BinaryWorkerClient.class, isInAndroidSdk = false)
     public static final class HostPhotoRec {
+        static boolean binwalkUnavailable;
+        @RealObject private BinaryWorkerClient client;
+
         @Implementation
         public String scan(File input, BooleanSupplier stop) throws Exception {
-            nativeCalls.incrementAndGet();
+            boolean binwalk =
+                    "binwalk".equals(ReflectionHelpers.<String>getField(client, "engine"));
+            (binwalk ? binwalkCalls : nativeCalls).incrementAndGet();
+            if (binwalk && binwalkUnavailable)
+                throw new IOException(
+                        "Deliberately unavailable Binwalk for header-only action coverage");
             EvidenceRows.check(stop);
             try (RandomAccessFile source = new RandomAccessFile(input, "r")) {
                 Field field = FileDescriptor.class.getDeclaredField("fd");
                 field.setAccessible(true);
-                return PhotoRecEngine.scanFd(field.getInt(source.getFD()));
+                return binwalk
+                        ? BinwalkEngine.scanFd(field.getInt(source.getFD()))
+                        : PhotoRecEngine.scanFd(field.getInt(source.getFD()));
             }
         }
     }
@@ -67,6 +78,9 @@ public final class GallerizeWorkbenchTest {
     public void setup() throws Exception {
         assertTrue(PhotoRecEngine.ERROR, PhotoRecEngine.AVAILABLE);
         nativeCalls.set(0);
+        binwalkCalls.set(0);
+        HostPhotoRec.binwalkUnavailable = false;
+        assertTrue(BinwalkEngine.ERROR, BinwalkEngine.AVAILABLE);
         RuntimeEnvironment.getApplication()
                 .getSharedPreferences("gallerize-grid", Context.MODE_PRIVATE)
                 .edit()
@@ -189,6 +203,117 @@ public final class GallerizeWorkbenchTest {
         assertTrue(((BitmapDrawable) thumbnail.getDrawable()).getBitmap().getWidth() > 0);
         assertTrue(status(activity).contains("581 / 774"));
         assertEquals(1, nativeCalls.get());
+        assertEquals(1, binwalkCalls.get());
+    }
+
+    @Test
+    public void fileTileOpensActualPreviewAndBothSavePathsPreservePngBytesAndMime()
+            throws Exception {
+        GridView gallery = (GridView) tagged(activity, "gallerize-gallery");
+        int index = -1;
+        for (int i = 0; i < gallery.getAdapter().getCount(); i++) {
+            ContentMap.Card item = (ContentMap.Card) gallery.getAdapter().getItem(i);
+            assertTrue("Default gallery contains non-file card", RecoveredFiles.fileCard(item));
+            if (item.format.equals("png")) index = i;
+        }
+        assertTrue(index >= 0);
+        ContentMap.Card card = (ContentMap.Card) gallery.getAdapter().getItem(index);
+        assertTrue(card.findings.stream().anyMatch(r -> r.engine.equals("photorec")));
+        assertTrue(card.findings.stream().anyMatch(r -> r.engine.equals("binwalk")));
+        View tile = gallery.getAdapter().getView(index, null, gallery);
+        tile.findViewWithTag("save-recovered-file:" + card.offset + ":" + card.length)
+                .performClick();
+        settle(activity);
+        Intent picker = Shadows.shadowOf(activity).getNextStartedActivity();
+        assertEquals(Intent.ACTION_CREATE_DOCUMENT, picker.getAction());
+        assertEquals("image/png", picker.getType());
+        assertEquals(RecoveredFiles.name(card), picker.getStringExtra(Intent.EXTRA_TITLE));
+        Uri destination = Uri.parse("content://org.diemobile.test/recovered-png");
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        Shadows.shadowOf(activity.getContentResolver()).registerOutputStream(destination, output);
+        activity.onActivityResult(1, Activity.RESULT_OK, new Intent().setData(destination));
+        settle(activity);
+        assertArrayEquals(MetadataFixtureFactory.png(), output.toByteArray());
+        gallery.performItemClick(tile, index, index);
+        settle(activity);
+        Intent target = Shadows.shadowOf(activity).getNextStartedActivity();
+        assertEquals(ContentPreviewActivity.class.getName(), target.getComponent().getClassName());
+        assertEquals(RecoveredFiles.name(card), target.getStringExtra("exportName"));
+        previewController =
+                Robolectric.buildActivity(ContentPreviewActivity.class, target).setup().visible();
+        preview = previewController.get();
+        settle(preview);
+        assertNotNull(status(preview), tagged(preview, "content-image"));
+        ReflectionHelpers.callInstanceMethod(preview, "exportBytes");
+        settle(preview);
+        Intent previewPicker = Shadows.shadowOf(preview).getNextStartedActivity();
+        assertEquals("image/png", previewPicker.getType());
+        assertEquals(RecoveredFiles.name(card), previewPicker.getStringExtra(Intent.EXTRA_TITLE));
+        PreparedExport staged = ReflectionHelpers.getField(preview, "contentExport");
+        assertArrayEquals(MetadataFixtureFactory.png(), Files.readAllBytes(staged.file.toPath()));
+    }
+
+    @Test
+    public void recoveredZipContainsActualFilesAfterGalleryAndPickerRecreation() throws Exception {
+        closeGallery();
+        ByteArrayOutputStream many = new ByteArrayOutputStream();
+        for (int i = 0; i < 29; i++) {
+            many.write(MetadataFixtureFactory.png());
+            many.write(new byte[17]);
+        }
+        blob = many.toByteArray();
+        Files.write(original.toPath(), blob);
+        Intent intent =
+                new Intent(RuntimeEnvironment.getApplication(), GallerizeActivity.class)
+                        .putExtra("path", original.getAbsolutePath())
+                        .putExtra("name", "29-images.blob")
+                        .putExtra("sha256", Inspector.scan(original, 4).sha256)
+                        .putExtra("sourceSize", blob.length);
+        nativeCalls.set(0);
+        binwalkCalls.set(0);
+        controller = Robolectric.buildActivity(GallerizeActivity.class, intent).setup().visible();
+        activity = controller.get();
+        settle(activity);
+        ContentMap map = ReflectionHelpers.getField(activity, "map");
+        List<ContentMap.Card> files = map.cards.stream().filter(RecoveredFiles::fileCard).toList();
+        assertTrue(files.size() >= 29);
+        assertEquals(29, files.stream().filter(c -> c.format.equals("png")).count());
+        assertEquals(
+                24, ((GridView) tagged(activity, "gallerize-gallery")).getAdapter().getCount());
+        invoke("exportFiles");
+        settle(activity);
+        Intent picker = Shadows.shadowOf(activity).getNextStartedActivity();
+        assertEquals("application/zip", picker.getType());
+        PreparedExport stage = ReflectionHelpers.getField(activity, "prepared");
+        assertNotNull(status(activity), stage);
+        byte[] expected = Files.readAllBytes(stage.file.toPath());
+        Files.delete(original.toPath());
+        controller.recreate();
+        activity = controller.get();
+        settle(activity);
+        assertEquals(1, nativeCalls.get());
+        assertEquals(1, binwalkCalls.get());
+        Uri destination = Uri.parse("content://org.diemobile.test/recovered-files-zip");
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        Shadows.shadowOf(activity.getContentResolver()).registerOutputStream(destination, output);
+        activity.onActivityResult(1, Activity.RESULT_OK, new Intent().setData(destination));
+        settle(activity);
+        assertArrayEquals(expected, output.toByteArray());
+        Map<String, byte[]> entries = new HashMap<>();
+        try (java.util.zip.ZipInputStream zip =
+                new java.util.zip.ZipInputStream(new ByteArrayInputStream(output.toByteArray()))) {
+            for (java.util.zip.ZipEntry entry; (entry = zip.getNextEntry()) != null; )
+                entries.put(entry.getName(), zip.readAllBytes());
+        }
+        for (ContentMap.Card card : files) {
+            byte[] bytes =
+                    Arrays.copyOfRange(blob, (int) card.offset, (int) (card.offset + card.length));
+            assertArrayEquals(
+                    RecoveredFiles.name(card), bytes, entries.remove(RecoveredFiles.name(card)));
+        }
+        assertNotNull(entries.remove("_recovery.json"));
+        assertTrue(entries.toString(), entries.isEmpty());
+        assertFalse(stage.file.exists());
     }
 
     @Test
@@ -265,6 +390,7 @@ public final class GallerizeWorkbenchTest {
         activity = controller.get();
         settle(activity);
         assertEquals(1, nativeCalls.get());
+        assertEquals(1, binwalkCalls.get());
         Uri destination = Uri.parse("content://org.diemobile.test/gallerize-export");
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         Shadows.shadowOf(activity.getContentResolver()).registerOutputStream(destination, output);
@@ -275,7 +401,11 @@ public final class GallerizeWorkbenchTest {
         JSONObject report = new JSONObject(output.toString(StandardCharsets.UTF_8));
         assertEquals(map.cards.size(), report.getJSONArray("cards").length());
         assertEquals(
-                map.rawCount, report.getJSONObject("nativeEvidence").getJSONArray("rows").length());
+                map.rawCount,
+                report.getJSONObject("nativeEvidence").getJSONArray("rows").length()
+                        + report.getJSONObject("binwalkNativeEvidence")
+                                .getJSONArray("rows")
+                                .length());
         assertEquals(774, report.getJSONObject("nativeCatalog").getJSONArray("rows").length());
         assertEquals(sourceSha, report.getJSONObject("source").getString("sha256"));
         assertFalse(staged.file.exists());
@@ -576,6 +706,8 @@ public final class GallerizeWorkbenchTest {
 
     private ContentMap.Card openGzipCard() throws Exception {
         closeGallery();
+        // Keep the original unknown-extent action contract covered when only PhotoRec completes.
+        HostPhotoRec.binwalkUnavailable = true;
         ByteArrayOutputStream compressed = new ByteArrayOutputStream();
         try (java.util.zip.GZIPOutputStream gzip = new java.util.zip.GZIPOutputStream(compressed)) {
             gzip.write(

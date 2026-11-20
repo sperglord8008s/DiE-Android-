@@ -1,17 +1,19 @@
 # Gallerize: content map, previews and exact grids
 
 The **Gallerize** tab next to File info opens a content-first view of the selected
-input. It accepts up to 256 MiB, copies/identifies the exact selected bytes, and
-uses the existing isolated-worker PhotoRec adapter. Original accepted headers,
-reported bounded artifacts, nested/overlapping ranges and every unassigned gap
-remain distinct. The summary puts primary byte-header type and observed
+input. It accepts up to 256 MiB and now combines the existing isolated-worker
+PhotoRec and Binwalk adapters over the same owned input. Binwalk's separate
+64 MiB limit remains explicit. The default Files group, direct previews and
+actual file/ZIP saves are described in [recovered-file gallery contracts](recovered-file-gallery.md).
+Accepted headers and nested/overlapping files retain all original witnesses;
+unassigned gaps remain available in other groups. The summary puts primary byte-header type and observed
 composition first. Multiple separate reported artifacts are explicit; neither
 header recognition nor full range coverage proves homogeneous content.
 
 ## Evidence and ownership
 
-`GallerizeSession` owns the input and complete original native JSON capture with
-separate SHA-256 identities. The carving backend borrows that owned input,
+`GallerizeSession` owns the input and both complete original native JSON captures
+with separate SHA-256 identities. Each carving backend borrows that owned input,
 avoiding a second file-sized acquisition. Its original validation, 774-pattern
 catalog, 581 every-byte searches, weak-pattern exclusions and full-file-check
 limits remain unchanged. Restoration verifies both original identities and
@@ -27,7 +29,8 @@ capture when selected. Native decoding/data-stop evidence is not a complete
 integrity, provenance, safety or behavior verdict.
 
 Reported bounded ranges are unioned only to compute coverage and unassigned
-gaps; individual duplicate/nested/overlapping cards are retained. Strict
+gaps; matching duplicate file cards merge their original witnesses, while
+nested/overlapping or conflicting-length files remain distinct. Strict
 printable UTF-8 runs of at least eight code points in those gaps become text
 candidate cards. CR/LF/tab are accepted; invalid/overlong/surrogate encodings,
 controls, BOM and runtime-unassigned code points separate runs. Unicode
@@ -37,8 +40,9 @@ extent stays complete. Text inside reported artifacts, UTF-16, other encodings
 and classified indicators remain available through the existing Strings tools.
 A text candidate is not an inferred text-file boundary.
 
-The map has a 50,000-card limit. Budget/cancellation/parser failures publish no
-successful partial map. Source/grid tools remain available when acquisition
+The map has a 50,000-card limit. Map budget/cancellation failures publish no
+successful partial map. Individual engine failures are explicit and preserve
+the other engine's files. Source/grid tools remain available when acquisition
 succeeded; the separate raw PhotoRec/Strings tools have their own limits. The
 native packet is bounded to 32 Mi-characters / 64 MiB encoded storage, in addition
 to the native adapter's stricter actual report/work limits. Complete map exports
@@ -52,8 +56,9 @@ unassigned and header-only groups. `ContentGalleryAdapter` bounds thumbnails to
 256 × 256 pixels and deduplicates requests across recycled tiles. Decode failures
 are visible. Source names never become extraction paths.
 
-Selecting a known range can preview it, show original-offset hex/native evidence
-or export its exact bytes. Preview acquisition rechecks the complete source
+Tapping a known file opens its actual preview; archives open their contents
+browser. Save file exports the payload directly. Long-press retains original-offset
+hex/native evidence and all existing actions. Preview acquisition rechecks the complete source
 identity and makes a separate owned SHA-256 input, retaining original source hash
 and offset. `ContentPreviewActivity` survives parent closure/source expiry and
 recreation using that owned range. It offers automatic and manual image,
@@ -61,14 +66,13 @@ audio/video, UTF-8, PDF and hex modes, plus metadata/MPV/string/archive/native
 investigation of the same derived bytes.
 
 Implemented renderers are bounded platform image decoding (first frame, at most
-2048 × 2048 pixels), strict UTF-8 (1 MiB read preview), hex (4 KiB preview), paged
+2048 × 2048 pixels), paged strict UTF-8 and navigable Hex, paged
 PDF (1536-pixel maximum dimension) and local descriptor-based MediaPlayer
 controls. Playback requires Play, pauses on leaving the screen and exposes
 platform errors; no inspected app is executed and no input URL is forwarded.
 The app still has no INTERNET permission. MPV probing remains the separately
 pinned, protocol-restricted isolated engine; this platform playback wiring is
-not a claim of complete MPV playback or codec support. Animations, video
-thumbnails, additional document renderers, MPV playback fallback and hard
+not a claim of complete MPV playback or codec support. Animations, additional document renderers, MPV playback fallback and hard
 isolation of platform/Java preview parsers remain incomplete. Device decoder,
 PDF rendering, audio focus/platform lifecycle and real media playback remain
 unverified where host transport/shadows cannot supply those runtime semantics.
