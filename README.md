@@ -51,15 +51,14 @@ System visibility follows Android's permissions and sandbox.
 
 Download the ARM64 APK and its checksum/build manifest from
 [GitHub Releases](https://github.com/sperglord8008s/DiE-Android-/releases).
-The published numbered checkpoint is **0.6.0-pre-alpha.5** (Android version code **11**), including [large text/Hex and full report navigation](docs/text-paging.md), the [native archive workbench](docs/native-archives.md), [embedded finding links](docs/archive-launches.md) and [checked recovery previews/exports](docs/recovered-content.md).
+The published numbered checkpoint is **0.6.0-pre-alpha.6** (Android version code **12**), including [independent preview origin evidence](docs/content-origins.md), [large text/Hex and full report navigation](docs/text-paging.md), the [native archive workbench](docs/native-archives.md), [embedded finding links](docs/archive-launches.md) and [checked recovery previews/exports](docs/recovered-content.md).
 Android 8.0 / API 26 or later is required.
 
 Debug APKs have numbered, source-identified names, for example
 `GlassDigestor-0.6.0-pre-alpha.5-dev.g0123456789ab-arm64-v8a-debug.apk`.
-Current development builds use **0.6.0-pre-alpha.6** / code **12** and add
-[independently retained recovery and archive origin evidence](docs/content-origins.md).
-[Large text/Hex navigation and complete paged reports](docs/text-paging.md) also
-passed all five source CI jobs. Earlier published checkpoints remain unchanged.
+Current development builds use **0.6.0-pre-alpha.7** / code **13** and add
+[sourced practical package knowledge and relationship navigation](docs/package-knowledge.md),
+retaining all 5,402 original UAD-NG records, including duplicate IDs. Earlier published checkpoints remain unchanged.
 
 Tap the app title or **Options → Build details** to see the same version and
 full source revision. See [build versioning](docs/build-versioning.md).
@@ -72,14 +71,15 @@ from separate CI runners can differ. The historical
 ## What has been verified
 
 The published checkpoint passed **all five GitHub Actions jobs** and
-**156 Android host checks**, using real JNI/parsers
+**161 Android host checks**, using real JNI/parsers
 where documented. ARM64 compilation, APK signature/offline packaging, static
 16 KiB alignment, source identities and independent host fixtures are checked.
 
-The current origin-evidence integration passes **161 Android host tests**,
+The current package-knowledge integration passes **167 Android host tests**,
 ARM64 assembly/lint and the APK verifier for fifteen native libraries. Independent
-Unicode fixtures include a fully written 24 MB text file and lossless origin
-captures covering every UTF-16 unit; see the [text](docs/text-paging.md) and
+oracles reconstruct every original source record, numeric/unknown field and
+UTF-16 unit; existing tracker reference/strict-import checks also pass. See the
+[knowledge](docs/package-knowledge.md), [text](docs/text-paging.md) and
 [origin contracts](docs/content-origins.md).
 
 **This remains a pre-alpha workbench.** Actual handset/SAF/isolated-UID/media
@@ -89,8 +89,8 @@ they do not establish malicious behavior, complete validity or safety.
 
 The [feature-parity checklist](docs/FEATURE-PARITY.md) distinguishes implemented,
 host-verified and device-unverified functionality. The verified workbench is on
-the default branch through [PR #7](https://github.com/sperglord8008s/DiE-Android-/pull/7).
-Origin development continues on `codex/content-origin-evidence`.
+the default branch through [PR #8](https://github.com/sperglord8008s/DiE-Android-/pull/8).
+Package-knowledge development continues on `codex/package-knowledge-cards`.
 
 ## Build and contribute
 

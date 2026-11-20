@@ -52,6 +52,7 @@ class CatalogJson {
     private boolean found;
     private final String collectionKey, collectionLabel;
     private final int maximumRecords, maximumKeyLength;
+    private final boolean preserveDuplicateRecords;
 
     CatalogJson(
             String text,
@@ -61,6 +62,20 @@ class CatalogJson {
             int maximumKeyLength,
             String collectionLabel)
             throws Exception {
+        this(text, stop, collectionKey, maximumRecords, maximumKeyLength, collectionLabel, false);
+    }
+
+    /** Some upstream catalogs contain duplicate record IDs; preserve each occurrence explicitly. */
+    CatalogJson(
+            String text,
+            BooleanSupplier stop,
+            String collectionKey,
+            int maximumRecords,
+            int maximumKeyLength,
+            String collectionLabel,
+            boolean preserveDuplicateRecords)
+            throws Exception {
+        this.preserveDuplicateRecords = preserveDuplicateRecords;
         this.text = text;
         this.stop = stop;
         this.collectionKey = collectionKey;
@@ -160,7 +175,8 @@ class CatalogJson {
             EvidenceRows.check(stop);
             space();
             String key = string();
-            if (!keys.add(key)) fail("Duplicate object key (including escaped aliases)");
+            if (!keys.add(key) && !(trackers && preserveDuplicateRecords))
+                fail("Duplicate object key (including escaped aliases)");
             space();
             expect(':');
             space();

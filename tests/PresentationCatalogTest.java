@@ -32,6 +32,7 @@ public final class PresentationCatalogTest {
                         "resources",
                         "apk-signing",
                         "package-set",
+                        "package-knowledge",
                         "sdk-rules",
                         "tracker-rules"))) throw new AssertionError("Lost investigation provider");
         if (!ids.containsAll(List.of("archive", "laboratory", "profiles", "batch", "native-all")))
