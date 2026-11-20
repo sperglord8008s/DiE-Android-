@@ -282,13 +282,20 @@ public final class GallerizeActivity extends Activity {
     private void load(File input, boolean autoView) {
         int ticket = begin("Acquiring input and scanning the supported whole blob…");
         AtomicBoolean stop = cancellation;
-        boolean incomingHandoff=retained==null&&getIntent().getBooleanExtra("ownedInputHandoff",false);
+        boolean incomingHandoff =
+                retained == null && getIntent().getBooleanExtra("ownedInputHandoff", false);
         worker.execute(
                 () -> {
                     String failure = "";
                     ContentMap digest = null;
                     try {
-                        if(incomingHandoff)InputSnapshot.restore(input,new File(getCacheDir(),"gallery-handoffs"),getIntent().getLongExtra("sourceSize",-1),getIntent().getStringExtra("sha256"),stop::get);
+                        if (incomingHandoff)
+                            InputSnapshot.restore(
+                                    input,
+                                    new File(getCacheDir(), "gallery-handoffs"),
+                                    getIntent().getLongExtra("sourceSize", -1),
+                                    getIntent().getStringExtra("sha256"),
+                                    stop::get);
                         session =
                                 GallerizeSession.open(
                                         input,
@@ -303,7 +310,9 @@ public final class GallerizeActivity extends Activity {
                     } catch (Exception error) {
                         failure = error.toString();
                     } finally {
-                        if(incomingHandoff)OwnedContent.discardHandoff(input,new File(getCacheDir(),"gallery-handoffs"));
+                        if (incomingHandoff)
+                            OwnedContent.discardHandoff(
+                                    input, new File(getCacheDir(), "gallery-handoffs"));
                     }
                     final ContentMap loaded = digest;
                     final String error = failure;
@@ -692,6 +701,7 @@ public final class GallerizeActivity extends Activity {
         worker.execute(
                 () -> {
                     InputSnapshot input = null;
+                    ContentOrigin origin = null;
                     try {
                         input =
                                 GallerizeSession.stageRange(
@@ -699,12 +709,38 @@ public final class GallerizeActivity extends Activity {
                                         card.range(session.input.size),
                                         previewDirectory,
                                         stop::get);
+                        origin =
+                                ContentOrigin.create(
+                                        new File(getCacheDir(), "content-origins"),
+                                        input,
+                                        ContentOrigin.stored(
+                                                session.input, card.range(session.input.size)),
+                                        records -> {
+                                            records.value("galleryCard", card.json());
+                                            records.value(
+                                                    "galleryProvenance", session.provenance());
+                                            if (card.nativeRow >= 0)
+                                                records.value(
+                                                        "selectedFinding",
+                                                        new JSONObject()
+                                                                .put("index", card.nativeRow)
+                                                                .put(
+                                                                        "originalRecordJson",
+                                                                        session.raw()
+                                                                                .row(
+                                                                                        card.nativeRow,
+                                                                                        stop::get)
+                                                                                .encoded));
+                                        },
+                                        stop::get);
+                        ContentOrigin capturedOrigin = origin;
                         InputSnapshot staged = input;
                         input = null;
                         runOnUiThread(
                                 () -> {
                                     if (isDestroyed() || ticket != generation || stop.get()) {
                                         staged.close();
+                                        capturedOrigin.close();
                                         return;
                                     }
                                     end();
@@ -723,14 +759,19 @@ public final class GallerizeActivity extends Activity {
                                                         .putExtra("originalOffset", card.offset)
                                                         .putExtra(
                                                                 "originalSize", session.input.size)
-                                                        .putExtra("preferred", card.kind.name()));
-                                    } catch (RuntimeException error) {
+                                                        .putExtra("preferred", card.kind.name())
+                                                        .putExtra(
+                                                                "contentOrigin",
+                                                                capturedOrigin.descriptor()));
+                                    } catch (Exception error) {
                                         staged.close();
+                                        capturedOrigin.close();
                                         status.setText(error.toString());
                                     }
                                 });
                     } catch (Exception error) {
                         if (input != null) input.close();
+                        if (origin != null) origin.close();
                         failed(ticket, error);
                     }
                 });
@@ -780,7 +821,9 @@ public final class GallerizeActivity extends Activity {
                                                     "mpv"
                                                 }
                                                 [which]);
-                            if (which == 5) startActivityForResult(intent, 2);
+                            if (which == 5)
+                                startActivityForResult(
+                                        intent.putExtra("originPreviewResult", true), 2);
                             else startActivity(intent);
                         })
                 .show();

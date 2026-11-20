@@ -1,6 +1,6 @@
 # Development continuation point
 
-The verified workbench is on main through PR #6 as GlassDigestor in `sperglord8008s/DiE-Android-`. Current work uses `codex/text-evidence-paging`; application ID remains `org.diemobile` with the existing debug signing configuration. Published pre-alpha.1–.4 checkpoints are immutable; current development is **0.6.0-pre-alpha.5 / code 11**. See [versioning](build-versioning.md). Full desktop parity and handset verification remain incomplete. Read AGENTS.md and the three design/parity documents before changes.
+The verified workbench is on main through PR #7 as GlassDigestor in `sperglord8008s/DiE-Android-`. Current work uses `codex/content-origin-evidence`; application ID remains `org.diemobile` with the existing debug signing configuration. Published pre-alpha.1–.5 checkpoints are immutable; current development is **0.6.0-pre-alpha.6 / code 12**. See [versioning](build-versioning.md). Full desktop parity and handset verification remain incomplete. Read AGENTS.md and the three design/parity documents before changes.
 
 ## Implemented and fixture-verified in this work
 
@@ -635,3 +635,41 @@ contains 5,399 exact package records; reuse it with provenance and typed
 relationships rather than adding another unattributed catalog. Real device
 UID/Binder/SAF/media/PDF/cancel/crash/process-death/16 KiB runtime remains
 unverified. Preserve the working local and public APK fallbacks.
+
+
+## Text checkpoint source accepted; independent preview origin captures
+
+Text-paging commit `df082d961a06a705e68dd268ccaabf7c74b32c50` passed all
+five jobs in run `44661425550` (#138), merged through PR #7 to main
+`7f1cae35b61eec96878841969719bb70fa0d31ca`. Pre-alpha.5 is published from
+exact CI source `37e7feea2ce3ede151cd5b29ccea499255f943e8`; publisher run
+`44664099702` succeeded. Public APK SHA-256
+`55262ca8e5f7260be53cc39a2bb16c7074a987785d73e181196dffa5d45ad51f`. Clean local .5 checkpoint SHA-256
+`e0d8e86287221c0227dd67ebbe142ba9b6f640ec8168398f5e277655891acc82`.
+
+The .6 slice adds `ContentOrigin`: independently owned, exact-subject-bound
+JSON Lines captures, size/SHA display, paged full viewing, checked complete
+exports, recreation/picker lifetime and strict private-leaf cleanup. Binwalk/
+PhotoRec preview captures retain full selected row/provenance/metadata; gallery
+cards retain exact scope/native row; native previews preserve current nested
+raw reports/acquisitions/failures/launch context plus selected member evidence.
+Logical members do not gain physical offsets. A new streaming native trail
+writer avoids a second complete parsed report tree.
+
+Four new viewer cases and one actual nested ZIP → TAR → member case bring the
+full Android host suite to **161**, with zero failures/errors/skips. Existing
+actual Binwalk/PhotoRec/Gallerize cases assert their origin outputs. Independent
+128 MiB-JVM/Python JSON Lines/byte oracles cover all 65,536 UTF-16 units, unknown
+values, lexical/raw data, source expiry and mutation/path/symlink/type/budget/
+cancel/cleanup refusal. Required generic/native/archive model, ARM64 assembly/
+lint and fifteen-library static APK checks pass; source CI is the next gate.
+See [origin contracts](content-origins.md) for scope and commands. Main return-
+and-rescan, Classic ZIP, cross-Activity inherited origin chains and all-visited
+archive history remain incomplete; real device acceptance remains unverified.
+
+Continue origin ancestry integration, richer useful gallery presentation,
+sourced package knowledge and remaining parity. A source-attributed typed UAD
+model is being prototyped outside the repository before integration; do not
+claim it as implemented until it is committed and tested. Reuse the bundled
+5,399-record UAD-NG snapshot with full unknown fields and explicit community
+claims, exact IDs, directed dependency occurrences and source revision/hash.

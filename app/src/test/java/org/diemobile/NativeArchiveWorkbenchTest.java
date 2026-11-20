@@ -293,6 +293,72 @@ public final class NativeArchiveWorkbenchTest {
         assertEquals(3, nativeCalls.get());
     }
 
+    @Test
+    public void nestedMemberRetainsCompleteNativeTrailAndAcquisitionAfterBrowserExpiry()
+            throws Exception {
+        String nestedName = "nested-世界.tar";
+        File original = zip(nestedName, Files.readAllBytes(fixtures.resolve("mislabeled.bin")));
+        open(original, null);
+        click("All entries");
+        row("#0 ");
+        action("Browse as nested archive / compressed stream");
+        assertEquals(2, session().depth());
+        String rootRaw = session().locations().get(0).inventory.raw;
+        String childRaw = session().current().inventory.raw;
+        String childAcquisition = session().current().acquisition;
+        String childSha = session().current().input.sha256;
+        click("All entries");
+        row("#0 ");
+        action("Open preview / media / export bytes");
+        Intent target = Shadows.shadowOf(activity).getNextStartedActivity();
+        assertNotNull(status(activity), target);
+        String descriptor = target.getStringExtra("contentOrigin");
+        assertNotNull(descriptor);
+        ContentOrigin evidence =
+                ContentOrigin.restore(
+                        new File(activity.getCacheDir(), "content-origins"),
+                        descriptor,
+                        target.getStringExtra("sha256"),
+                        target.getLongExtra("sourceSize", -1),
+                        () -> false);
+        activity.finish();
+        close(controller);
+        controller = null;
+        assertTrue(original.delete());
+        var lines = Files.readAllLines(evidence.file.toPath());
+        assertEquals(4, lines.size());
+        JSONObject relation = new JSONObject(lines.get(0)).getJSONObject("relationship");
+        assertEquals("archive-member", relation.getString("kind"));
+        assertEquals(childSha, relation.getString("parentSha256"));
+        assertTrue(relation.isNull("physicalOffset"));
+        JSONObject trail = new JSONObject(lines.get(1)).getJSONObject("value");
+        assertEquals(2, trail.getJSONArray("locations").length());
+        assertEquals(
+                rootRaw,
+                trail.getJSONArray("locations").getJSONObject(0).getString("inspectionRaw"));
+        JSONObject child = trail.getJSONArray("locations").getJSONObject(1);
+        assertEquals(childRaw, child.getString("inspectionRaw"));
+        assertEquals(childAcquisition, child.getString("acquisitionFromParentRaw"));
+        assertEquals(nestedName, child.getString("displayName"));
+        JSONObject selected = new JSONObject(lines.get(2)).getJSONObject("value");
+        assertEquals(0, selected.getInt("entryIndex"));
+        JSONObject acquisition = new JSONObject(selected.getString("acquisitionRawJson"));
+        assertEquals(0, acquisition.getInt("selectedIndex"));
+        assertTrue(acquisition.getBoolean("complete"));
+        previewController =
+                Robolectric.buildActivity(ContentPreviewActivity.class, target).setup().visible();
+        preview = previewController.get();
+        settle(preview);
+        ContentOrigin owned = ReflectionHelpers.getField(preview, "origin");
+        assertNotNull(status(preview), owned);
+        PreparedExport export =
+                owned.export(new File(preview.getCacheDir(), "tool-exports"), () -> false);
+        assertArrayEquals(
+                Files.readAllBytes(evidence.file.toPath()),
+                Files.readAllBytes(export.file.toPath()));
+        export.discard();
+    }
+
     /** Restore cannot ask the transport to rerun native work. */
     private static final class HostRunner implements ArchiveRunner {
         public String inspect(File f, long o, long l, BooleanSupplier stop) {

@@ -212,6 +212,7 @@ public final class RecoveredContentWorkbenchTest {
         open(provider);
         String parentSha = Inspector.scan(original, 4).sha256;
         int index = pngRow();
+        int originalIndex = ((EvidenceRows.Row) list().getAdapter().getItem(index)).index;
         actions(index);
         choose("View exact recovered bytes");
         settle(tool);
@@ -222,10 +223,25 @@ public final class RecoveredContentWorkbenchTest {
         assertEquals(fixture.pngAt, intent.getLongExtra("originalOffset", -1));
         File child = new File(intent.getStringExtra("path"));
         assertArrayEquals(fixture.png, Files.readAllBytes(child.toPath()));
+        ContentOrigin origin =
+                ContentOrigin.restore(
+                        new File(tool.getCacheDir(), "content-origins"),
+                        intent.getStringExtra("contentOrigin"),
+                        intent.getStringExtra("sha256"),
+                        intent.getLongExtra("sourceSize", -1),
+                        () -> false);
+        var originLines = Files.readAllLines(origin.file.toPath());
+        org.json.JSONObject finding =
+                new org.json.JSONObject(originLines.get(1)).getJSONObject("value");
+        assertEquals(provider + "-candidates", finding.getString("kind"));
+        assertEquals(originalIndex, finding.getInt("index"));
+        assertTrue(finding.getString("provenanceJson").contains(parentSha));
+        assertTrue(new org.json.JSONObject(finding.getString("originalRecordJson")).length() > 0);
         close(toolController);
         toolController = null;
         assertTrue(original.delete());
         assertTrue(child.isFile());
+        assertTrue(origin.file.isFile());
         previewController =
                 Robolectric.buildActivity(ContentPreviewActivity.class, intent).setup().visible();
         preview = previewController.get();

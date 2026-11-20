@@ -263,6 +263,49 @@ final class NativeArchiveSession implements AutoCloseable {
                                 + " Metadata iteration does not verify every payload.");
     }
 
+    /** Stream current-chain raw witnesses without building another complete parsed report tree. */
+    void writeCapturedEvidence(java.io.Writer out, BooleanSupplier stop) throws Exception {
+        out.write(
+                "{\"schema\":\"org.diemobile.archive-origin-trail\",\"schemaVersion\":1,\"originalLaunchRaw\":");
+        EvidenceJson.write(out, launch == null ? JSONObject.NULL : launch.raw, stop);
+        out.write(",\"locations\":[");
+        boolean first = true;
+        for (Location location : trail) {
+            EvidenceRows.check(stop);
+            location.input.checkIdentity(stop);
+            if (!sha(location.inventory.raw.getBytes(StandardCharsets.UTF_8))
+                    .equals(location.captureSha))
+                throw new IOException("Archive inspection witness identity changed");
+            if (!first) out.write(',');
+            first = false;
+            EvidenceJson.write(
+                    out,
+                    new JSONObject()
+                            .put("sourceSha256", location.input.sha256)
+                            .put("sourceSizeBytes", location.input.size)
+                            .put("displayName", location.name)
+                            .put("parentEntryIndex", location.parentIndex)
+                            .put("inspectionRaw", location.inventory.raw)
+                            .put("inspectionSha256", location.captureSha)
+                            .put(
+                                    "acquisitionFromParentRaw",
+                                    location.acquisition == null
+                                            ? JSONObject.NULL
+                                            : location.acquisition),
+                    stop);
+        }
+        out.write("],\"failedAttempts\":");
+        EvidenceJson.write(out, failureEvidence(), stop);
+        out.write(",\"physicalMemberOffsets\":null,\"meaning\":");
+        EvidenceJson.quoted(
+                out,
+                "Current captured archive chain and retained failures. Members are logical derived"
+                    + " bytes; parsing intervals are not recovered extents. Earlier visited"
+                    + " branches and cross-activity ancestry are outside this capture.",
+                stop);
+        out.write('}');
+    }
+
     /** Compact private descriptors only. Large original native reports remain in checked files. */
     String retentionState() throws Exception {
         JSONArray locations = new JSONArray();

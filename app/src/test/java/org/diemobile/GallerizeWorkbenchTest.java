@@ -297,6 +297,18 @@ public final class GallerizeWorkbenchTest {
         settle(activity);
         Intent target = Shadows.shadowOf(activity).getNextStartedActivity();
         assertEquals(ContentPreviewActivity.class.getName(), target.getComponent().getClassName());
+        ContentOrigin capturedOrigin =
+                ContentOrigin.restore(
+                        new File(activity.getCacheDir(), "content-origins"),
+                        target.getStringExtra("contentOrigin"),
+                        target.getStringExtra("sha256"),
+                        target.getLongExtra("sourceSize", -1),
+                        () -> false);
+        var originLines = Files.readAllLines(capturedOrigin.file.toPath());
+        assertEquals("galleryCard", new org.json.JSONObject(originLines.get(1)).getString("kind"));
+        assertEquals(
+                "galleryProvenance", new org.json.JSONObject(originLines.get(2)).getString("kind"));
+
         File bytes = new File(target.getStringExtra("path"));
         assertArrayEquals(
                 text.getBytes(StandardCharsets.UTF_8), Files.readAllBytes(bytes.toPath()));

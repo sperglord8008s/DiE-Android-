@@ -45,6 +45,7 @@ jobs:
       - run: DIE_REQUIRE_AAPT2=true bash scripts/test-resources.sh
       - run: bash scripts/test.sh
       - run: bash scripts/test-utf8-pages.sh
+      - run: bash scripts/test-content-origin.sh
       - run: bash scripts/fetch-engine.sh
       - run: bash scripts/fetch-knowledge.sh
       - run: bash scripts/fetch-metadata.sh
