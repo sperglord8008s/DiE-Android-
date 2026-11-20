@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
 
@@ -85,12 +86,21 @@ def verify(sdk):
         assert "org/diemobile/" + name + ".java" in sources
     with zipfile.ZipFile(target) as archive:
         native = [name for name in archive.namelist() if name.endswith(".so")]
-        assert set(native) == {"lib/x86_64/libdiearchive.so", "lib/x86_64/libdiehash.so"}, native
+        assert set(native) == {"lib/x86_64/libdiearchive.so", "lib/x86_64/libdiehash.so", "lib/x86_64/libdiephotorec.so"}, native
         for name in native:
             data = archive.read(name)
+            if name.endswith("libdiephotorec.so"):
+                built = ROOT / "app/build/generated-photorec-jni/x86_64/libdiephotorec.so"
+                strip = sdk / "ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+                with tempfile.TemporaryDirectory(prefix="photorec-packaging-") as temporary:
+                    stripped = Path(temporary) / "libdiephotorec.so"
+                    subprocess.run([str(strip), "--strip-unneeded", "-o", str(stripped), str(built)], check=True)
+                    assert data == stripped.read_bytes(), "Packaged PhotoRec differs from the NDK-stripped source build"
+                packaged_pdf_sha256 = hashlib.sha256(data).hexdigest()
             assert data[:6] == b"\x7fELF\x02\x01" and int.from_bytes(data[18:20], "little") == 62
         for name in ["DiE-Android-LICENSE.txt", "rhash-md4-1.4.5.txt",
-                     "android-resources-32.5.1.txt", "dex-dependencies.txt"]:
+                     "android-resources-32.5.1.txt", "dex-dependencies.txt",
+                     "photorec-7.2.txt", "photorec-source-headers.txt"]:
             assert archive.read("assets/notices/" + name) == (
                 ROOT / "app/src/main/assets/notices" / name
             ).read_bytes()
@@ -103,12 +113,23 @@ def verify(sdk):
         assert archive.read("assets/test-fixtures/green-64x48.mp4") == (
             ROOT / "tests/fixtures/media/green-64x48.mp4"
         ).read_bytes()
+    native_pdf_inputs = [
+        "carving-engine/CMakeLists.txt", "carving-engine/config.h", "carving-engine/probe.cpp",
+        "carving-engine/blob_input.h", "carving-engine/read_only_file.h", "carving-engine/deny-files.c",
+        "carving-engine/exports.map", "carving-engine/source-lock.json", "scripts/build-photorec.sh",
+        "scripts/fetch-photorec.sh", "scripts/prepare-photorec.py", "scripts/photorec-notices.py",
+        "tests/fixtures/metadata/MetadataFixtureFactory.java",
+    ]
     return {
         "schema": "org.diemobile.worker-runtime-build", "schemaVersion": 1,
         "applicationId": "org.diemobile.runtimecheck", "abi": "x86_64", "testOnly": True,
         "sourceRevision": identity["sourceRevision"], "sourceDirty": identity["sourceDirty"],
         "versionName": identity["versionName"], "versionCode": identity["versionCode"],
         "sharedProductionSources": sources,
+        "nativePhotoRecSources": {name: sha256(ROOT / name) for name in native_pdf_inputs},
+        "nativePhotoRecX86Sha256": sha256(ROOT / "app/build/generated-photorec-jni/x86_64/libdiephotorec.so"),
+        "nativePhotoRecPackagedSha256": packaged_pdf_sha256,
+        "nativePhotoRecPackaging": "NDK 28.2.13676358 llvm-strip --strip-unneeded",
         "instrumentationSourceSha256": sha256(
             ROOT / "runtime-worker/src/androidTest/java/org/diemobile/WorkerRuntimeInstrumentation.java"
         ),

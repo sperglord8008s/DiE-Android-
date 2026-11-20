@@ -1,6 +1,6 @@
 # Development continuation point
 
-The workbench is on main through PR #13 (`faa3272`) in **sperglord8008s/GlassDigestor** (the owner's rename of DiE-Android-, repository ID 1460636999). Current work uses `codex/recovered-file-gallery`, **0.6.0-pre-alpha.12 / code 18**. User priority is the actual recovered files: combined PhotoRec/Binwalk galleries, usable in-app previews and file exports. Preserve production `org.diemobile`, existing signing and immutable checkpoint APKs. Full desktop parity and handset verification remain incomplete. Read AGENTS.md and the three design/parity documents before changes.
+The workbench is on main through PR #13 (`faa3272`) in **sperglord8008s/GlassDigestor** (the owner's rename of DiE-Android-, repository ID 1460636999). Current work uses `codex/pdf-file-recovery`, **0.6.0-pre-alpha.13 / code 19**. User priority is the actual recovered files: combined PhotoRec/Binwalk galleries, usable in-app previews and file exports. Preserve production `org.diemobile`, existing signing and immutable checkpoint APKs. Full desktop parity and handset verification remain incomplete. Read AGENTS.md and the three design/parity documents before changes.
 
 ## Implemented and fixture-verified in this work
 
@@ -942,3 +942,100 @@ fully written 80 MiB tail/PNG/grid case now also checks correct PNG bytes/name/
 MIME on export. ARM64 assembly/lint and APK signature/offline/identity/notices/
 fifteen-library alignment verification pass. Commit clean source, rebuild/freeze
 its exact numbered APK, push and inspect source CI before merge/publication.
+
+
+## Recovery gallery published; actual PDF file checks
+
+Source 123193d passed all five source CI jobs (44776359039) and seven x86 Android
+runtime lab contracts (44776359034). PR #14's five source jobs passed
+(44776456230), and it merged as **0493c5b**. Publisher **44778247741** succeeded
+for immutable **v0.6.0-pre-alpha.12**. Its clean local checkpoint APK SHA-256 is
+`ff3ee4cf4be8adbf31a8bbcb0d02e7df4a7cd18996e006e426ad70682bd75674`
+(52,803,429 bytes, source 123193d). Public CI-signed APK bytes are separate.
+
+New branch `codex/pdf-file-recovery` incorporates main 0493c5b and advances to
+**pre-alpha.13 / code 19**. Adapter 4 enables the original PDF module's file-check
+only, via a bounded read-only source-relative FILE view. Successful source-
+bounded results become actual PDF gallery/save/preview payloads. Other full
+file checks and all renames remain disabled. Java validates the explicit new
+scope/counters before publishing an extent. Original adapter 2/3 captures remain
+readable under their own contracts.
+
+Actual embedded PDF bytes/xref/native boundary/export, truncation/10 MiB
+footerless work cap and altered callback claims pass Java/Python checks. Native
+read/seek/EOF/write-denial/budget/exception/FD-ownership cases pass. Original
+PhotoRec 80/256 MiB and known media regressions pass; focused gallery/recovery/
+PhotoRec Android host cases pass, including the new actual PDF handoff/save.
+The new stdio buffer is 64 KiB: maximum input-read payload buffers become
+**1.3125 MiB**, excluding callback scratch and total process memory.
+
+Next: finish full .13 host/native/ARM64/lint gates and correct failures, bundle
+matching sources, freeze clean-source APK, commit/push and inspect CI before
+merge/publication. Do not claim actual Bionic FILE or PDF renderer execution.
+Continue file coverage: separate optional PDF date-reading work from native
+footer recovery for larger valid PDFs, then broaden reviewed common-format
+file checks and recovered archive-member gallery/export flows. Keep actual
+files as the priority. See [PDF contracts](pdf-file-recovery.md).
+
+
+The complete .13 local functional gate passed: **181 host tests with zero
+failures/errors/skips**, existing 80/256 MiB native PhotoRec cases, actual
+seven-payload combined gallery oracles, new PDF byte/xref/callback-scope/C stdio
+guards, required generic/native checks, full ARM64 compilation/lint and APK
+verification. The source lock now names adapter 4, pins the reviewed `file_pdf.c`
+and declares correct buffer/callback policies. Notices and matching standalone
+corresponding sources are regenerated and checked.
+
+An eighth lab contract now executes actual PhotoRec/Bionic PDF recovery and
+missing-footer refusal via the production isolated service. It packages only
+the additional source-built x86 PhotoRec library and notices, plus a trusted
+fixture factory in instrumentation. APKs compile/static-verify, including exact
+NDK strip equivalence and native source/fixture hashes; real API 26/35 execution
+remains pending. Runtime-only `-g0` avoids unused DWARF; production flags are
+unchanged.
+
+Workspace disk filled during a first runtime build. Only regenerable compiler
+intermediates were reclaimed after verifying original checkpoint APKs; no
+pinned source/toolchain/immutable APK was removed. Current local packaging reuses
+already fully compiled and verified **unchanged CDiE/hash** ARM64 libraries,
+with native input/library hashes in `/workspace/work/pdf-unchanged-native-reuse.json`,
+using `-x ':app:buildCMakeDebug[arm64-v8a][diehash,diemobile]'`. PhotoRec is built
+normally. Clean CI retains normal full native builds. Root main/native source
+and production compiler settings were not changed to work around storage.
+
+Next: commit clean source, rebuild/freeze exact numbered APK with the same
+verified native-cache reuse, compile/static-check clean runtime APKs, push and
+inspect both CI workflows. Fix failures before merge/publication. Public .12
+APK observed GitHub digest is
+`2f3b010c12e7d7024f497615e6328b321e3a4e191a93db180614a6c236444f5b`
+(52,819,813 bytes); its independent download audit remains pending. Keep that
+separate from the retained local .12 signer/hash above.
+
+
+Source **531dff4** is committed/pushed in PR #15. Its local clean APK SHA-256 is
+`c10afe676f42a94e93e408649f36b1ed0739ee4fea5e2ed662254243fdc5a175`
+(52,803,465 bytes), with packaged adapter-4/validator presence checked. Push
+source CI 44784016413 hit a transient JSON dependency HTTP 404 after Rust tests;
+PR binary integration passed. A rerun is deferred until the overall push run
+completes; the reporting fix below creates a fresh source run.
+
+Both Android jobs in **44784016230** completed all eight assertions and wrote
+successful complete reports, but Instrumentation.finish failed when its copied
+pretty report exceeded Binder. Downloaded API 26 artifact 14653906176 (SHA-256
+`02994a675111b189a9c9a91e3ae291f4d68b2d5edc5256bbac486d9692a16752`)
+independently confirms all eight cases/source531dff4 and the actual failure:
+`TransactionTooLargeException`, 1,777,520-byte result parcel. Native PDF recovery
+was successful; the overall workflow is correctly failed. The harness now
+keeps the entire report on disk and returns only count/size/SHA-256/status/path
+through Binder. The runner checks that completion identity against the captured
+full file without weakening any success/source/UID/SDK/check assertions. Commit,
+compile/static-check and rerun both workflows before publication.
+
+The downloaded .12 CI checkpoint 14650283390 (outer SHA
+`342f3cca1a88d7e40571912e8bf97c650df00fe1c55912210935e46c281601f1`)
+now passes independent original six-file inventory/checksums/public digests,
+source123193d identity and exact-source APK static verification. Original CI APK
+and manifest are retained separately from locally generated audit sidecars in
+`/workspace/work/releases/0.6.0-pre-alpha.12`. Its public SHA above is confirmed
+against the actual downloaded APK bytes; component-source payloads remain
+publisher-gated rather than newly independently downloaded here.

@@ -18,7 +18,7 @@ These are adapter limits, not verified maximum sizes on a phone. MiB means
 | ZIP-family member browser | 1 GiB archive | 20,000 entries; each selected expanded member at most 256 MiB; nested depth separately bounded |
 | Desktop document batches | 256 MiB/file | 64 files, 512 MiB total captured input; 16 MiB/report, 64 MiB total stored reports |
 | Exact aligned binary comparison | 256 MiB/side | 512 MiB pair; difference-record and report bounds remain separate |
-| PhotoRec adapter 3 | 256 MiB | 250,000 candidates; 24 MiB native report; per-candidate/aggregate callback work and deadline bounds |
+| PhotoRec adapter 4 | 256 MiB | 250,000 candidates; 24 MiB native report; PDF file reads and other per-candidate/aggregate callback work and deadlines remain bounded |
 | Gallerize content/gallery/grid input | 256 MiB | PhotoRec whole-input scan; Binwalk separately limited to 64 MiB; 50,000 cards, original native report/callback budgets; grid at most 1,048,576 cells; previews/renderers separately bounded |
 | Binwalk adapter 2 | 64 MiB | Contiguous file-sized native copy; 20,000 raw magic matches and 32 MiB report |
 | MPV media probe | 256 MiB | Probe/property/worker limits; initialization is not full-frame/media-integrity verification |
@@ -50,8 +50,10 @@ The static audit of the **51,088,307-byte** frozen alpha APK independently check
 all **111,228** returned magic witnesses and all **38** bounded ranges. That APK
 is parsed as data and never executed.
 
-PhotoRec's **1.25 MiB** figure is the payload bound for one 1 MiB matching buffer
-and two 128 KiB header-cache windows. It is not a file-size cap, an allocator/RSS
+Adapter 3's **1.25 MiB** figure is the payload bound for one 1 MiB matching
+buffer and two 128 KiB header-cache windows. Adapter 4 adds a fixed 64 KiB
+relative-stdio buffer for reviewed PDF file checks, bringing that input-read
+payload maximum to **1.3125 MiB**. See [PDF scope/work limits](pdf-file-recovery.md). It is not a file-size cap, an allocator/RSS
 measurement or a bound for the entire worker. The callback window, registry,
 records, JNI/JVM, allocators and kernel memory are additional.
 

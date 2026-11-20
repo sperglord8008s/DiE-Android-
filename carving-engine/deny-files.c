@@ -4,7 +4,8 @@
 
 /* Every upstream translation unit redirects path opens and renames here.
  * Neither auxiliary signature files nor recovery output may be opened. The
- * adapter supplies buffers and never invokes file_check/file_rename callbacks.
+ * adapter supplies buffers plus a bounded read-only relative FILE view for the
+ * reviewed PDF file_check only. No file_rename callback is invoked.
  */
 FILE *die_photorec_denied_fopen(const char *path, const char *mode) {
     (void)path;

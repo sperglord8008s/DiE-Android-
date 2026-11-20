@@ -1,16 +1,17 @@
 GlassDigestor Android worker runtime laboratory
 Frontend and test adapters: GPL-3.0-only; see DiE-Android-LICENSE.txt.
-Corresponding source: https://github.com/sperglord8008s/DiE-Android-
+Corresponding source: https://github.com/sperglord8008s/GlassDigestor
 
 This separate test-only x86_64 application builds the unchanged production
-BinaryWorkerService/Client and hash/archive JNI. It has no launcher or network
+BinaryWorkerService/Client and hash/archive/PhotoRec JNI. It has no launcher or network
 permission and is not the production ARM64 application. Java bridge references
 for other worker engines are compiled unchanged; their native libraries are
 not included and those engines are not exercised by this laboratory.
 
 CDiE/xxfclib and linked dependency licenses, including their original source
 subpaths, are retained in notices/. RHash MD4 notices are rhash-md4-1.4.5.txt.
-Archive and codec licenses/headers are archive-codecs.txt and
+PhotoRec notices and original source headers are photorec-7.2.txt and
+photorec-source-headers.txt. Archive and codec licenses/headers are archive-codecs.txt and
 archive-source-headers.txt. Google's source-built binary resource parser and
 its Guava Android dependencies retain their original notices in
 android-resources-32.5.1.txt and dex-dependencies.txt. Exact source identities,
@@ -19,3 +20,5 @@ patches and build recipes remain in the corresponding repository modules.
 The CI-only Android emulator action is not packaged in either application.
 Its Apache-2.0 source is pinned at
 https://github.com/ReactiveCircus/android-emulator-runner/tree/a421e43855164a8197daf9d8d40fe71c6996bb0d
+
+PhotoRec adapter 4 adds a PDF-only read-only Bionic stdio recovery check. This does not execute the PDF renderer or inspected applications.

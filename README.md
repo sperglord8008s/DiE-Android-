@@ -51,18 +51,19 @@ System visibility follows Android's permissions and sandbox.
 
 Download the ARM64 APK and its checksum/build manifest from
 [GitHub Releases](https://github.com/sperglord8008s/GlassDigestor/releases).
-The published numbered checkpoint is **0.6.0-pre-alpha.11** (Android version code **17**), including [sourced package knowledge](docs/package-knowledge.md), [independent preview origin evidence](docs/content-origins.md), [large text/Hex and full report navigation](docs/text-paging.md), the [native archive workbench](docs/native-archives.md), [embedded finding links](docs/archive-launches.md) and [checked recovery previews/exports](docs/recovered-content.md).
+The published numbered checkpoint is **0.6.0-pre-alpha.12** (Android version code **18**), including [sourced package knowledge](docs/package-knowledge.md), [independent preview origin evidence](docs/content-origins.md), [large text/Hex and full report navigation](docs/text-paging.md), the [native archive workbench](docs/native-archives.md), [embedded finding links](docs/archive-launches.md) and [checked recovery previews/exports](docs/recovered-content.md).
 Android 8.0 / API 26 or later is required.
 
 Debug APKs have numbered, source-identified names, for example
 `GlassDigestor-0.6.0-pre-alpha.5-dev.g0123456789ab-arm64-v8a-debug.apk`.
-Current development builds use **0.6.0-pre-alpha.12** / code **18**, including
+Current development builds use **0.6.0-pre-alpha.13** / code **19**, including
 [direct gallery archive inspection and explicit byte-range previews](docs/gallery-inspection-ranges.md)
 and a separate [Android worker runtime laboratory](runtime-worker/README.md).
 Seven worker/media/compiled-manifest contracts passed on actual x86 Android API 26/35;
 [bounded gallery video frames/media observations](docs/gallery-media-previews.md)
 are covered by an actual platform-codec runtime check. Development now combines PhotoRec and Binwalk in an [actual recovered-file
 gallery with typed saves and payload ZIPs](docs/recovered-file-gallery.md).
+[Recovered PDF file exports](docs/pdf-file-recovery.md) now extend that gallery.
 [Observed APK → sourced community package knowledge](docs/apk-community-context.md)
 remains available.
 Package knowledge retains all 5,402 original UAD-NG records, including duplicate IDs. Earlier published checkpoints remain unchanged.

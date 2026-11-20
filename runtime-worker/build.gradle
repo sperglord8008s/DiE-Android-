@@ -26,7 +26,8 @@ def stageWorkerNotices = tasks.register('stageWorkerNotices', Sync) {
     from(rootProject.file('generated-assets')) { include 'notices/**' }
     from(rootProject.file('app/src/main/assets')) {
         include 'notices/DiE-Android-LICENSE.txt', 'notices/rhash-md4-1.4.5.txt',
-                'notices/android-resources-32.5.1.txt', 'notices/dex-dependencies.txt'
+                'notices/android-resources-32.5.1.txt', 'notices/dex-dependencies.txt',
+                'notices/photorec-7.2.txt', 'notices/photorec-source-headers.txt'
     }
     into layout.buildDirectory.dir('runtime-notices')
 }
@@ -44,7 +45,7 @@ android {
         buildConfigField 'String', 'SOURCE_REVISION', groovy.json.JsonOutput.toJson(identity.sourceRevision)
         buildConfigField 'boolean', 'SOURCE_DIRTY', (identity.sourceDirty != false).toString()
         ndk { abiFilters 'x86_64' }
-        externalNativeBuild { cmake { targets 'diehash'; arguments '-DANDROID_STL=c++_static' } }
+        externalNativeBuild { cmake { targets 'diehash'; arguments '-DANDROID_STL=c++_static', '-DCMAKE_C_FLAGS_DEBUG=-g0', '-DCMAKE_CXX_FLAGS_DEBUG=-g0' } }
     }
     buildFeatures { buildConfig true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
@@ -52,10 +53,12 @@ android {
     sourceSets.main {
         java.srcDir layout.buildDirectory.dir('shared-worker-sources')
         jniLibs.srcDir '../app/build/generated-archive-jni'
+        jniLibs.srcDir '../app/build/generated-photorec-jni'
         assets.srcDir '../app/build/generated-archive-assets'
         assets.srcDir layout.buildDirectory.dir('runtime-notices')
         assets.srcDir layout.buildDirectory.dir('generated-runtime-assets')
     }
+    sourceSets.androidTest.java.srcDir rootProject.file('tests/fixtures/metadata')
     applicationVariants.configureEach { variant ->
         variant.outputs.configureEach {
             outputFileName = "GlassDigestor-worker-runtime-${variant.versionName}-x86_64-${variant.name}.apk"
@@ -71,6 +74,15 @@ def buildRuntimeArchive = tasks.register('buildRuntimeArchive', Exec) {
     inputs.files(rootProject.fileTree('archive-engine'), rootProject.files('scripts/build-archive.sh', 'scripts/build-archive-libraries.sh'))
     outputs.file(rootProject.file('app/build/generated-archive-jni/x86_64/libdiearchive.so'))
 }
+def buildRuntimePhotoRec = tasks.register('buildRuntimePhotoRec', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'bash', rootProject.file('scripts/build-photorec.sh').absolutePath, 'android'
+    environment 'DIE_ANDROID_ABI', 'x86_64'
+    if (gradle.startParameter.offline) environment 'DIE_OFFLINE', 'true'
+    inputs.files(rootProject.fileTree('carving-engine'), rootProject.files('scripts/build-photorec.sh',
+            'scripts/fetch-photorec.sh', 'scripts/prepare-photorec.py', 'scripts/photorec-notices.py'))
+    outputs.file rootProject.file('app/build/generated-photorec-jni/x86_64/libdiephotorec.so')
+}
 def generateRuntimeMediaFixture = tasks.register('generateRuntimeMediaFixture', Exec) {
     workingDir rootProject.projectDir
     commandLine 'python3', rootProject.file('tests/fixtures/media/generate-preview.py').absolutePath,
@@ -79,5 +91,5 @@ def generateRuntimeMediaFixture = tasks.register('generateRuntimeMediaFixture', 
     outputs.dir layout.buildDirectory.dir('generated-runtime-assets/test-fixtures')
 }
 tasks.named('preBuild').configure {
-    dependsOn buildRuntimeArchive, stageWorkerSources, stageWorkerNotices, generateRuntimeMediaFixture
+    dependsOn buildRuntimeArchive, buildRuntimePhotoRec, stageWorkerSources, stageWorkerNotices, generateRuntimeMediaFixture
 }

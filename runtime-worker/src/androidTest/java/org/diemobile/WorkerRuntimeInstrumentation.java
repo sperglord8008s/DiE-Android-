@@ -50,10 +50,11 @@ public final class WorkerRuntimeInstrumentation extends Instrumentation {
                     .put("sourceDirty", BuildConfig.SOURCE_DIRTY)
                     .put(
                             "scope",
-                            "Actual x86_64 Android production worker, hash/archive JNI, Binder,"
-                                + " descriptors, compiled manifest declarations, token cancellation"
-                                + " and the production platform media preview helper. This does not"
-                                + " verify ARM64, UI, MPV playback/PDF or 16 KiB-page runtime.");
+                            "Actual x86_64 Android production worker, hash/archive/PhotoRec JNI,"
+                                + " Binder, descriptors, PDF file recovery, compiled manifest"
+                                + " declarations, token cancellation and the production platform"
+                                + " media preview helper. This does not verify ARM64, UI, MPV"
+                                + " playback/PDF or 16 KiB-page runtime.");
             require(
                     android.os.Process.myUid() == target.getApplicationInfo().uid,
                     "Instrumentation must run as the normal target app UID");
@@ -74,6 +75,7 @@ public final class WorkerRuntimeInstrumentation extends Instrumentation {
             largeHash();
             archive();
             compiledManifest();
+            photoRecPdf();
             mediaPreview();
             cancelBlockedReporter(abc);
             record("normal-client-recovers-after-worker-death", hash(abc));
@@ -98,11 +100,22 @@ public final class WorkerRuntimeInstrumentation extends Instrumentation {
                 }
                 result.putString("runtimePassed", Boolean.toString(success));
                 result.putString("runtimeReport", output.getAbsolutePath());
-                result.putString("stream", report.toString(2));
+                // Instrumentation.finish uses Binder. Full native catalogs stay in the owned
+                // report file; returning them again here exceeds Binder's transaction budget.
+                result.putString("runtimeCheckCount", Integer.toString(checks.length()));
+                result.putString("runtimeReportBytes", Long.toString(output.length()));
+                result.putString("runtimeReportSha256", reportDigest(output));
+                result.putString(
+                        "stream",
+                        "Completed "
+                                + checks.length()
+                                + " checks; complete evidence: "
+                                + output.getAbsolutePath());
             } catch (Throwable failure) {
                 success = false;
                 result.putString("runtimePassed", "false");
-                result.putString("stream", failure.toString());
+                result.putString(
+                        "stream", "Runtime report capture failed: " + failure.getClass().getName());
             }
             if (directory != null) {
                 File[] files = directory.listFiles();
@@ -112,6 +125,15 @@ public final class WorkerRuntimeInstrumentation extends Instrumentation {
                     success ? android.app.Activity.RESULT_OK : android.app.Activity.RESULT_CANCELED,
                     result);
         }
+    }
+
+    private static String reportDigest(File file) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (InputStream input = new FileInputStream(file)) {
+            byte[] buffer = new byte[65536];
+            for (int count; (count = input.read(buffer)) != -1; ) digest.update(buffer, 0, count);
+        }
+        return Inspector.toHex(digest.digest());
     }
 
     private static void require(boolean condition, String message) {
@@ -307,7 +329,7 @@ public final class WorkerRuntimeInstrumentation extends Instrumentation {
             require(
                     target.getPackageName().equals(declarations.packageName()),
                     "Actual Android worker package declaration differs from the installed target"
-                        + " ID");
+                            + " ID");
             require(
                     Long.valueOf(26).equals(declarations.fields.get("minSdkVersion").unsigned())
                             && Long.valueOf(35)
@@ -350,6 +372,79 @@ public final class WorkerRuntimeInstrumentation extends Instrumentation {
             }
             return bytes.toByteArray();
         }
+    }
+
+    private static JSONObject pdfRow(JSONObject report, long offset) throws Exception {
+        JSONArray rows = report.getJSONArray("rows");
+        for (int i = 0; i < rows.length(); i++) {
+            Object value = rows.get(i);
+            if (!(value instanceof JSONObject)) continue;
+            JSONObject row = (JSONObject) value;
+            if (row.getString("name").equals("pdf") && row.getLong("physicalOffset") == offset)
+                return row;
+        }
+        throw new AssertionError("Actual PhotoRec did not return the expected PDF finding");
+    }
+
+    private void photoRecPdf() throws Exception {
+        byte[] pdf = MetadataFixtureFactory.pdf();
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        bytes.write(new byte[37]);
+        bytes.write(pdf);
+        bytes.write(new byte[97]);
+        File blob = new File(directory, "pdf-disguised-as-image.jpg");
+        write(blob, bytes.toByteArray());
+        JSONObject valid, truncated;
+        try (BinaryWorkerClient client = new BinaryWorkerClient(target, "photorec")) {
+            valid = new JSONObject(client.scan(blob, () -> false));
+            worker(valid, "photorec");
+            require(
+                    valid.getBoolean("ok")
+                            && valid.getString("adapter").equals("diemobile-photorec-4"),
+                    "Actual Android PhotoRec adapter differs from the reviewed file-check scope");
+            require(
+                    valid.getString("fileCheckCallbackScope")
+                                    .equals("pdf-only/read-only-relative-stdio")
+                            && valid.getLong("maximumInputReadBufferBytes") == 1376256,
+                    "Actual PhotoRec stdio/input budget differs");
+            JSONObject row = pdfRow(valid, 37);
+            require(
+                    row.getBoolean("fileCheckAttempted")
+                            && row.getBoolean("fileCheckExecuted")
+                            && row.isNull("fileCheckFailureReason")
+                            && row.getLong("reportedSizeBytes") == pdf.length,
+                    "Actual Bionic PDF file-check did not supply the exact embedded payload");
+            ByteArrayOutputStream recovered = new ByteArrayOutputStream();
+            RangeAnalysis.copy(
+                    blob,
+                    new FileRange(blob.length(), 37, row.getLong("reportedSizeBytes")),
+                    recovered,
+                    () -> false);
+            require(
+                    Arrays.equals(pdf, recovered.toByteArray()),
+                    "Android native PDF extent changed the actual bytes");
+            byte[] damaged = Arrays.copyOf(pdf, pdf.length - 7);
+            File broken = new File(directory, "truncated.pdf");
+            write(broken, damaged);
+            truncated = new JSONObject(client.scan(broken, () -> false));
+            worker(truncated, "photorec");
+            require(truncated.getBoolean("ok"), "Truncated PDF crashed the actual Android worker");
+            JSONObject failed = pdfRow(truncated, 0);
+            require(
+                    failed.getBoolean("fileCheckExecuted") && failed.isNull("reportedSizeBytes"),
+                    "Actual Android missing-footer PDF acquired a recovered boundary");
+        }
+        record(
+                "isolated-photorec-pdf-recovery",
+                new JSONObject()
+                        .put("valid", valid)
+                        .put("truncated", truncated)
+                        .put("expectedPayloadSizeBytes", pdf.length)
+                        .put(
+                                "expectedPayloadSha256",
+                                Inspector.toHex(MessageDigest.getInstance("SHA-256").digest(pdf)))
+                        .put("physicalOffset", 37)
+                        .put("pdfRendererExecuted", false));
     }
 
     private void mediaPreview() throws Exception {

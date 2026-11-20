@@ -1,13 +1,14 @@
 PhotoRec / TestDisk 7.2
 Copyright Christophe GRENIER and the upstream contributors.
-Unmodified format registration, header and data-check sources; GPL-2.0-or-later.
+Unmodified format registration, header/data and PDF file-check sources; GPL-2.0-or-later.
 DiE Android descriptor adapter: GPL-3.0-only, carving-engine/ in the app source.
 Upstream: https://www.cgsecurity.org/ and https://github.com/cgsecurity/testdisk
 Source revision: 281be432dd79121e08e0898887a9ee1f30fb3e96
 Archive: https://codeload.github.com/cgsecurity/testdisk/tar.gz/281be432dd79121e08e0898887a9ee1f30fb3e96
 Archive SHA-256: 0cfd82ca6890188a3a4fe01c9b970f654eb3af396580f408ed024789e2873616
 Reproduce: bash scripts/build-photorec.sh android
-Optional libjpeg/zlib dependencies, auxiliary signatures, full file-check/rename callbacks and filesystem/fragment recovery are not enabled.
+Adapter 4 enables only the upstream PDF file-check through bounded read-only relative stdio.
+Optional libjpeg/zlib dependencies, auxiliary signatures, other file checks, rename callbacks and filesystem/fragment recovery are not enabled.
 
 		    GNU GENERAL PUBLIC LICENSE
 		       Version 2, June 1991

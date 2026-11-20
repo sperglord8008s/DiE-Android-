@@ -62,9 +62,10 @@ Header-calculated sizes outside PhotoRec's own data-check contract are preserved
 without invoking a data callback; an actual 7z header fixture exercises a value
 beyond signed 64-bit and checks that its decimal digits remain exact.
 
-The adapter deliberately does **not** run full `file_check` or rename callbacks,
-optional libjpeg/zlib verification, PhotoRec's disk recovery or reconstruction
-of fragmented files. Some full callbacks open/rename outputs or extract thumbnails;
+Adapter 4 now runs the reviewed upstream PDF `file_check` through bounded
+read-only relative stdio; see [actual PDF recovery](pdf-file-recovery.md).
+Other full file checks, rename callbacks, optional libjpeg/zlib verification,
+PhotoRec's disk recovery and reconstruction of fragmented files remain disabled. Some full callbacks open/rename outputs or extract thumbnails;
 they do not belong in a read-only descriptor adapter. A bounded extent can still
 contain corrupt data: the upstream PNG data walker finds chunk termination but
 does not check PNG CRCs or decode pixels. Tests preserve this distinction using
@@ -210,3 +211,15 @@ original bytes, and all **38** reported ranges stay inside the source. The APK
 was not executed. The standalone corresponding-source ZIP includes the new
 reader and tests and is separately rebuilt offline. These remain host/static
 checks, separate from actual device IPC, memory pressure and crash behavior.
+
+
+## Adapter 4: actual PDF files
+
+The PDF-only file-check exception now produces source-bounded file extents
+where the original footer check completes successfully. Other file callbacks
+remain disabled. Fixed relative-stdio input buffering adds 64 KiB to adapter 3's
+1.25 MiB input-read payload buffers (now 1.3125 MiB); this still is not total
+memory or maximum input size. Original 2/3 captures retain their own limits.
+The existing aggregate callback budget and a separate 8 MiB per-PDF read-work
+cap remain explicit. Detailed provenance, refusal conditions, optional-date
+work limitation and tested actual file exports are in the [PDF contract](pdf-file-recovery.md).

@@ -16,7 +16,9 @@ final class PhotoRecReport {
     static final long MAX_INPUT_BYTES = 256L * 1024 * 1024;
 
     static boolean supportedAdapter(String value) {
-        return value.equals("diemobile-photorec-2") || value.equals("diemobile-photorec-3");
+        return value.equals("diemobile-photorec-2")
+                || value.equals("diemobile-photorec-3")
+                || value.equals("diemobile-photorec-4");
     }
 
     static final String[] REJECTED_FIELDS = {
@@ -62,7 +64,7 @@ final class PhotoRecReport {
         patterns = report.getJSONArray("patterns");
         states = report.getJSONArray("rejectedRecoveryStates");
         sourceSize = report.getLong("fileSizeBytes");
-        boolean streaming = report.getString("adapter").equals("diemobile-photorec-3");
+        boolean streaming = !report.getString("adapter").equals("diemobile-photorec-2");
         long maximum = streaming ? MAX_INPUT_BYTES : 64L * 1024 * 1024;
         if (sourceSize < 0
                 || sourceSize > maximum
@@ -73,7 +75,10 @@ final class PhotoRecReport {
                         || report.getBoolean("inputSizedBufferAllocation")
                         || !report.getBoolean("ownedDescriptorDuplicate")
                         || !report.getBoolean("callerDescriptorPositionPreserved")
-                        || report.getLong("maximumInputReadBufferBytes") != 1310720
+                        || report.getLong("maximumInputReadBufferBytes")
+                                != (report.getString("adapter").equals("diemobile-photorec-4")
+                                        ? 1376256
+                                        : 1310720)
                         || report.getLong("scanReadBufferBytes") != 1048576
                         || report.getInt("headerCacheWindows") != 2
                         || report.getLong("headerCacheWindowBytes") != 131072

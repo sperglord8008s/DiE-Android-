@@ -1,7 +1,7 @@
 # Android worker runtime laboratory
 
 This module exercises the actual production `BinaryWorkerService`,
-`BinaryWorkerClient`, hash/archive JNI and descriptor acquisition on Android.
+`BinaryWorkerClient`, hash/archive/PhotoRec JNI and descriptor acquisition on Android.
 It is a separate **test-only x86_64** application,
 `org.diemobile.runtimecheck`, with no launcher or network permission. The
 production ARM64 application remains `org.diemobile` with its existing signing
@@ -10,11 +10,12 @@ configuration. This module is not an alternative user build.
 `stageWorkerSources` copies an explicit set of unchanged production files into
 an isolated source root. The static verifier compares every staged byte to its
 original. There is no substitute service, fake native engine or test opcode in
-production. Unexercised Binwalk/PhotoRec/MPV Java bridge references are retained;
-the laboratory packages only the real hash and archive native libraries. Google
+production. Unexercised Binwalk/MPV Java bridge references are retained;
+the laboratory packages the real hash, archive and PhotoRec native libraries. Google
 resource-parser Java dependencies are compiled because the shared service
 references them. The new seventh case exercises the actual resource worker
-and package-declaration model; its Android execution is pending.
+and package-declaration model. An eighth case now checks original PhotoRec PDF
+file recovery through actual Bionic read-only relative stdio.
 
 Actual worker source `26ad7d6a2b5f0e7f676d4f8373b6dcf9845eebba` passed
 all five original contracts on API 26 and 35 in run
@@ -24,7 +25,8 @@ checked; [retained summary](../docs/verification/android-worker-runtime-26ad7d6.
 All six contracts also passed at `8f2ab38af319a02c85618a0f398d654c1b48c15a`
 in run [`44733208678`](https://github.com/sperglord8008s/DiE-Android-/actions/runs/44733208678);
 [download-verified summary](../docs/verification/android-worker-runtime-8f2ab38.json).
-The new seventh compiled-manifest worker case is pending for the current source.
+All seven contracts passed on source 123193d in run 44776359034. The new eighth
+PDF recovery case is compiled/static-checked; actual Android execution is pending.
 
 ## Reproduce
 
@@ -96,7 +98,13 @@ isolated worker. No host codec shadow counts as platform runtime verification.
    Binder/PFD parsing and unchanged `PackageManifest` interpretation must match
    the known target package ID and API 26/35 SDK declarations. The complete
    resource report and original literal attributes are retained. This case is
-   implemented but has not executed on Android yet.
+   passed on source 123193d in run 44776359034.
+8. The actual PhotoRec JNI library receives a descriptor for an owned PDF behind
+   unrelated prefix/suffix bytes and a misleading image name. Adapter/mode/read
+   bounds and isolated worker identity are checked; its native PDF extent must
+   recover every original payload byte. A missing-footer variant must remain
+   unresolved without crashing the worker. This exercises Bionic `funopen`,
+   relative seek/read and the original callback; it does not execute a PDF renderer.
 
 The instrumentation writes a complete private JSON report even on failure.
 The runner retains that report, instrumentation/install logs, emulator
@@ -119,3 +127,20 @@ CDiE/xxfclib, RHash, libarchive/codec, Google parser and Guava notices. Source
 pins, unmodified upstream files, reviewed patches and build recipes remain in
 the same repository modules as production. Compiler caches and build outputs
 are ignored and are not repository source.
+
+
+PhotoRec's x86 build uses the same pinned sources and default adapter as production
+ARM64, selected with `DIE_ANDROID_ABI=x86_64 bash scripts/build-photorec.sh android`.
+The static verifier binds every adapter/contract/fixture input hash, proves the
+packaged library equals the NDK-stripped source build, and retains both library
+hashes. PhotoRec notices are included. Runtime-only C/C++ Debug flags use `-g0`
+to avoid large unused DWARF intermediates; production native build flags are
+unchanged. Assertions and optimization defaults otherwise retain Debug behavior.
+
+
+The full evidence report stays in the target's private file and is captured by
+`run-as`. Instrumentation's Binder result returns only a small status, count,
+byte size, SHA-256 and report path. The runner checks this identity against the
+complete captured bytes. Source 531dff4's eight checks completed on Android, but
+its previous duplicate pretty-report return caused TransactionTooLargeException;
+that workflow remains failed, and the bounded completion fix must pass anew.
