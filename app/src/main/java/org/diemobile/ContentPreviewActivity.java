@@ -13,11 +13,11 @@ import android.view.*;
 import android.widget.*;
 
 import java.io.*;
-import java.nio.ByteBuffer;
 import java.nio.charset.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
 
 /** In-app viewing of a separately owned exact range. No file name becomes an executable or URL. */
 public final class ContentPreviewActivity extends Activity {
@@ -39,7 +39,14 @@ public final class ContentPreviewActivity extends Activity {
     private MediaPlayer player;
     private SurfaceView surface;
     private boolean prepared, paused = true;
-    private int generation, pdfPage, seekPosition;
+    private volatile int generation;
+    private int pdfPage, seekPosition;
+    private Utf8Pages.Cursor textCursor = new Utf8Pages.Cursor();
+    private Utf8Pages.Page textPage;
+    private Long requestedTextOffset;
+    private boolean requestedTextTail, requestedTextBack;
+    private long hexOffset;
+    private String positionNotice = "";
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private int dp(int value) {
@@ -81,6 +88,22 @@ public final class ContentPreviewActivity extends Activity {
             mode = saved.getString("mode", "Automatic");
             pdfPage = Math.max(0, saved.getInt("pdfPage"));
             seekPosition = Math.max(0, saved.getInt("seek"));
+            long size = getIntent().getLongExtra("sourceSize", -1);
+            try {
+                textCursor =
+                        Utf8Pages.Cursor.restore(
+                                size,
+                                saved.getLong("textOffset", 0),
+                                saved.getLongArray("textHistory"),
+                                saved.getBoolean("textHistoryExpired"));
+                hexOffset = saved.getLong("hexOffset", 0);
+                if (hexOffset < 0 || hexOffset > size)
+                    throw new IOException("Saved Hex position is outside the input");
+            } catch (IOException expired) {
+                textCursor = new Utf8Pages.Cursor();
+                hexOffset = 0;
+                positionNotice = " · saved text/Hex position reset: " + expired.getMessage();
+            }
             if (saved.getString("contentExport") != null)
                 try {
                     contentExport =
@@ -334,16 +357,29 @@ public final class ContentPreviewActivity extends Activity {
         if (input == null) return;
         releasePlayer();
         int ticket = ++generation;
-        content.removeAllViews();
-        controls.removeAllViews();
+        long wantedText = requestedTextOffset == null ? textCursor.offset : requestedTextOffset;
+        boolean lastText = requestedTextTail, backText = requestedTextBack;
+        requestedTextOffset = null;
+        requestedTextTail = requestedTextBack = false;
+        long wantedHex = hexOffset;
+        if (mode.equals("UTF-8 text") && textPage != null) {
+            showTextBody(textPage.text, false);
+            textControls(textPage);
+            for (int i = 0; i < controls.getChildCount(); i++)
+                controls.getChildAt(i).setEnabled(false);
+        } else {
+            content.removeAllViews();
+            controls.removeAllViews();
+        }
         status.setText(
                 "Rendering "
                         + mode
                         + " · decoder success is separate from complete-file integrity");
         worker.execute(
                 () -> {
+                    BooleanSupplier stop = () -> cancellation.get() || ticket != generation;
                     try {
-                        input.checkIdentity(cancellation::get);
+                        input.checkIdentity(stop);
                         byte[] head = new byte[(int) Math.min(4096, input.size)];
                         try (InputStream stream = new FileInputStream(input.file)) {
                             int n = 0;
@@ -363,8 +399,9 @@ public final class ContentPreviewActivity extends Activity {
                                     || "AUDIO".equals(preferred)
                                     || "VIDEO".equals(preferred)) chosen = "Audio / video";
                             else if (type.equals("PDF")) chosen = "PDF";
-                            else if ("TEXT".equals(preferred) || ContentPreview.looksLikeText(head))
-                                chosen = "UTF-8 text";
+                            else if ("TEXT".equals(preferred)
+                                    || ContentPreview.looksLikeText(
+                                            head, head.length == input.size)) chosen = "UTF-8 text";
                             else chosen = "Hex";
                         }
                         String renderer = chosen;
@@ -395,74 +432,80 @@ public final class ContentPreviewActivity extends Activity {
                                                         + bitmap.getHeight()
                                                         + " (bounded to 2048 × 2048)");
                                     });
-                        } else if (chosen.equals("UTF-8 text") || chosen.equals("Hex")) {
-                            int maximum = chosen.equals("Hex") ? 4096 : 1024 * 1024;
-                            byte[] bytes = new byte[(int) Math.min(input.size, maximum)];
-                            try (RandomAccessFile file = new RandomAccessFile(input.file, "r")) {
-                                file.readFully(bytes);
-                            }
-                            String value;
-                            if (chosen.equals("UTF-8 text")) {
-                                // A bounded preview can end mid-codepoint; omit at most three
-                                // suffix bytes explicitly.
-                                int end = bytes.length;
-                                if (input.size > end) {
-                                    int lead = end - 1;
-                                    while (lead >= 0 && (bytes[lead] & 0xc0) == 0x80) lead--;
-                                    if (lead >= 0) {
-                                        int first = bytes[lead] & 255,
-                                                needed =
-                                                        first >= 0xf0
-                                                                ? 4
-                                                                : first >= 0xe0
-                                                                        ? 3
-                                                                        : first >= 0xc2 ? 2 : 1;
-                                        if (end - lead < needed) end = lead;
-                                    }
-                                }
-                                value =
-                                        StandardCharsets.UTF_8
-                                                .newDecoder()
-                                                .onMalformedInput(CodingErrorAction.REPORT)
-                                                .decode(ByteBuffer.wrap(bytes, 0, end))
-                                                .toString();
-                            } else {
-                                StringBuilder output = new StringBuilder();
-                                for (int i = 0; i < bytes.length; i += 16) {
-                                    output.append(String.format(Locale.ROOT, "%08X  ", i));
-                                    for (int j = i; j < Math.min(i + 16, bytes.length); j++)
-                                        output.append(
-                                                String.format(
-                                                        Locale.ROOT, "%02X ", bytes[j] & 255));
-                                    output.append('\n');
-                                }
-                                value = output.toString();
-                            }
-                            String rendered = value;
+                        } else if (chosen.equals("UTF-8 text")) {
+                            Utf8Pages.Page page =
+                                    lastText
+                                            ? Utf8Pages.tail(
+                                                    input.file,
+                                                    input.size,
+                                                    Utf8Pages.CHARACTERS,
+                                                    stop)
+                                            : Utf8Pages.read(
+                                                    input.file,
+                                                    input.size,
+                                                    wantedText,
+                                                    Utf8Pages.CHARACTERS,
+                                                    stop);
+                            input.checkIdentity(stop);
                             runOnUiThread(
                                     () -> {
                                         if (isDestroyed() || ticket != generation) return;
-                                        TextView view = text(rendered, 13);
-                                        view.setTag("content-text");
-                                        view.setTextIsSelectable(true);
-                                        if (renderer.equals("Hex"))
-                                            view.setTypeface(Typeface.MONOSPACE);
-                                        ScrollView scroll = new ScrollView(this);
-                                        scroll.addView(view);
-                                        content.addView(
-                                                scroll, new LinearLayout.LayoutParams(-1, -1));
+                                        if (backText
+                                                && textCursor.canBack()
+                                                && textCursor.backTarget() == page.offset)
+                                            textCursor.back();
+                                        else textCursor.move(page.offset);
+                                        textPage = page;
+                                        showTextBody(page.text, false);
+                                        textControls(page);
                                         status.setText(
-                                                renderer
-                                                        + " · "
-                                                        + bytes.length
-                                                        + " / "
+                                                "UTF-8 · preview bytes ["
+                                                        + page.offset
+                                                        + ", "
+                                                        + page.end
+                                                        + ") / "
                                                         + input.size
-                                                        + " source bytes read"
-                                                        + (bytes.length < input.size
-                                                                ? " · bounded preview; exact full"
-                                                                      + " bytes remain available in"
-                                                                      + " tools"
-                                                                : ""));
+                                                        + " · "
+                                                        + page.text.length()
+                                                        + " UTF-16 units"
+                                                        + (textCursor.expired
+                                                                ? " · older visited positions"
+                                                                      + " available by byte offset"
+                                                                : "")
+                                                        + positionNotice);
+                                    });
+                        } else if (chosen.equals("Hex")) {
+                            if (wantedHex < 0 || wantedHex > input.size)
+                                throw new IOException("Hex position is outside the input");
+                            byte[] bytes = new byte[(int) Math.min(input.size - wantedHex, 4096)];
+                            try (RandomAccessFile file = new RandomAccessFile(input.file, "r")) {
+                                file.seek(wantedHex);
+                                file.readFully(bytes);
+                            }
+                            input.checkIdentity(stop);
+                            StringBuilder output = new StringBuilder();
+                            for (int i = 0; i < bytes.length; i += 16) {
+                                output.append(String.format(Locale.ROOT, "%08X  ", wantedHex + i));
+                                for (int j = i; j < Math.min(i + 16, bytes.length); j++)
+                                    output.append(
+                                            String.format(Locale.ROOT, "%02X ", bytes[j] & 255));
+                                output.append('\n');
+                            }
+                            String value = output.toString();
+                            runOnUiThread(
+                                    () -> {
+                                        if (isDestroyed() || ticket != generation) return;
+                                        hexOffset = wantedHex;
+                                        showTextBody(value, true);
+                                        hexControls(wantedHex + bytes.length);
+                                        status.setText(
+                                                "Hex · preview bytes ["
+                                                        + wantedHex
+                                                        + ", "
+                                                        + (wantedHex + bytes.length)
+                                                        + ") / "
+                                                        + input.size
+                                                        + positionNotice);
                                     });
                         } else if (chosen.equals("PDF")) pdf(ticket);
                         else
@@ -474,6 +517,127 @@ public final class ContentPreviewActivity extends Activity {
                         failed(ticket, error);
                     }
                 });
+    }
+
+    private void showTextBody(String value, boolean mono) {
+        content.removeAllViews();
+        TextView view = text(value, 13);
+        view.setTag("content-text");
+        view.setTextIsSelectable(true);
+        if (mono) view.setTypeface(Typeface.MONOSPACE);
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(view);
+        content.addView(scroll, new LinearLayout.LayoutParams(-1, -1));
+    }
+
+    private Button pageButton(String label, String tag, Runnable action, boolean enabled) {
+        Button view = button(label, action);
+        view.setTag(tag);
+        view.setEnabled(enabled);
+        add(controls, view);
+        return view;
+    }
+
+    private void requestText(long offset, boolean tail, boolean back) {
+        mode = "UTF-8 text";
+        requestedTextOffset = offset;
+        requestedTextTail = tail;
+        requestedTextBack = back;
+        render();
+    }
+
+    private void textControls(Utf8Pages.Page page) {
+        controls.removeAllViews();
+        pageButton(
+                "First",
+                "content-text-first",
+                () -> requestText(0, false, false),
+                page.offset != 0);
+        pageButton(
+                "Back",
+                "content-text-back",
+                () -> requestText(textCursor.backTarget(), false, true),
+                textCursor.canBack());
+        pageButton(
+                "Next",
+                "content-text-next",
+                () -> requestText(page.end, false, false),
+                page.more());
+        pageButton("Tail", "content-text-tail", () -> requestText(0, true, false), input.size > 0);
+        pageButton("Byte…", "content-text-jump", () -> jumpPosition(false), true);
+    }
+
+    private void hexControls(long end) {
+        controls.removeAllViews();
+        pageButton(
+                "First",
+                "content-hex-first",
+                () -> {
+                    hexOffset = 0;
+                    render();
+                },
+                hexOffset != 0);
+        pageButton(
+                "Previous",
+                "content-hex-back",
+                () -> {
+                    hexOffset = Math.max(0, hexOffset - 4096);
+                    render();
+                },
+                hexOffset > 0);
+        pageButton(
+                "Next",
+                "content-hex-next",
+                () -> {
+                    hexOffset = end;
+                    render();
+                },
+                end < input.size);
+        pageButton(
+                "Tail",
+                "content-hex-tail",
+                () -> {
+                    hexOffset = Math.max(0, input.size - 4096);
+                    render();
+                },
+                input.size > 0);
+        pageButton("Byte…", "content-hex-jump", () -> jumpPosition(true), true);
+    }
+
+    private void jumpPosition(boolean hex) {
+        EditText value = new EditText(this);
+        value.setSingleLine();
+        value.setTag("content-byte-offset");
+        value.setText("" + (hex ? hexOffset : textCursor.offset));
+        value.setHint("Decimal or 0x byte offset within these preview bytes");
+        new AlertDialog.Builder(this)
+                .setTitle(hex ? "Hex byte offset" : "UTF-8 byte offset")
+                .setMessage(
+                        "Positions refer to this owned preview. UTF-8 starts require a"
+                                + " complete-character boundary; Hex accepts any byte.")
+                .setView(value)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton(
+                        "Open",
+                        (dialog, which) -> {
+                            try {
+                                String text = value.getText().toString().trim();
+                                long offset =
+                                        text.startsWith("0x") || text.startsWith("0X")
+                                                ? Long.parseLong(text.substring(2), 16)
+                                                : Long.parseLong(text, 10);
+                                if (offset < 0 || offset > input.size)
+                                    throw new IllegalArgumentException(
+                                            "Offset is outside the preview");
+                                if (hex) {
+                                    hexOffset = offset;
+                                    render();
+                                } else requestText(offset, false, false);
+                            } catch (RuntimeException failure) {
+                                status.setText("Invalid preview position: " + failure.getMessage());
+                            }
+                        })
+                .show();
     }
 
     private void pdf(int ticket) throws Exception {
@@ -731,12 +895,24 @@ public final class ContentPreviewActivity extends Activity {
     private void failed(int ticket, Exception error) {
         runOnUiThread(
                 () -> {
-                    if (!isDestroyed() && ticket == generation)
-                        status.setText(
-                                "Preview unavailable: "
-                                        + error
-                                        + ". Original bytes and other view modes remain"
-                                        + " available.");
+                    if (!isDestroyed() && ticket == generation) {
+                        if (mode.equals("UTF-8 text") && textPage != null) {
+                            showTextBody(textPage.text, false);
+                            textControls(textPage);
+                            status.setText(
+                                    "Requested page unavailable: "
+                                            + error.getMessage()
+                                            + " · previous captured page ["
+                                            + textPage.offset
+                                            + ", "
+                                            + textPage.end
+                                            + ") remains displayed");
+                        } else
+                            status.setText(
+                                    "Preview unavailable: "
+                                            + error
+                                            + ". Use View as… or Inspect / metadata to continue.");
+                    }
                 });
     }
 
@@ -755,6 +931,10 @@ public final class ContentPreviewActivity extends Activity {
         super.onSaveInstanceState(saved);
         saved.putString("mode", mode);
         saved.putInt("pdfPage", pdfPage);
+        saved.putLong("textOffset", textCursor.offset);
+        saved.putLongArray("textHistory", textCursor.history());
+        saved.putBoolean("textHistoryExpired", textCursor.expired);
+        saved.putLong("hexOffset", hexOffset);
         if (contentExport != null && exportPickerOpen) {
             saved.putString("contentExport", contentExport.file.getAbsolutePath());
             saved.putString("contentExportName", contentExport.name);

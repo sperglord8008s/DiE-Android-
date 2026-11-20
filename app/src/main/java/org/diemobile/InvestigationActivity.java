@@ -815,16 +815,18 @@ public final class InvestigationActivity extends Activity {
             try {
                 String mime = link.textName.toLowerCase(Locale.ROOT).endsWith(".json") ? "application/json" : "text/plain";
                 staged = PreparedExport.stream(exportDirectory, link.textName, mime, out -> backend.writeText(link.request, out, stop::get), stop::get);
-                StringBuilder snippet = new StringBuilder(); char[] buffer = new char[4096]; boolean more;
-                try (Reader in = new InputStreamReader(new FileInputStream(staged.file), StandardCharsets.UTF_8)) { int count; while (snippet.length() < 65536 && (count = in.read(buffer, 0, Math.min(buffer.length, 65536 - snippet.length()))) >= 0) { EvidenceRows.check(stop::get); snippet.append(buffer,0,count); } more = in.read() >= 0; }
-                final PreparedExport ready = staged; final String text = snippet.toString(); final boolean truncated = more;
+                final PreparedExport ready = staged;
                 runOnUiThread(() -> {
                     if (isDestroyed() || ticket != generation) { ready.discard(); return; }
-                    busy = false; controls(); if (preview != null) preview.discard(); preview = ready;
-                    ScrollView scroll = new ScrollView(this); HorizontalScrollView horizontal = new HorizontalScrollView(this); TextView body = text(text + (truncated ? "\n\nDISPLAY PREVIEW • export retains the complete rendered scope." : ""),12); body.setTypeface(Typeface.MONOSPACE); body.setTextIsSelectable(true); horizontal.addView(body); scroll.addView(horizontal);
-                    AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Rendered text • " + ready.size + " UTF-8 bytes").setView(scroll).setNegativeButton("Close", null)
-                        .setPositiveButton("Export complete text", (d,w) -> { preview = null; launchExport(ready); }).create();
-                    dialog.setOnDismissListener(d -> { if (preview == ready) { preview.discard(); preview = null; } }); dialog.show();
+                    if (preview != null) preview.discard(); preview = ready;
+                    PagedTextDialog.show(this, worker, "Rendered text • " + ready.size + " UTF-8 bytes",
+                            ready.file, ready.size, this::isDestroyed,
+                            () -> { if (!isDestroyed() && ticket == generation) { busy = false; controls(); status.setText("Captured complete text • " + ready.size + " UTF-8 bytes"); } },
+                            () -> { busy = false; preview = null; launchExport(ready); },
+                            () -> {
+                                if (preview == ready) { preview.discard(); preview = null; }
+                                if (!isDestroyed() && ticket == generation) { busy = false; controls(); }
+                            });
                 });
             } catch (Exception | StackOverflowError e) { if (staged != null) staged.discard(); failed(ticket, "Text rendering failed: " + e.getMessage()); }
         });
