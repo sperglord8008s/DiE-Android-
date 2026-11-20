@@ -174,4 +174,60 @@ public final class ContentPresentationWorkbenchTest {
         assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
         settle();
     }
+
+    @Test
+    public void mainArchiveActionAcceptsMislabeledTarAndScansAnIndependentMemberHandoff()
+            throws Exception {
+        File archive = temporary.resolve("chosen-as-image.jpeg").toFile();
+        Files.copy(
+                Path.of(System.getProperty("die.archive.fixture.dir"), "mislabeled.bin"),
+                archive.toPath());
+        scan(archive);
+        settle();
+        Inspector.Result parent = ReflectionHelpers.getField(activity, "result");
+        assertNotNull(parent);
+        assertFalse(parent.type, parent.type.contains("ZIP"));
+        Button archives = ReflectionHelpers.getField(activity, "archiveTools");
+        assertTrue(archives.isEnabled());
+        archives.performClick();
+        var request = Shadows.shadowOf(activity).getNextStartedActivityForResult();
+        assertNotNull(request);
+        assertEquals(5, request.requestCode);
+        assertEquals(
+                NativeArchiveExplorerActivity.class.getName(),
+                request.intent.getComponent().getClassName());
+        // The native browser's indexed result is separately checked with actual libarchive JNI.
+        // This independent known payload exercises the main scanner's result/ownership boundary.
+        byte[] payload =
+                "Exact archive member 世界 🔬 with embedded NUL\0 and end.\n"
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        File directory = new File(activity.getCacheDir(), "archive-snapshots");
+        directory.mkdirs();
+        File member = File.createTempFile("archive-member-", ".snapshot", directory);
+        Files.write(member.toPath(), payload);
+        String sha =
+                Inspector.toHex(java.security.MessageDigest.getInstance("SHA-256").digest(payload));
+        activity.onActivityResult(
+                5,
+                Activity.RESULT_OK,
+                new Intent()
+                        .putExtra("path", member.getAbsolutePath())
+                        .putExtra("display", "chosen-as-image.jpeg!/folder/世界.txt")
+                        .putExtra("memberSha256", sha));
+        settle();
+        Inspector.Result analyzed = ReflectionHelpers.getField(activity, "result");
+        assertNotNull(analyzed);
+        assertEquals(sha, analyzed.sha256);
+        assertEquals(payload.length, analyzed.size);
+        File captured = ReflectionHelpers.getField(activity, "retainedFile");
+        assertArrayEquals(payload, Files.readAllBytes(captured.toPath()));
+        assertTrue(ReflectionHelpers.<String>getField(activity, "name").contains("世界.txt"));
+        ExecutorService worker = ReflectionHelpers.getField(activity, "worker");
+        activity.finish();
+        controller.pause().stop().destroy();
+        controller = null;
+        assertTrue(worker.awaitTermination(30, TimeUnit.SECONDS));
+        assertFalse(member.exists());
+        assertFalse(captured.exists());
+    }
 }

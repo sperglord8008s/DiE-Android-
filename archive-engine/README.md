@@ -40,8 +40,10 @@ by adapter linker wrappers. These are codec bounds, not whole-process memory
 limits. Valid excessive-dictionary/window fixtures are checked against independent
 decoders, then refused by this adapter. Parser
 callbacks are not hard preemptible and memory use includes upstream allocation.
-The Android worker still needs to provide its external watchdog/crash boundary;
-compilation does not prove OS isolation or safety for arbitrary hostile input.
+The Android worker/client supplies a 45-second request watchdog and requires an
+isolated UID with no in-process fallback. Host refusal checks and compilation
+do not prove real Android transport, process isolation or safety for arbitrary
+hostile input.
 Partial/unsupported scopes retain observations and diagnostics without claiming
 a complete inventory or successful acquisition. XAR is explicitly unavailable
 in this build because optional XML libraries are disabled.
@@ -67,9 +69,14 @@ and a direct upstream header-position oracle are checked. One LZMA2 7z reference
 has an upstream length/prefix expectation rather than an independent full-payload
 hash; keep that distinction. Inputs are parsed as data and never executed.
 
-The native adapter and source builds are development infrastructure. Android
-worker transport, typed archive models/tree UI, member export/preview handoff,
-APK/source packaging and real-device acceptance are the next integration steps.
-The currently exposed application archive browser remains ZIP-family until
-those steps are wired and verified. This module does not claim universal
-obfuscation, encryption, multi-volume or fragmented recovery.
+The APK now packages this engine and complete notices. `ArchiveRunner` /
+`BinaryWorkerClient` provide descriptor-only inspection/acquisition;
+`NativeArchiveStore` binds reports and derived payloads to complete source
+identities; `NativeArchiveSession` owns bounded nested captures; and
+`NativeArchiveExplorerActivity` presents virtual folders, complete indexed
+entries, raw metadata, nested Back, explicit scopes, checked previews/member
+return and full current-chain exports. The original ZIP browser remains
+available. See [Android workbench contracts](../docs/native-archives.md) for
+implemented/host-verified/device-unverified scope and all remaining limits.
+This module does not claim universal obfuscation, encryption, multi-volume or
+fragmented recovery.

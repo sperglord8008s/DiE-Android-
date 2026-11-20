@@ -1,0 +1,938 @@
+// SPDX-License-Identifier: GPL-3.0-only
+package org.diemobile;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.Intent;
+import android.graphics.Typeface;
+import android.os.Build;
+import android.os.Bundle;
+import android.text.Editable;
+import android.text.InputFilter;
+import android.text.TextWatcher;
+import android.view.View;
+import android.view.WindowInsets;
+import android.widget.*;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+import java.util.TreeMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/** Content-identified native archives, virtual folders and checked nested member acquisition. */
+public final class NativeArchiveExplorerActivity extends Activity {
+    private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private NativeArchiveSession session;
+    private ArchiveRunner runner;
+    private AtomicBoolean cancellation = new AtomicBoolean();
+    private volatile int generation;
+    private boolean busy, binding;
+    private String restoreState, stableState;
+    private PreparedExport pendingExport;
+    private TextView title, status;
+    private EditText filter;
+    private ListView list;
+    private Button parent, back, viewMode, previous, next, cancel;
+    private final List<View> actions = new ArrayList<>();
+    private List<Row> visible = new ArrayList<>();
+
+    private static final class Row {
+        final String label, folder;
+        final NativeArchiveStore.Member member;
+
+        Row(String label, String folder, NativeArchiveStore.Member member) {
+            this.label = label;
+            this.folder = folder;
+            this.member = member;
+        }
+
+        @Override
+        public String toString() {
+            return label;
+        }
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private File base() {
+        return new File(getCacheDir(), "native-archives");
+    }
+
+    private File exports() {
+        return new File(getCacheDir(), "tool-exports");
+    }
+
+    private Button button(LinearLayout row, String text, Runnable action) {
+        Button button = new Button(this);
+        button.setText(text);
+        button.setAllCaps(false);
+        button.setTextSize(12);
+        button.setOnClickListener(v -> action.run());
+        row.addView(button, new LinearLayout.LayoutParams(0, -2, 1));
+        actions.add(button);
+        return button;
+    }
+
+    @Override
+    public void onCreate(Bundle state) {
+        super.onCreate(state);
+        runner = new BinaryWorkerClient(this, "archive");
+        createViews();
+        if (state != null) {
+            restoreState = state.getString("archiveState");
+            stableState = restoreState;
+            if (state.containsKey("exportPath"))
+                try {
+                    pendingExport =
+                            PreparedExport.restore(
+                                    exports(),
+                                    state.getString("exportPath"),
+                                    state.getString("exportName"),
+                                    state.getString("exportMime"),
+                                    state.getLong("exportSize"));
+                } catch (Exception failure) {
+                    status.setText("Prepared report expired: " + failure);
+                }
+        }
+        load();
+    }
+
+    private void createViews() {
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(8), dp(8), dp(8), dp(8));
+        if (Build.VERSION.SDK_INT >= 30) {
+            getWindow().setDecorFitsSystemWindows(false);
+            root.setOnApplyWindowInsetsListener(
+                    (view, insets) -> {
+                        android.graphics.Insets bars =
+                                insets.getInsets(
+                                        WindowInsets.Type.systemBars()
+                                                | WindowInsets.Type.displayCutout());
+                        view.setPadding(
+                                bars.left + dp(8),
+                                bars.top + dp(8),
+                                bars.right + dp(8),
+                                bars.bottom + dp(8));
+                        return insets;
+                    });
+        }
+        title = new TextView(this);
+        title.setTextSize(17);
+        root.addView(title);
+        LinearLayout navigation = new LinearLayout(this);
+        root.addView(navigation);
+        parent = button(navigation, "Parent folder", this::parentFolder);
+        back = button(navigation, "Back archive", this::backArchive);
+        viewMode =
+                button(
+                        navigation,
+                        "All entries",
+                        () -> {
+                            if (session != null) {
+                                session.current().allEntries = !session.current().allEntries;
+                                session.current().page = 0;
+                                render();
+                            }
+                        });
+        LinearLayout tools = new LinearLayout(this);
+        root.addView(tools);
+        button(tools, "Evidence", this::evidence);
+        button(tools, "Export report", this::exportReport);
+        button(tools, "Parsing interval", this::scope);
+        LinearLayout operations = new LinearLayout(this);
+        root.addView(operations);
+        button(operations, "Reload", this::load);
+        button(operations, "Classic ZIP", this::classicZip);
+        cancel =
+                button(
+                        operations,
+                        "Cancel",
+                        () -> {
+                            cancellation.set(true);
+                            status.setText("Cancellation requested; waiting for archive worker");
+                        });
+        actions.remove(cancel);
+        filter = new EditText(this);
+        filter.setSingleLine();
+        filter.setHint("Filter names / entry indices in this view");
+        filter.setFilters(new InputFilter[] {new InputFilter.LengthFilter(1024)});
+        root.addView(filter);
+        actions.add(filter);
+        LinearLayout pages = new LinearLayout(this);
+        root.addView(pages);
+        previous =
+                button(
+                        pages,
+                        "Previous 50",
+                        () -> {
+                            session.current().page--;
+                            render();
+                        });
+        next =
+                button(
+                        pages,
+                        "Next 50",
+                        () -> {
+                            session.current().page++;
+                            render();
+                        });
+        status = new TextView(this);
+        status.setTextIsSelectable(true);
+        root.addView(status);
+        list = new ListView(this);
+        root.addView(list, new LinearLayout.LayoutParams(-1, 0, 1));
+        actions.add(list);
+        setContentView(root);
+        filter.addTextChangedListener(
+                new TextWatcher() {
+                    public void beforeTextChanged(
+                            CharSequence s, int start, int count, int after) {}
+
+                    public void afterTextChanged(Editable s) {}
+
+                    public void onTextChanged(CharSequence s, int start, int before, int count) {
+                        if (!binding && !busy && session != null) {
+                            session.current().filter = s.toString();
+                            session.current().page = 0;
+                            render();
+                        }
+                    }
+                });
+        list.setOnItemClickListener(
+                (p, view, index, id) -> {
+                    if (busy || session == null) return;
+                    Row row = visible.get(index);
+                    if (row.member == null) {
+                        session.current().prefix = row.folder;
+                        session.current().filter = "";
+                        session.current().page = 0;
+                        bind();
+                        render();
+                    } else details(row.member);
+                });
+    }
+
+    private int begin(String text) {
+        cancellation.set(true);
+        cancellation = new AtomicBoolean();
+        busy = true;
+        for (View view : actions) view.setEnabled(false);
+        cancel.setEnabled(true);
+        status.setText(text);
+        return ++generation;
+    }
+
+    private boolean current(int ticket) {
+        return ticket == generation && !isDestroyed();
+    }
+
+    private void settled() {
+        busy = false;
+        for (View view : actions) view.setEnabled(true);
+        cancel.setEnabled(false);
+        render();
+    }
+
+    private void load() {
+        if (busy) return;
+        if (session == null) {
+            runner.close();
+            runner = new BinaryWorkerClient(this, "archive");
+        }
+        int ticket =
+                begin(
+                        restoreState == null
+                                ? "Capturing input and reading archive metadata…"
+                                : "Checking retained archive sources and reports…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(
+                () -> {
+                    NativeArchiveSession loaded = null;
+                    String failure = null;
+                    try {
+                        if (session != null) {
+                            session.changeScope(
+                                    session.current().inventory.offset,
+                                    session.current().inventory.length,
+                                    stop::get);
+                            loaded = session;
+                        } else if (restoreState != null)
+                            loaded =
+                                    NativeArchiveSession.restore(
+                                            base(), restoreState, runner, stop::get);
+                        else {
+                            String path = getIntent().getStringExtra("path");
+                            if (path == null) throw new IOException("No archive input selected");
+                            File file = new File(path);
+                            String name = getIntent().getStringExtra("name");
+                            long offset = getIntent().getLongExtra("offset", 0),
+                                    length =
+                                            getIntent()
+                                                    .getLongExtra("length", file.length() - offset);
+                            loaded =
+                                    NativeArchiveSession.open(
+                                            file,
+                                            name == null ? file.getName() : name,
+                                            base(),
+                                            offset,
+                                            length,
+                                            runner,
+                                            stop::get);
+                        }
+                    } catch (Exception error) {
+                        failure = error.toString();
+                    }
+                    NativeArchiveSession result = loaded;
+                    String error = failure;
+                    runOnUiThread(
+                            () -> {
+                                if (!current(ticket)) {
+                                    if (result != null && result != session) result.close();
+                                    return;
+                                }
+                                if (result != null) {
+                                    session = result;
+                                    restoreState = null;
+                                    bind();
+                                }
+                                settled();
+                                if (error != null)
+                                    status.setText(
+                                            "Archive operation failed: "
+                                                    + error
+                                                    + (restoreState == null
+                                                            ? ""
+                                                            : " • Retained state was not replaced."
+                                                                    + " Reopen from the source to"
+                                                                    + " start a new session."));
+                            });
+                });
+    }
+
+    private void bind() {
+        if (session == null) return;
+        binding = true;
+        filter.setText(session.current().filter);
+        binding = false;
+    }
+
+    private void render() {
+        if (session == null) {
+            parent.setEnabled(false);
+            back.setEnabled(false);
+            previous.setEnabled(false);
+            next.setEnabled(false);
+            return;
+        }
+        NativeArchiveSession.Location location = session.current();
+        NativeArchiveStore.Inventory inventory = location.inventory;
+        title.setText(
+                inventory.format
+                        + "\n"
+                        + NativeArchiveSession.abbreviated(location.name, 200)
+                        + " · level "
+                        + session.depth()
+                        + "/16\n"
+                        + (location.allEntries
+                                ? "All original entry indices"
+                                : "/" + NativeArchiveSession.abbreviated(location.prefix, 200)));
+        viewMode.setText(location.allEntries ? "Folder tree" : "All entries");
+        parent.setEnabled(!busy && !location.allEntries && !location.prefix.isEmpty());
+        back.setEnabled(!busy && session.depth() > 1);
+        String query = location.filter.toLowerCase(Locale.ROOT);
+        TreeMap<String, Row> folders = new TreeMap<>();
+        ArrayList<Row> rows = new ArrayList<>();
+        for (NativeArchiveStore.Member member : inventory.members) {
+            String label =
+                    "#"
+                            + member.index
+                            + " "
+                            + NativeArchiveSession.abbreviated(member.name, 160)
+                            + "\n"
+                            + (member.directory
+                                    ? "Directory"
+                                    : member.linked
+                                            ? "Link (never materialized)"
+                                            : member.regular
+                                                    ? "Regular member"
+                                                    : "Special / unknown type")
+                            + " · declared size="
+                            + (member.size == null ? "unknown" : member.size)
+                            + (member.encrypted ? " · encrypted" : "")
+                            + (!member.treeName() ? " · name outside virtual tree" : "");
+            if (!location.allEntries && member.treeName()) {
+                if (!member.name.startsWith(location.prefix) || member.name.equals(location.prefix))
+                    continue;
+                String tail = member.name.substring(location.prefix.length());
+                int slash = tail.indexOf('/');
+                if (slash >= 0) {
+                    String folder = tail.substring(0, slash + 1);
+                    if (folder.toLowerCase(Locale.ROOT).contains(query))
+                        folders.putIfAbsent(
+                                folder,
+                                new Row(
+                                        "Directory: "
+                                                + NativeArchiveSession.abbreviated(folder, 160),
+                                        location.prefix + folder,
+                                        null));
+                    continue;
+                }
+            } else if (!location.allEntries && !location.prefix.isEmpty()) continue;
+            if (member.name.toLowerCase(Locale.ROOT).contains(query)
+                    || label.toLowerCase(Locale.ROOT).contains(query))
+                rows.add(new Row(label, null, member));
+        }
+        rows.sort(Comparator.comparingInt(row -> row.member.index));
+        rows.addAll(0, folders.values());
+        int pages = Math.max(1, (rows.size() + 49) / 50);
+        location.page = Math.max(0, Math.min(location.page, pages - 1));
+        int first = location.page * 50;
+        visible = new ArrayList<>(rows.subList(first, Math.min(rows.size(), first + 50)));
+        list.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, visible));
+        previous.setEnabled(!busy && location.page > 0);
+        next.setEnabled(!busy && location.page + 1 < pages);
+        String retentionWarning = "";
+        if (!busy)
+            try {
+                stableState = session.retentionState();
+            } catch (Exception failure) {
+                stableState = null;
+                retentionWarning = " · Navigation retention unavailable: " + failure;
+            }
+        if (!busy)
+            status.setText(
+                    (inventory.complete
+                                    ? "Complete returned inventory"
+                                    : "FAILED / PARTIAL inventory: " + inventory.failure)
+                            + " · "
+                            + inventory.members.size()
+                            + " entries · page "
+                            + (location.page + 1)
+                            + "/"
+                            + pages
+                            + " · "
+                            + rows.size()
+                            + " matches\n"
+                            + "Parsing interval ["
+                            + inventory.offset
+                            + ", "
+                            + (inventory.offset + inventory.length)
+                            + ") of "
+                            + location.input.size
+                            + " bytes; this is not a recovered extent.\n"
+                            + "All entries retains explicit directory records, duplicates and"
+                            + " unusual names. Metadata iteration does not verify every payload. "
+                            + session.retainedBytes()
+                            + " nested bytes retained."
+                            + retentionWarning);
+    }
+
+    private void parentFolder() {
+        if (busy || session == null) return;
+        String prefix = session.current().prefix;
+        int slash = prefix.lastIndexOf('/', Math.max(0, prefix.length() - 2));
+        session.current().prefix = slash < 0 ? "" : prefix.substring(0, slash + 1);
+        session.current().filter = "";
+        session.current().page = 0;
+        bind();
+        render();
+    }
+
+    private void backArchive() {
+        if (busy || session == null || session.depth() < 2) return;
+        int ticket = begin("Returning to retained parent evidence…");
+        worker.execute(
+                () -> {
+                    session.back();
+                    runOnUiThread(
+                            () -> {
+                                if (current(ticket)) {
+                                    bind();
+                                    settled();
+                                }
+                            });
+                });
+    }
+
+    private void details(NativeArchiveStore.Member member) {
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(12), dp(8), dp(12), dp(8));
+        TextView facts = new TextView(this);
+        facts.setTextIsSelectable(true);
+        facts.setText(
+                "Entry #"
+                        + member.index
+                        + "\n"
+                        + NativeArchiveSession.abbreviated(member.name, 4096)
+                        + "\nDeclared logical bytes: "
+                        + (member.size == null ? "unknown" : member.size)
+                        + "\n"
+                        + "Physical offset: unknown (derived member)\n"
+                        + "SHA-256: computed only after complete acquisition.\n"
+                        + (member.canAcquire() && session.current().inventory.complete
+                                ? "Eligible for checked acquisition by exact index."
+                                : "Acquisition unavailable: incomplete inventory, link/special"
+                                        + " type, encryption or size budget."));
+        content.addView(facts);
+        ScrollView detailScroll = new ScrollView(this);
+        detailScroll.addView(content);
+        AlertDialog dialog =
+                new AlertDialog.Builder(this)
+                        .setTitle("Archive member evidence")
+                        .setView(detailScroll)
+                        .setNegativeButton("Close", null)
+                        .create();
+        addAction(
+                content,
+                "Full entry metadata / raw returned fields",
+                () -> raw("Entry #" + member.index, member.raw));
+        boolean allowed = member.canAcquire() && session.current().inventory.complete;
+        Button preview =
+                addAction(
+                        content,
+                        "Open preview / media / export bytes",
+                        () -> {
+                            dialog.dismiss();
+                            select(member, 0);
+                        });
+        preview.setEnabled(allowed);
+        Button analyze =
+                addAction(
+                        content,
+                        "Analyze member in parent workbench",
+                        () -> {
+                            dialog.dismiss();
+                            select(member, 1);
+                        });
+        analyze.setEnabled(allowed);
+        Button nested =
+                addAction(
+                        content,
+                        "Browse as nested archive / compressed stream",
+                        () -> {
+                            dialog.dismiss();
+                            select(member, 2);
+                        });
+        nested.setEnabled(allowed);
+        addAction(
+                content,
+                "Definitions and limits",
+                () ->
+                        new AlertDialog.Builder(this)
+                                .setTitle("Archive evidence explained")
+                                .setMessage(
+                                        "A member is a logical byte stream decoded from an archive."
+                                            + " Its stored bytes may be compressed, sparse or"
+                                            + " split, so an uncompressed header position is not a"
+                                            + " physical file offset. Names and ownership are"
+                                            + " declarations; no path, link, permission or"
+                                            + " application is installed. Duplicate names remain"
+                                            + " distinguishable by entry index. Upstream checksum"
+                                            + " failures block publication, but a successful read"
+                                            + " is not publisher authentication. Digest accessor"
+                                            + " buffers do not establish whether a digest was"
+                                            + " stored. Limits: 1 GiB input, 256 MiB per derived"
+                                            + " member, 20,000 entries, 16 nested levels, 512 MiB"
+                                            + " retained nested bytes, 64 MiB reports; native"
+                                            + " decoder/work/deadline limits are recorded in full"
+                                            + " evidence. Password support and external programs"
+                                            + " are disabled.")
+                                .setPositiveButton("Close", null)
+                                .show());
+        dialog.show();
+    }
+
+    private Button addAction(LinearLayout parent, String label, Runnable action) {
+        Button button = new Button(this);
+        button.setAllCaps(false);
+        button.setText(label);
+        button.setOnClickListener(v -> action.run());
+        parent.addView(button);
+        return button;
+    }
+
+    private void select(NativeArchiveStore.Member member, int mode) {
+        if (busy || session == null) return;
+        int ticket =
+                begin(
+                        mode == 2
+                                ? "Acquiring member and identifying nested content…"
+                                : "Acquiring and hashing complete member bytes…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(
+                () -> {
+                    File handoff = null;
+                    String sha = null, error = null;
+                    try {
+                        if (mode == 2) session.browse(member, stop::get);
+                        else {
+                            File target = new File(getCacheDir(), "archive-snapshots");
+                            try (NativeArchiveStore.Acquired acquired =
+                                    session.acquire(member, target, stop::get)) {
+                                handoff =
+                                        File.createTempFile("archive-member-", ".snapshot", target);
+                                Files.move(
+                                        acquired.input.file.toPath(),
+                                        handoff.toPath(),
+                                        StandardCopyOption.REPLACE_EXISTING);
+                                sha = acquired.input.sha256;
+                                EvidenceRows.check(stop::get);
+                            }
+                        }
+                    } catch (Exception failure) {
+                        if (handoff != null) handoff.delete();
+                        handoff = null;
+                        error = failure.toString();
+                    }
+                    File result = handoff;
+                    String identity = sha, failure = error;
+                    runOnUiThread(
+                            () -> {
+                                if (!current(ticket)) {
+                                    if (result != null) result.delete();
+                                    return;
+                                }
+                                settled();
+                                bind();
+                                if (failure != null) {
+                                    status.setText("Member acquisition failed: " + failure);
+                                    return;
+                                }
+                                if (stop.get()) {
+                                    if (result != null) result.delete();
+                                    status.setText("Archive operation cancelled");
+                                    return;
+                                }
+                                if (mode == 2) {
+                                    render();
+                                    return;
+                                }
+                                Intent intent =
+                                        new Intent()
+                                                .putExtra("path", result.getAbsolutePath())
+                                                .putExtra(
+                                                        "display",
+                                                        NativeArchiveSession.abbreviated(
+                                                                        session.current().name, 512)
+                                                                + "!/"
+                                                                + NativeArchiveSession.abbreviated(
+                                                                        member.name, 2048))
+                                                .putExtra("memberSha256", identity)
+                                                .putExtra("archiveEntryIndex", member.index)
+                                                .putExtra(
+                                                        "archiveSourceSha256",
+                                                        session.current().input.sha256);
+                                if (mode == 1) {
+                                    setResult(RESULT_OK, intent);
+                                    finish();
+                                } else
+                                    ArchivePreviewLauncher.launch(
+                                            this,
+                                            worker,
+                                            intent,
+                                            session.current().input.sha256,
+                                            session.current().input.size,
+                                            () -> isDestroyed(),
+                                            () -> !isDestroyed(),
+                                            () -> {},
+                                            status::setText);
+                            });
+                });
+    }
+
+    private void evidence() {
+        if (session == null || busy) return;
+        raw(
+                "Native archive inspection · source SHA-256 " + session.current().input.sha256,
+                session.current().inventory.raw);
+    }
+
+    private void raw(String heading, String text) {
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(12), dp(8), dp(12), dp(8));
+        TextView page = new TextView(this);
+        page.setTextIsSelectable(true);
+        page.setTypeface(Typeface.MONOSPACE);
+        page.setTextSize(12);
+        TextView range = new TextView(this);
+        content.addView(range);
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(page);
+        content.addView(scroll, new LinearLayout.LayoutParams(-1, dp(320)));
+        LinearLayout controls = new LinearLayout(this);
+        content.addView(controls);
+        int[] offset = {0};
+        Button previous = new Button(this), next = new Button(this);
+        previous.setText("Previous");
+        next.setText("Next");
+        controls.addView(previous);
+        controls.addView(next);
+        Runnable render =
+                () -> {
+                    int end = Math.min(text.length(), offset[0] + 16384);
+                    page.setText(text.substring(offset[0], end));
+                    range.setText(
+                            "Characters "
+                                    + offset[0]
+                                    + "–"
+                                    + end
+                                    + " / "
+                                    + text.length()
+                                    + " · complete report export available");
+                    previous.setEnabled(offset[0] > 0);
+                    next.setEnabled(end < text.length());
+                    scroll.scrollTo(0, 0);
+                };
+        previous.setOnClickListener(
+                v -> {
+                    offset[0] = Math.max(0, offset[0] - 16384);
+                    render.run();
+                });
+        next.setOnClickListener(
+                v -> {
+                    offset[0] += 16384;
+                    render.run();
+                });
+        render.run();
+        new AlertDialog.Builder(this)
+                .setTitle(heading)
+                .setView(content)
+                .setPositiveButton("Close", null)
+                .show();
+    }
+
+    private void scope() {
+        if (session == null || busy) return;
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        TextView help = new TextView(this);
+        help.setText(
+                "Explicit parsing interval in this captured input. Decimal or 0x hexadecimal."
+                    + " Useful for embedded or prefixed archives; length is a parsing budget, never"
+                    + " an inferred archive extent.");
+        form.addView(help);
+        EditText offset = new EditText(this), length = new EditText(this);
+        offset.setSingleLine();
+        length.setSingleLine();
+        offset.setHint("Offset in bytes");
+        length.setHint("Length in bytes");
+        offset.setText("" + session.current().inventory.offset);
+        length.setText("" + session.current().inventory.length);
+        form.addView(offset);
+        form.addView(length);
+        new AlertDialog.Builder(this)
+                .setTitle("Archive parsing interval")
+                .setView(form)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton(
+                        "Inspect interval",
+                        (d, w) -> {
+                            long start, count;
+                            try {
+                                start = parseNumber(offset.getText().toString());
+                                count = parseNumber(length.getText().toString());
+                                NativeArchiveStore.requireScope(
+                                        session.current().input, start, count);
+                            } catch (Exception failure) {
+                                status.setText("Invalid parsing interval: " + failure.getMessage());
+                                return;
+                            }
+                            int ticket = begin("Inspecting explicit archive interval…");
+                            AtomicBoolean stop = cancellation;
+                            worker.execute(
+                                    () -> {
+                                        String error = null;
+                                        try {
+                                            session.changeScope(start, count, stop::get);
+                                        } catch (Exception failure) {
+                                            error = failure.toString();
+                                        }
+                                        String failure = error;
+                                        runOnUiThread(
+                                                () -> {
+                                                    if (current(ticket)) {
+                                                        bind();
+                                                        settled();
+                                                        if (failure != null)
+                                                            status.setText(
+                                                                    "Interval failed; previous"
+                                                                            + " evidence retained: "
+                                                                            + failure);
+                                                    }
+                                                });
+                                    });
+                        })
+                .show();
+    }
+
+    private static long parseNumber(String value) {
+        String text = value.trim();
+        return text.startsWith("0x") || text.startsWith("0X")
+                ? Long.parseLong(text.substring(2), 16)
+                : Long.parseLong(text, 10);
+    }
+
+    private void classicZip() {
+        if (session == null || busy) return;
+        startActivityForResult(
+                new Intent(this, ArchiveExplorerActivity.class)
+                        .putExtra("path", session.current().input.file.getAbsolutePath())
+                        .putExtra("name", session.current().name),
+                2);
+    }
+
+    private void exportReport() {
+        if (session == null || busy || pendingExport != null) return;
+        int ticket = begin("Staging complete archive trail and original reports…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(
+                () -> {
+                    PreparedExport staged = null;
+                    String error = null;
+                    try {
+                        staged =
+                                PreparedExport.stream(
+                                        exports(),
+                                        "GlassDigestor-archive-evidence.json",
+                                        "application/json",
+                                        out ->
+                                                EvidenceJson.write(
+                                                        out, session.evidence(), stop::get),
+                                        stop::get);
+                    } catch (Exception failure) {
+                        error = failure.toString();
+                    }
+                    PreparedExport result = staged;
+                    String failure = error;
+                    runOnUiThread(
+                            () -> {
+                                if (!current(ticket)) {
+                                    if (result != null) result.discard();
+                                    return;
+                                }
+                                settled();
+                                if (result == null || stop.get()) {
+                                    if (result != null) result.discard();
+                                    status.setText("Archive export was not staged: " + failure);
+                                    return;
+                                }
+                                pendingExport = result;
+                                try {
+                                    startActivityForResult(
+                                            new Intent(Intent.ACTION_CREATE_DOCUMENT)
+                                                    .addCategory(Intent.CATEGORY_OPENABLE)
+                                                    .setType(result.mime)
+                                                    .putExtra(Intent.EXTRA_TITLE, result.name),
+                                            1);
+                                } catch (RuntimeException failureToOpen) {
+                                    result.discard();
+                                    pendingExport = null;
+                                    status.setText("Document picker unavailable: " + failureToOpen);
+                                }
+                            });
+                });
+    }
+
+    @Override
+    protected void onActivityResult(int request, int code, Intent data) {
+        super.onActivityResult(request, code, data);
+        if (request == 2) {
+            if (code == RESULT_OK && data != null) {
+                setResult(code, data);
+                finish();
+            }
+            return;
+        }
+        if (request != 1 || pendingExport == null) return;
+        PreparedExport staged = pendingExport;
+        pendingExport = null;
+        if (code != RESULT_OK || data == null || data.getData() == null) {
+            staged.discard();
+            status.setText("Archive report export cancelled");
+            return;
+        }
+        int ticket = begin("Writing staged archive report…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(
+                () -> {
+                    String message;
+                    try (OutputStream output =
+                            getContentResolver().openOutputStream(data.getData(), "w")) {
+                        if (output == null)
+                            throw new IOException("Provider returned no writable stream");
+                        staged.copyTo(output, stop::get);
+                        message = "Exported complete archive report · " + staged.size + " bytes";
+                    } catch (Exception failure) {
+                        message =
+                                "Archive export failed; provider may contain partial output: "
+                                        + failure;
+                    } finally {
+                        staged.discard();
+                    }
+                    String result = message;
+                    runOnUiThread(
+                            () -> {
+                                if (current(ticket)) {
+                                    settled();
+                                    status.setText(result);
+                                }
+                            });
+                });
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (busy) {
+            cancellation.set(true);
+            status.setText("Cancellation requested; wait for archive worker before leaving");
+        } else if (session != null
+                && !session.current().allEntries
+                && !session.current().prefix.isEmpty()) parentFolder();
+        else if (session != null && session.depth() > 1) backArchive();
+        else super.onBackPressed();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle state) {
+        if (stableState != null) state.putString("archiveState", stableState);
+        if (pendingExport != null) {
+            state.putString("exportPath", pendingExport.file.getAbsolutePath());
+            state.putString("exportName", pendingExport.name);
+            state.putString("exportMime", pendingExport.mime);
+            state.putLong("exportSize", pendingExport.size);
+        }
+        super.onSaveInstanceState(state);
+    }
+
+    @Override
+    protected void onDestroy() {
+        generation++;
+        cancellation.set(true);
+        runner.close();
+        boolean retain = !isFinishing() && stableState != null;
+        if (!retain && pendingExport != null) {
+            pendingExport.discard();
+            pendingExport = null;
+        }
+        worker.execute(
+                () -> {
+                    if (session != null) session.close(retain);
+                });
+        worker.shutdown();
+        super.onDestroy();
+    }
+}
