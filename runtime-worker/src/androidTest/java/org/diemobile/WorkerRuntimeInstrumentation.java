@@ -100,11 +100,22 @@ public final class WorkerRuntimeInstrumentation extends Instrumentation {
                 }
                 result.putString("runtimePassed", Boolean.toString(success));
                 result.putString("runtimeReport", output.getAbsolutePath());
-                result.putString("stream", report.toString(2));
+                // Instrumentation.finish uses Binder. Full native catalogs stay in the owned
+                // report file; returning them again here exceeds Binder's transaction budget.
+                result.putString("runtimeCheckCount", Integer.toString(checks.length()));
+                result.putString("runtimeReportBytes", Long.toString(output.length()));
+                result.putString("runtimeReportSha256", reportDigest(output));
+                result.putString(
+                        "stream",
+                        "Completed "
+                                + checks.length()
+                                + " checks; complete evidence: "
+                                + output.getAbsolutePath());
             } catch (Throwable failure) {
                 success = false;
                 result.putString("runtimePassed", "false");
-                result.putString("stream", failure.toString());
+                result.putString(
+                        "stream", "Runtime report capture failed: " + failure.getClass().getName());
             }
             if (directory != null) {
                 File[] files = directory.listFiles();
@@ -114,6 +125,15 @@ public final class WorkerRuntimeInstrumentation extends Instrumentation {
                     success ? android.app.Activity.RESULT_OK : android.app.Activity.RESULT_CANCELED,
                     result);
         }
+    }
+
+    private static String reportDigest(File file) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (InputStream input = new FileInputStream(file)) {
+            byte[] buffer = new byte[65536];
+            for (int count; (count = input.read(buffer)) != -1; ) digest.update(buffer, 0, count);
+        }
+        return Inspector.toHex(digest.digest());
     }
 
     private static void require(boolean condition, String message) {

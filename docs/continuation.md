@@ -1010,3 +1010,32 @@ APK observed GitHub digest is
 `2f3b010c12e7d7024f497615e6328b321e3a4e191a93db180614a6c236444f5b`
 (52,819,813 bytes); its independent download audit remains pending. Keep that
 separate from the retained local .12 signer/hash above.
+
+
+Source **531dff4** is committed/pushed in PR #15. Its local clean APK SHA-256 is
+`c10afe676f42a94e93e408649f36b1ed0739ee4fea5e2ed662254243fdc5a175`
+(52,803,465 bytes), with packaged adapter-4/validator presence checked. Push
+source CI 44784016413 hit a transient JSON dependency HTTP 404 after Rust tests;
+PR binary integration passed. A rerun is deferred until the overall push run
+completes; the reporting fix below creates a fresh source run.
+
+Both Android jobs in **44784016230** completed all eight assertions and wrote
+successful complete reports, but Instrumentation.finish failed when its copied
+pretty report exceeded Binder. Downloaded API 26 artifact 14653906176 (SHA-256
+`02994a675111b189a9c9a91e3ae291f4d68b2d5edc5256bbac486d9692a16752`)
+independently confirms all eight cases/source531dff4 and the actual failure:
+`TransactionTooLargeException`, 1,777,520-byte result parcel. Native PDF recovery
+was successful; the overall workflow is correctly failed. The harness now
+keeps the entire report on disk and returns only count/size/SHA-256/status/path
+through Binder. The runner checks that completion identity against the captured
+full file without weakening any success/source/UID/SDK/check assertions. Commit,
+compile/static-check and rerun both workflows before publication.
+
+The downloaded .12 CI checkpoint 14650283390 (outer SHA
+`342f3cca1a88d7e40571912e8bf97c650df00fe1c55912210935e46c281601f1`)
+now passes independent original six-file inventory/checksums/public digests,
+source123193d identity and exact-source APK static verification. Original CI APK
+and manifest are retained separately from locally generated audit sidecars in
+`/workspace/work/releases/0.6.0-pre-alpha.12`. Its public SHA above is confirmed
+against the actual downloaded APK bytes; component-source payloads remain
+publisher-gated rather than newly independently downloaded here.

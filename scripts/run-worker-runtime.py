@@ -68,6 +68,14 @@ def main():
         assert len(evidence["checks"]) == len(CHECKS)
         assert {check["name"] for check in evidence["checks"]} == CHECKS
         assert all(check["passed"] is True for check in evidence["checks"])
+        # The Binder completion message is bounded; the complete file remains authoritative.
+        for key, value in {
+            "runtimeCheckCount": len(CHECKS),
+            "runtimeReportBytes": len(captured.stdout),
+            "runtimeReportSha256": hashlib.sha256(captured.stdout).hexdigest(),
+        }.items():
+            expected = f"INSTRUMENTATION_RESULT: {key}={value}".encode()
+            assert expected in invocation.stdout, f"Completion/file identity differs: {key}"
         assert invocation.returncode == 0
         assert b"INSTRUMENTATION_RESULT: runtimePassed=true" in invocation.stdout
         assert b"INSTRUMENTATION_CODE: -1" in invocation.stdout

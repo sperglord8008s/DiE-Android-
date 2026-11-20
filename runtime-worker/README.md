@@ -136,3 +136,11 @@ packaged library equals the NDK-stripped source build, and retains both library
 hashes. PhotoRec notices are included. Runtime-only C/C++ Debug flags use `-g0`
 to avoid large unused DWARF intermediates; production native build flags are
 unchanged. Assertions and optimization defaults otherwise retain Debug behavior.
+
+
+The full evidence report stays in the target's private file and is captured by
+`run-as`. Instrumentation's Binder result returns only a small status, count,
+byte size, SHA-256 and report path. The runner checks this identity against the
+complete captured bytes. Source 531dff4's eight checks completed on Android, but
+its previous duplicate pretty-report return caused TransactionTooLargeException;
+that workflow remains failed, and the bounded completion fix must pass anew.
