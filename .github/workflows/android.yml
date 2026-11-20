@@ -11,7 +11,7 @@ env:
   TRACKER_DEPS_DIR: ${{ github.workspace }}/.ci-cache/trackers
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Identify numbered build
@@ -107,7 +107,7 @@ jobs:
           if-no-files-found: error
 
   native-integration:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       NATIVE_BUILD_DIR: ${{ github.workspace }}/app/build/host-native
     steps:
@@ -121,7 +121,7 @@ jobs:
       - run: bash scripts/test-hashes.sh
 
   apk-signatures:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -154,7 +154,7 @@ jobs:
       - run: bash scripts/test-trackers.sh
 
   binary-integration:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -172,7 +172,7 @@ jobs:
       - run: bash scripts/check-binary-notices.sh
 
   media-integration:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4

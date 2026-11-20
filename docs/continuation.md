@@ -763,3 +763,35 @@ a separate x86 Android runtime lab using the actual production worker/hash/
 archive sources is under consideration, not implemented or verified yet. Keep
 production ARM64 identity/signing and immutable checkpoint fallbacks unchanged.
 Handset/SAF/Binder/UID/media/PDF/process-death/16 KiB acceptance remains unverified.
+
+## Android worker runtime laboratory under development
+
+Source advances to **0.6.0-pre-alpha.9 / code 15** for a separate test-only
+`org.diemobile.runtimecheck` x86_64 module. Production remains ARM64
+`org.diemobile` with the existing signing configuration. The laboratory copies
+exact production worker/client/bridge sources, builds real hash/archive JNI,
+and retains original notices without copying the large signature database.
+The archive build scripts now isolate x86 codec prefixes, objects and JNI
+outputs from their existing ARM64/host defaults.
+
+Five actual Android instrumented contracts and API 26/35 KVM emulator jobs are
+implemented. Static APK/source/manifest/version/signature/notice checks,
+local test-APK assembly, required generic/native checks, 25 archive captures/37
+payloads, 170 Android host tests, ARM64 assembly/lint and fifteen-library APK
+verification pass. Actual emulator jobs and the five-job .9 source CI gate
+are pending; do not mark runtime verification complete before
+inspecting their evidence. See [reproduction and limits](../runtime-worker/README.md).
+
+Next: run and correct the emulator matrix, inspect the captured native/worker
+reports and retain exact source identities; run required host/native/ARM64/lint
+and existing five-job CI gates; commit working slices and publish only verified
+checkpoints. Then continue origin inheritance, media presentation and parity.
+The environment has no local KVM/device, so local execution cannot substitute
+for CI evidence. Earlier published/frozen APKs remain unchanged.
+
+Gallery PR #10 merged to main `3ea7529b92a8959eeb4c68e54f9ac78534adeaef`
+after all five jobs in `44724357792` passed (native dependency HTTP failure
+passed on retry). Publisher `44729105874` published pre-alpha.8 from exact CI
+source `e32161f8b8ff97deb0c6316bf3432f9b14a56e56`, code 14. Public APK SHA-256
+`669e60fe3ba312126b73188337881a517f241a3aebf8fa50d3b155eb2d761ea3`.
+The original local .8 frozen APK and preceding public checkpoints are retained.

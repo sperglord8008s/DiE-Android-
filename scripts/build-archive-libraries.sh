@@ -4,7 +4,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 bash scripts/fetch-archive.sh
 mode="${1:-android}"
-build="$PWD/app/build/archive-libraries-$mode"
+abi="${DIE_ANDROID_ABI:-arm64-v8a}"
+profile="$mode"
+if [[ "$mode" = android ]]; then
+  case "$abi" in arm64-v8a|x86_64) ;; *) echo 'Supported Android archive ABIs: arm64-v8a, x86_64' >&2; exit 1;; esac
+  if [[ "$abi" != arm64-v8a ]]; then profile="$mode-$abi"; fi
+fi
+build="$PWD/app/build/archive-libraries-$profile"
 prefix="$build/prefix"
 source_root="$PWD/vendor/Archive"
 flags=(-DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON
@@ -14,7 +20,7 @@ flags=(-DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 if [[ "$mode" = android ]]; then
   ndk="${ANDROID_NDK_HOME:-${ANDROID_HOME:?Set ANDROID_HOME}/ndk/28.2.13676358}"
   flags+=(-DCMAKE_TOOLCHAIN_FILE="$ndk/build/cmake/android.toolchain.cmake"
-    -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 -DANDROID_STL=c++_static)
+    -DANDROID_ABI="$abi" -DANDROID_PLATFORM=android-26 -DANDROID_STL=c++_static)
 elif [[ "$mode" != host ]]; then
   echo 'Usage: bash scripts/build-archive-libraries.sh [host|android]' >&2
   exit 1
