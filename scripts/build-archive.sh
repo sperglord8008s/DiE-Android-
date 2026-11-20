@@ -5,13 +5,19 @@ cd "$(dirname "$0")/.."
 mode="${1:-android}"
 bash scripts/build-archive-libraries.sh "$mode"
 python3 scripts/archive-notices.py --check
-build="app/build/archive-$mode"
+abi="${DIE_ANDROID_ABI:-arm64-v8a}"
+profile="$mode"
+if [[ "$mode" = android ]]; then
+  case "$abi" in arm64-v8a|x86_64) ;; *) echo 'Supported Android archive ABIs: arm64-v8a, x86_64' >&2; exit 1;; esac
+  if [[ "$abi" != arm64-v8a ]]; then profile="$mode-$abi"; fi
+fi
+build="app/build/archive-$profile"
 flags=(-DCMAKE_BUILD_TYPE=Release)
 if [[ "$mode" = android ]]; then
   ndk="${ANDROID_NDK_HOME:-${ANDROID_HOME:?Set ANDROID_HOME}/ndk/28.2.13676358}"
   flags+=(-DCMAKE_TOOLCHAIN_FILE="$ndk/build/cmake/android.toolchain.cmake"
-    -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 -DANDROID_STL=c++_static)
-  output=app/build/generated-archive-jni/arm64-v8a
+    -DANDROID_ABI="$abi" -DANDROID_PLATFORM=android-26 -DANDROID_STL=c++_static)
+  output="app/build/generated-archive-jni/$abi"
 else
   output=app/build/host-archive
 fi

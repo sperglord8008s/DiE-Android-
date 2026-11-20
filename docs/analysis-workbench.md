@@ -116,3 +116,14 @@ Four concatenated media files/text, independent grid oracles, original-capture
 restoration and a fully written 80 MiB fixture are host checked; platform media/
 PDF and actual Android behavior remain separately unverified. See
 [Gallerize contracts](gallerize-implementation.md).
+
+## Android worker runtime laboratory
+
+A separate test-only x86_64 module now reuses the unchanged production isolated
+worker/client and hash/archive JNI. Five instrumented contracts cover actual
+UID/Binder/PFD hashing, fully written 16 MiB-plus independent digest oracles,
+embedded archive extraction/client alias refusal, token-scoped backpressure
+cancellation and recovery. API 26/35 emulator jobs retain complete evidence
+and source/APK identities. Compilation/static checks are implemented; actual
+Android execution is pending. This does not verify ARM64, other engines, SAF,
+UI, media/PDF or 16 KiB runtime. See [laboratory contracts](../runtime-worker/README.md).

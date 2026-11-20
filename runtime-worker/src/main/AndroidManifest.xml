@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:label="GlassDigestor worker runtime checks" android:allowBackup="false" android:testOnly="true">
+        <!-- Same private isolated declaration as the production app; verified by the runtime script. -->
+        <service android:name="org.diemobile.BinaryWorkerService" android:exported="false" android:isolatedProcess="true" android:process=":binary_worker" android:stopWithTask="true" />
+    </application>
+</manifest>
