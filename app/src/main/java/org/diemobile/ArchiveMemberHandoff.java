@@ -15,11 +15,7 @@ final class ArchiveMemberHandoff {
             File previewDirectory,
             BooleanSupplier stop)
             throws Exception {
-        File file = member.getCanonicalFile();
-        if (!file.getParentFile().equals(archiveDirectory.getCanonicalFile())
-                || !file.equals(member.getAbsoluteFile())
-                || !file.getName().matches("archive-member-[A-Za-z0-9._-]+"))
-            throw new IOException("Archive result is outside the browser's owned member directory");
+        File file = ownedLeaf(member, archiveDirectory);
         InputSnapshot acquired = null;
         try {
             if (expectedSha == null || !expectedSha.matches("[0-9a-f]{64}"))
@@ -34,6 +30,23 @@ final class ArchiveMemberHandoff {
             if (acquired != null) acquired.close();
             file.delete(); // Only a validated owned leaf can reach this point.
         }
+    }
+
+    static void discard(File member, File archiveDirectory) {
+        try {
+            ownedLeaf(member, archiveDirectory).delete();
+        } catch (IOException ignored) {
+            /* No cleanup through unvalidated paths. */
+        }
+    }
+
+    private static File ownedLeaf(File member, File archiveDirectory) throws IOException {
+        File file = member.getCanonicalFile();
+        if (!file.getParentFile().equals(archiveDirectory.getCanonicalFile())
+                || !file.equals(member.getAbsoluteFile())
+                || !file.getName().matches("archive-member-[A-Za-z0-9._-]+"))
+            throw new IOException("Archive result is outside the browser's owned member directory");
+        return file;
     }
 
     private ArchiveMemberHandoff() {}

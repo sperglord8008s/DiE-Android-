@@ -281,6 +281,7 @@ public final class NativeArchiveExplorerActivity extends Activity {
                                     length =
                                             getIntent()
                                                     .getLongExtra("length", file.length() - offset);
+                            ArchiveLaunch launch = requestedLaunch(file, offset, length);
                             loaded =
                                     NativeArchiveSession.open(
                                             file,
@@ -289,9 +290,21 @@ public final class NativeArchiveExplorerActivity extends Activity {
                                             offset,
                                             length,
                                             runner,
+                                            launch,
                                             stop::get);
                         }
+                        if (loaded != null) {
+                            NativeArchiveSession.Location root = loaded.locations().get(0);
+                            ArchiveLaunch expected =
+                                    requestedLaunch(
+                                            root.input.file,
+                                            root.inventory.offset,
+                                            root.inventory.length);
+                            if (expected != null) expected.requireSource(root.input);
+                        }
                     } catch (Exception error) {
+                        if (loaded != null && loaded != session) loaded.close(true);
+                        loaded = null;
                         failure = error.toString();
                     }
                     NativeArchiveSession result = loaded;
@@ -319,6 +332,16 @@ public final class NativeArchiveExplorerActivity extends Activity {
                                                                     + " start a new session."));
                             });
                 });
+    }
+
+    private ArchiveLaunch requestedLaunch(File file, long offset, long length) throws Exception {
+        String raw = getIntent().getStringExtra("archiveLaunch");
+        if (raw != null) return ArchiveLaunch.parse(raw);
+        String sha = getIntent().getStringExtra("sha256");
+        if (sha == null && !getIntent().hasExtra("sourceSize")) return null;
+        if (sha == null) throw new IOException("Archive source expectation has no SHA-256");
+        return ArchiveLaunch.forInput(
+                sha, getIntent().getLongExtra("sourceSize", -1), offset, length);
     }
 
     private void bind() {
@@ -413,7 +436,8 @@ public final class NativeArchiveExplorerActivity extends Activity {
             }
         if (!busy)
             status.setText(
-                    (inventory.complete
+                    (session.launch == null ? "" : session.launch.summary() + "\n")
+                            + (inventory.complete
                                     ? "Complete returned inventory"
                                     : "FAILED / PARTIAL inventory: " + inventory.failure)
                             + " · "
@@ -631,6 +655,12 @@ public final class NativeArchiveExplorerActivity extends Activity {
                                                                 + NativeArchiveSession.abbreviated(
                                                                         member.name, 2048))
                                                 .putExtra("memberSha256", identity)
+                                                .putExtra(
+                                                        "archiveRootSha256",
+                                                        session.locations().get(0).input.sha256)
+                                                .putExtra(
+                                                        "archiveRootSize",
+                                                        session.locations().get(0).input.size)
                                                 .putExtra("archiveEntryIndex", member.index)
                                                 .putExtra(
                                                         "archiveSourceSha256",
@@ -852,6 +882,9 @@ public final class NativeArchiveExplorerActivity extends Activity {
         super.onActivityResult(request, code, data);
         if (request == 2) {
             if (code == RESULT_OK && data != null) {
+                if (session != null)
+                    data.putExtra("archiveRootSha256", session.locations().get(0).input.sha256)
+                            .putExtra("archiveRootSize", session.locations().get(0).input.size);
                 setResult(code, data);
                 finish();
             }

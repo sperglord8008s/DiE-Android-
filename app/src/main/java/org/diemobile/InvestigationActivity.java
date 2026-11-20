@@ -513,6 +513,12 @@ public final class InvestigationActivity extends Activity {
                         openHex(row.physicalOffset);
                     });
         }
+        if (row.physicalOffset != null && row.physicalOffset < byteSize
+                && backend.ownedByteSource() != null
+                && (source.kind.equals("binwalk-candidates") || source.kind.equals("photorec-candidates"))) {
+            labels.add("Inspect archive / compressed stream at this offset (parsing interval)");
+            actions.add(() -> openArchiveHypothesis(row));
+        }
         if (row.physicalOffset != null && row.sizeBytes != null)
             try {
                 FileRange range = new FileRange(byteSize, row.physicalOffset, row.sizeBytes);
@@ -610,6 +616,54 @@ public final class InvestigationActivity extends Activity {
                 .setNegativeButton("Cancel", null)
                 .show();
     }
+    private void openArchiveHypothesis(EvidenceRows.Row row) {
+        if (busy || pickerOpen) return;
+        InputSnapshot input = backend.ownedByteSource();
+        if (input == null) { status.setText("Captured input is unavailable"); return; }
+        String kind = source.kind;
+        int ticket = begin("Checking the captured source for an explicit archive parsing interval…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(() -> {
+            try {
+                input.checkIdentity(stop::get);
+                ArchiveLaunch launch = ArchiveLaunch.fromFinding(input, kind, row, backend.provenance());
+                EvidenceRows.check(stop::get);
+                runOnUiThread(() -> {
+                    if (isDestroyed() || ticket != generation) return;
+                    busy = false; pickerOpen = true; controls();
+                    try {
+                        startActivityForResult(new Intent(this, NativeArchiveExplorerActivity.class)
+                                .putExtra("path", input.file.getAbsolutePath()).putExtra("name", inputName)
+                                .putExtra("sha256", input.sha256).putExtra("sourceSize", input.size)
+                                .putExtra("offset", launch.offset).putExtra("length", launch.length)
+                                .putExtra("archiveLaunch", launch.raw), 3);
+                        status.setText("Opened an explicit parsing tail at 0x" + Long.toHexString(launch.offset)
+                                + "; the original finding's extent is unchanged");
+                    } catch (RuntimeException failure) {
+                        pickerOpen = false; controls(); status.setText("Archive browser could not open: " + failure);
+                    }
+                });
+            } catch (Exception failure) { failed(ticket, "Archive hypothesis could not open: " + failure.getMessage()); }
+        });
+    }
+
+    private void archiveResult(int result, Intent intent) {
+        pickerOpen = false;
+        if (result != RESULT_OK || intent == null) { controls(); status.setText("Archive member selection cancelled"); return; }
+        String sha = intent.getStringExtra("archiveRootSha256");
+        long size = intent.getLongExtra("archiveRootSize", -1);
+        if (sha == null || !sha.matches("[0-9a-f]{64}") || size < 0 || size > NativeArchiveStore.MAX_INPUT) {
+            String path = intent.getStringExtra("path");
+            if (path != null) ArchiveMemberHandoff.discard(new File(path), new File(getCacheDir(), "archive-snapshots"));
+            controls(); status.setText("Archive result has no valid captured parent identity"); return;
+        }
+        int ticket = begin("Acquiring checked archive member for local preview…");
+        AtomicBoolean stop = cancellation;
+        ArchivePreviewLauncher.launch(this, worker, intent, sha, size, stop::get,
+                () -> !isDestroyed() && ticket == generation,
+                () -> { busy = false; controls(); }, status::setText);
+    }
+
     private String capturedKind() { return source == null ? "selected-record" : source.kind + "-record"; }
     private String recoveredName(EvidenceRows.Row row, FileRange range) {
         String extension = row.name.toLowerCase(Locale.ROOT).trim();
@@ -777,6 +831,7 @@ public final class InvestigationActivity extends Activity {
     }
     @Override protected void onActivityResult(int request, int result, Intent intent) {
         super.onActivityResult(request,result,intent);
+        if (request == 3) { archiveResult(result, intent); return; }
         if(request==2) {
             String pending=pendingInputRequest;pendingInputRequest=null;pickerOpen=false;
             if(pending==null||result!=RESULT_OK||intent==null||intent.getData()==null) {
