@@ -515,3 +515,50 @@ rewriting it. Six contract cases and successful publication/idempotence runs
 `44614616127` / `44615704588` document these paths. The fix is merged through PR #3 at
 `f6ea298e61b82a1c0cc296ab372b57d2048e7d65`; the published artifact bytes remain
 unchanged. All five jobs in fix CI run `44616666002` (#126) passed.
+
+## Published recovery checkpoint and broader archive integration
+
+Recovery commit `3d9e963edfde4855cd0842ba455f7e4be4091b4f` passed all five
+jobs in run `44620743518` (#129), merged through PR #4 to main
+`998fd8914626aa177ce7868773d917d5c9e8232b`. Pre-alpha.2 is published from
+exact generated CI merge `e049c2a37fe3a7de65eb231c665ca79b6c610e80`;
+publisher run `44622664581` succeeded. Original savepoint artifact
+`14577816242`, APK SHA-256
+`64932fbee9ce2d755954ab3b89e6991cf8a357df510fd5d8d8a4df1f8354c3b9`.
+The downloaded artifact/checkpoint checksums, public asset digests/sizes and
+exact-source APK signature/offline/version/14-library/alignment checks pass.
+Local clean source checkpoint `3d9e963` is separate, with local debug signer
+and APK SHA-256
+`50550a3b7b6817c22085c36062d13514d561a2283add14bb55b2fb2b46ce6553`.
+
+Current source advances to 0.6.0-pre-alpha.3 / code 9 for the broader archive
+APK integration. `ArchiveRunner` extends the isolated descriptor protocol with
+explicit offset/length/member index and an optional separate empty payload FD.
+`NativeArchiveStore` verifies pinned native schema/safety/source/scope/indexed
+metadata and independently hashes complete output. `NativeArchiveSession`
+retains bounded owned input/report files, current nested chain and failed
+attempts; finished saved navigation restores without native rescanning. The
+broader browser supports virtual folders, complete indexed entries, nested
+Back, explicit embedded intervals, raw metadata, checked media/byte previews,
+member return and current-chain exports. Main's old ZIP-only availability gate
+is removed; the existing classic ZIP browser remains available.
+
+The model passes all 25 native fixture captures / 37 independent payload
+expectations, including indexed duplicate names, a 16 MiB + 17-byte member,
+source expiry, cancellation, failures and tamper refusal. Five real-JNI
+API 28 browser cases, Main’s actual-CDiE handoff boundary and four worker
+manifest/refusal/descriptor cases pass. The batch recreation test now completes
+its independent cold database preparation before blocking the native scan; its
+ownership assertion and real scan are preserved.
+Generic and required scanner/native checks pass. The complete **147-case** Android host suite passes with zero failures/errors/
+skips; ARM64 assembly, lint and fifteen-library APK signature/offline/version/
+notice/static-alignment checks also pass. Source CI remains the next gate.
+The regenerated archive source ZIP is verified with SHA-256
+`d5d9c26354e79120f2ef084b48263e0abc49779df80075e1d6b1e41deda74cea`.
+See `docs/native-archives.md` for exact implementation/verification limits.
+
+Next after that gate: persistent per-preview native-origin sidecars and
+cross-scan parent history, smarter archive/media gallery presentation, then the
+sourced practical/deep package knowledge cards and remaining desktop parity.
+Actual device UID/Binder/SAF/media/PDF/cancel/crash/cache-pressure and 16 KiB
+runtime are not verified by these host or compile checks.

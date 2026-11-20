@@ -744,7 +744,7 @@ public final class GallerizeActivity extends Activity {
             "Classified strings",
             "Collected metadata / EXIF",
             "MPV codecs / streams / tags",
-            "Browse ZIP / APK hierarchy",
+            "Browse archives / compressed streams",
             "Native hex",
             "All native tools"
         };
@@ -759,7 +759,7 @@ public final class GallerizeActivity extends Activity {
                             }
                             Class<?> target =
                                     which == 5
-                                            ? ArchiveExplorerActivity.class
+                                            ? NativeArchiveExplorerActivity.class
                                             : which == 7
                                                     ? NativeToolsActivity.class
                                                     : InvestigationActivity.class;

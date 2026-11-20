@@ -675,7 +675,7 @@ public final class ContentPreviewActivity extends Activity {
                         (dialog, which) -> {
                             Class<?> target =
                                     which == 3
-                                            ? ArchiveExplorerActivity.class
+                                            ? NativeArchiveExplorerActivity.class
                                             : which == 4
                                                     ? GallerizeActivity.class
                                                     : which == 5

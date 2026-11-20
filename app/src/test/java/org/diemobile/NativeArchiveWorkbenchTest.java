@@ -1,0 +1,441 @@
+// SPDX-License-Identifier: GPL-3.0-only
+package org.diemobile;
+
+import static org.junit.Assert.*;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.Looper;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.*;
+
+import org.json.JSONObject;
+import org.junit.*;
+import org.junit.runner.RunWith;
+import org.robolectric.*;
+import org.robolectric.android.controller.ActivityController;
+import org.robolectric.annotation.*;
+import org.robolectric.shadows.ShadowAlertDialog;
+import org.robolectric.util.ReflectionHelpers;
+
+import java.io.*;
+import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BooleanSupplier;
+import java.util.zip.*;
+
+/** Real pinned libarchive/codec JNI and widgets; only OS transport/providers are substituted. */
+@RunWith(WorkbenchTestRunner.class)
+@Config(sdk = 28, shadows = NativeArchiveWorkbenchTest.HostTransport.class)
+@LooperMode(LooperMode.Mode.PAUSED)
+public final class NativeArchiveWorkbenchTest {
+    static final AtomicInteger nativeCalls = new AtomicInteger();
+
+    @Implements(value = BinaryWorkerClient.class, isInAndroidSdk = false)
+    public static final class HostTransport {
+        private int fd(FileDescriptor value) throws Exception {
+            Field field = FileDescriptor.class.getDeclaredField("fd");
+            field.setAccessible(true);
+            return field.getInt(value);
+        }
+
+        @Implementation
+        public String inspect(File source, long offset, long length, BooleanSupplier stop)
+                throws Exception {
+            EvidenceRows.check(stop);
+            nativeCalls.incrementAndGet();
+            try (RandomAccessFile input = new RandomAccessFile(source, "r")) {
+                return ArchiveEngine.inspectFd(fd(input.getFD()), offset, length);
+            }
+        }
+
+        @Implementation
+        public String extract(
+                File source,
+                File target,
+                long offset,
+                long length,
+                int member,
+                BooleanSupplier stop)
+                throws Exception {
+            EvidenceRows.check(stop);
+            nativeCalls.incrementAndGet();
+            try (RandomAccessFile input = new RandomAccessFile(source, "r");
+                    RandomAccessFile output = new RandomAccessFile(target, "rw")) {
+                return ArchiveEngine.extractFd(
+                        fd(input.getFD()), fd(output.getFD()), offset, length, member);
+            }
+        }
+    }
+
+    private Path temporary, fixtures;
+    private ActivityController<NativeArchiveExplorerActivity> controller;
+    private NativeArchiveExplorerActivity activity;
+    private ActivityController<ContentPreviewActivity> previewController;
+    private ContentPreviewActivity preview;
+
+    @Before
+    public void setup() throws Exception {
+        assertTrue(ArchiveEngine.ERROR, ArchiveEngine.AVAILABLE);
+        temporary = Files.createTempDirectory("glassdigestor-native-archive-ui");
+        fixtures = Path.of(System.getProperty("die.archive.fixture.dir"));
+        assertTrue(Files.isRegularFile(fixtures.resolve("mislabeled.bin")));
+        nativeCalls.set(0);
+    }
+
+    @After
+    public void cleanup() throws Exception {
+        if (previewController != null) {
+            preview.finish();
+            close(previewController);
+        }
+        if (controller != null) {
+            activity.finish();
+            close(controller);
+        }
+        try (var paths = Files.walk(temporary)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList())
+                Files.deleteIfExists(path);
+        }
+    }
+
+    private void close(ActivityController<? extends Activity> item) throws Exception {
+        ExecutorService worker = ReflectionHelpers.getField(item.get(), "worker");
+        item.pause().stop().destroy();
+        assertTrue(worker.awaitTermination(30, TimeUnit.SECONDS));
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+    }
+
+    private void settle(Activity owner) throws Exception {
+        for (int i = 0; i < 6; i++) {
+            ReflectionHelpers.<ExecutorService>getField(owner, "worker")
+                    .submit(() -> {})
+                    .get(30, TimeUnit.SECONDS);
+            Shadows.shadowOf(Looper.getMainLooper()).idle();
+        }
+    }
+
+    private File open(String fixture) throws Exception {
+        File source = temporary.resolve("chosen-as-image.jpeg").toFile();
+        Files.copy(fixtures.resolve(fixture), source.toPath());
+        open(source, null);
+        return source;
+    }
+
+    private void open(File source, Bundle state) throws Exception {
+        Intent intent =
+                new Intent(RuntimeEnvironment.getApplication(), NativeArchiveExplorerActivity.class)
+                        .putExtra("path", source.getAbsolutePath())
+                        .putExtra("name", "chosen-as-image.jpeg");
+        controller = Robolectric.buildActivity(NativeArchiveExplorerActivity.class, intent);
+        if (state == null) controller.setup().visible();
+        else controller.create(state).start().restoreInstanceState(state).resume().visible();
+        activity = controller.get();
+        settle(activity);
+    }
+
+    private NativeArchiveSession session() {
+        return ReflectionHelpers.getField(activity, "session");
+    }
+
+    private String status(Activity owner) {
+        return ReflectionHelpers.<TextView>getField(owner, "status").getText().toString();
+    }
+
+    private ListView list() {
+        return ReflectionHelpers.getField(activity, "list");
+    }
+
+    private Button button(View view, String label) {
+        if (view instanceof Button && ((Button) view).getText().toString().equals(label))
+            return (Button) view;
+        if (view instanceof ViewGroup)
+            for (int i = 0; i < ((ViewGroup) view).getChildCount(); i++) {
+                Button result = button(((ViewGroup) view).getChildAt(i), label);
+                if (result != null) return result;
+            }
+        return null;
+    }
+
+    private void click(String label) throws Exception {
+        Button target = button(activity.getWindow().getDecorView(), label);
+        assertNotNull("Missing button " + label, target);
+        assertTrue(target.isEnabled());
+        target.performClick();
+        settle(activity);
+    }
+
+    private void row(String part) throws Exception {
+        for (int i = 0; i < list().getAdapter().getCount(); i++)
+            if (list().getAdapter().getItem(i).toString().contains(part)) {
+                list().performItemClick(null, i, i);
+                settle(activity);
+                return;
+            }
+        fail("Missing row " + part + ": " + status(activity));
+    }
+
+    private void action(String label) throws Exception {
+        AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
+        assertTrue(dialog.isShowing());
+        Button target = button(dialog.getWindow().getDecorView(), label);
+        assertNotNull(label, target);
+        assertTrue(label, target.isEnabled());
+        target.performClick();
+        settle(activity);
+    }
+
+    private File zip(String name, byte[] bytes) throws Exception {
+        File target = temporary.resolve("outer.blob").toFile();
+        try (ZipOutputStream output = new ZipOutputStream(new FileOutputStream(target))) {
+            output.putNextEntry(new ZipEntry(name));
+            output.write(bytes);
+            output.closeEntry();
+        }
+        return target;
+    }
+
+    @Test
+    public void duplicateIndexOpensExactIndependentPreviewAndByteExportAfterParentExpiry()
+            throws Exception {
+        File original = open("mislabeled.apk");
+        assertTrue(status(activity), session().current().inventory.complete);
+        assertEquals(3, session().current().inventory.members.size());
+        assertFalse(session().current().inventory.members.get(0).treeName());
+        click("All entries");
+        row("#2 duplicate");
+        action("Open preview / media / export bytes");
+        Intent intent = Shadows.shadowOf(activity).getNextStartedActivity();
+        assertNotNull(status(activity), intent);
+        assertEquals(ContentPreviewActivity.class.getName(), intent.getComponent().getClassName());
+        File child = new File(intent.getStringExtra("path"));
+        assertEquals("second", readText(child.toPath()));
+        assertEquals("archive-member", intent.getStringExtra("originalKind"));
+        assertFalse(intent.hasExtra("originalOffset"));
+        File archiveDirectory = session().directory;
+        activity.finish();
+        close(controller);
+        controller = null;
+        original.delete();
+        assertFalse(archiveDirectory.exists());
+        assertTrue(child.isFile());
+        previewController =
+                Robolectric.buildActivity(ContentPreviewActivity.class, intent).setup().visible();
+        preview = previewController.get();
+        settle(preview);
+        ReflectionHelpers.<Button>getField(preview, "exportBytes").performClick();
+        settle(preview);
+        PreparedExport staged = ReflectionHelpers.getField(preview, "contentExport");
+        assertNotNull(staged);
+        assertEquals("second", readText(staged.file.toPath()));
+        Uri destination = Uri.parse("content://org.diemobile.test/archive-member-output");
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        Shadows.shadowOf(preview.getContentResolver()).registerOutputStream(destination, output);
+        preview.onActivityResult(1, Activity.RESULT_OK, new Intent().setData(destination));
+        settle(preview);
+        assertEquals("second", output.toString(StandardCharsets.UTF_8));
+        assertFalse(staged.file.exists());
+    }
+
+    @Test
+    public void nestedZipToMislabeledTarRestoresAndBackUsesOriginalCapturedReports()
+            throws Exception {
+        String longName = "a".repeat(180) + "needle世界-actually-tar.jpeg";
+        File original = zip(longName, Files.readAllBytes(fixtures.resolve("mislabeled.bin")));
+        open(original, null);
+        ReflectionHelpers.<EditText>getField(activity, "filter").setText("needle世界");
+        assertEquals(1, list().getAdapter().getCount());
+        row("#0 ");
+        action("Browse as nested archive / compressed stream");
+        assertEquals(status(activity), 2, session().depth());
+        assertEquals(longName, session().current().name);
+        assertEquals(
+                session().current().inventory.format,
+                0x30000,
+                session().current().inventory.json().getInt("formatCode") & 0xff0000);
+        assertEquals(3, nativeCalls.get());
+        row("Directory: folder/");
+        assertEquals("folder/", session().current().prefix);
+        Bundle state = new Bundle();
+        controller.saveInstanceState(state);
+        String childSha = session().current().input.sha256;
+        close(controller);
+        controller = null;
+        original.delete();
+        open(original, state);
+        assertEquals(status(activity), childSha, session().current().input.sha256);
+        assertEquals("folder/", session().current().prefix);
+        assertEquals(3, nativeCalls.get());
+        assertEquals(2, session().evidence().getJSONArray("locations").length());
+        assertEquals(0, session().current().inventory.members.get(0).index);
+        click("Back archive");
+        assertEquals(1, session().depth());
+        assertEquals(3, nativeCalls.get());
+        // A descriptor captured before Back still restores the retained, independently checked
+        // child.
+        NativeArchiveSession old =
+                NativeArchiveSession.restore(
+                        session().directory.getParentFile(),
+                        state.getString("archiveState"),
+                        new HostRunner(),
+                        () -> false);
+        assertEquals(childSha, old.current().input.sha256);
+        assertEquals(2, old.depth());
+        old.close(true);
+        assertEquals(3, nativeCalls.get());
+    }
+
+    /** Restore cannot ask the transport to rerun native work. */
+    private static final class HostRunner implements ArchiveRunner {
+        public String inspect(File f, long o, long l, BooleanSupplier stop) {
+            throw new AssertionError("Restore rescanned");
+        }
+
+        public String extract(File f, File t, long o, long l, int m, BooleanSupplier stop) {
+            throw new AssertionError("Restore extracted");
+        }
+    }
+
+    @Test
+    public void crcFailureKeepsRawDiagnosticAndExportSurvivesPickerRecreationAndFailure()
+            throws Exception {
+        File original = open("bad-crc.zip");
+        click("All entries");
+        row("#0 ");
+        action("Open preview / media / export bytes");
+        assertTrue(status(activity), status(activity).contains("failed"));
+        assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
+        JSONObject evidence = session().evidence();
+        assertEquals(1, evidence.getJSONArray("failedAttempts").length());
+        String raw =
+                evidence.getJSONArray("failedAttempts").getJSONObject(0).getString("nativeReport");
+        assertFalse(new JSONObject(raw).getBoolean("ok"));
+        assertTrue(new JSONObject(raw).isNull("acquiredSizeBytes"));
+        click("Export report");
+        PreparedExport first = ReflectionHelpers.getField(activity, "pendingExport");
+        assertNotNull(first);
+        activity.onActivityResult(1, Activity.RESULT_CANCELED, null);
+        assertFalse(first.file.exists());
+        click("Export report");
+        PreparedExport staged = ReflectionHelpers.getField(activity, "pendingExport");
+        byte[] bytes = Files.readAllBytes(staged.file.toPath());
+        Bundle state = new Bundle();
+        controller.saveInstanceState(state);
+        close(controller);
+        controller = null;
+        original.delete();
+        open(original, state);
+        assertEquals(1, session().evidence().getJSONArray("failedAttempts").length());
+        Uri broken = Uri.parse("content://org.diemobile.test/archive-report-failure");
+        Shadows.shadowOf(activity.getContentResolver())
+                .registerOutputStream(
+                        broken,
+                        new OutputStream() {
+                            public void write(int value) throws IOException {
+                                throw new IOException("fixture provider failure");
+                            }
+                        });
+        activity.onActivityResult(1, Activity.RESULT_OK, new Intent().setData(broken));
+        settle(activity);
+        assertTrue(status(activity), status(activity).contains("partial output"));
+        assertFalse(staged.file.exists());
+        click("Export report");
+        Uri destination = Uri.parse("content://org.diemobile.test/archive-report-success");
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        Shadows.shadowOf(activity.getContentResolver()).registerOutputStream(destination, output);
+        activity.onActivityResult(1, Activity.RESULT_OK, new Intent().setData(destination));
+        settle(activity);
+        assertArrayEquals(bytes, output.toByteArray());
+    }
+
+    @Test
+    public void explicitEmbeddedScopeAndSameLengthSourceMutationRemainVisible() throws Exception {
+        open("embedded.blob");
+        long offset =
+                new JSONObject(readText(fixtures.resolve("expected.json")))
+                        .getJSONObject("embedded.blob")
+                        .getLong("offset");
+        click("Parsing interval");
+        AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
+        ArrayList<EditText> fields = new ArrayList<>();
+        editFields(dialog.getWindow().getDecorView(), fields);
+        assertEquals(2, fields.size());
+        fields.get(0).setText("0x" + Long.toHexString(offset));
+        fields.get(1).setText("" + (session().current().input.size - offset));
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        settle(activity);
+        assertEquals(status(activity), offset, session().current().inventory.offset);
+        assertTrue(session().current().inventory.complete);
+        assertEquals(5, session().current().inventory.members.size());
+        assertEquals(
+                offset, new JSONObject(session().current().inventory.raw).getLong("scopeOffset"));
+        int calls = nativeCalls.get();
+        try (RandomAccessFile bytes = new RandomAccessFile(session().current().input.file, "rw")) {
+            bytes.write(0x7f);
+        }
+        click("All entries");
+        row("#0 ");
+        action("Open preview / media / export bytes");
+        assertTrue(status(activity), status(activity).contains("SHA-256 changed"));
+        assertEquals(calls, nativeCalls.get());
+        assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
+    }
+
+    @Test
+    public void selectedTarMemberReturnsCheckedIndependentBytesToItsParent() throws Exception {
+        File original = open("mislabeled.bin");
+        click("All entries");
+        row("#0 ");
+        action("Analyze member in parent workbench");
+        Intent result = Shadows.shadowOf(activity).getResultIntent();
+        assertNotNull(status(activity), result);
+        assertEquals(Activity.RESULT_OK, Shadows.shadowOf(activity).getResultCode());
+        File member = new File(result.getStringExtra("path"));
+        String expectedSha =
+                new JSONObject(readText(fixtures.resolve("expected.json")))
+                        .getJSONObject("mislabeled.bin")
+                        .getJSONArray("entries")
+                        .getJSONObject(0)
+                        .getString("sha256");
+        assertEquals(expectedSha, result.getStringExtra("memberSha256"));
+        assertTrue(result.getStringExtra("display").contains("世界.txt"));
+        File directory = session().directory;
+        close(controller);
+        controller = null;
+        original.delete();
+        assertFalse(directory.exists());
+        assertTrue(member.isFile());
+        try (InputSnapshot acquired =
+                ArchiveMemberHandoff.acquire(
+                        member,
+                        expectedSha,
+                        member.getParentFile(),
+                        temporary.resolve("independent-parent-input").toFile(),
+                        () -> false)) {
+            assertEquals(expectedSha, acquired.sha256);
+            assertEquals(
+                    "Exact archive member 世界 🔬 with embedded NUL\0 and end.\n",
+                    readText(acquired.file.toPath()));
+        }
+        assertFalse(member.exists());
+    }
+
+    private String readText(Path file) throws IOException {
+        return new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
+    }
+
+    private void editFields(View view, List<EditText> result) {
+        if (view instanceof EditText) result.add((EditText) view);
+        if (view instanceof ViewGroup)
+            for (int i = 0; i < ((ViewGroup) view).getChildCount(); i++)
+                editFields(((ViewGroup) view).getChildAt(i), result);
+    }
+}

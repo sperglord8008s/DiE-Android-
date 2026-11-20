@@ -496,6 +496,9 @@ public final class BatchScanWorkbenchTest {
 
     @Test
     public void runningBatchRetainsItsOwnerAcrossConfigurationWithoutRestarting() throws Exception {
+        // Complete the independent cold asset copy before deliberately blocking native work.
+        // The assertion below observes ownership of an active scan, not host disk throughput.
+        EngineDatabase.prepare(activity);
         Object originalOwner = state();
         synchronized (Engine.class) {
             start(input("retained-owner.bin", elf), input("second-owned.bin", elf));
@@ -510,7 +513,10 @@ public final class BatchScanWorkbenchTest {
                 if (active != null) break;
                 Thread.sleep(5);
             }
-            assertNotNull(active);
+            assertNotNull(
+                    "Batch did not enter native scanning: "
+                            + ReflectionHelpers.<String>getField(state(), "message"),
+                    active);
             controller.recreate();
             activity = controller.get();
             assertSame(originalOwner, state());
