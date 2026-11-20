@@ -66,6 +66,13 @@ final class ArchiveLaunch {
         return encode(base(sha, size, offset, length).put("findingKind", JSONObject.NULL));
     }
 
+    /**
+     * Extra gallery evidence cannot alter the checked source/interval or infer a recovered extent.
+     */
+    ArchiveLaunch withGalleryContext(JSONObject context) throws Exception {
+        return encode(json().put("galleryContext", context));
+    }
+
     static ArchiveLaunch fromFinding(
             InputSnapshot source, String kind, EvidenceRows.Row row, JSONObject provenance)
             throws Exception {
@@ -139,7 +146,7 @@ final class ArchiveLaunch {
                         if (count > MAX_CHARACTERS - encoded.length())
                             throw new IOException(
                                     "Archive launch context exceeds 64 Ki-characters; use an"
-                                        + " explicit interval in the archive browser");
+                                            + " explicit interval in the archive browser");
                     }
 
                     @Override

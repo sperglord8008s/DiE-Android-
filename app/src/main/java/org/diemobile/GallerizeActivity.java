@@ -598,7 +598,8 @@ public final class GallerizeActivity extends Activity {
                                                 range.offset,
                                                 range.length,
                                                 "",
-                                                -1)))
+                                                -1,
+                                                true)))
                 .setNegativeButton("Close", null)
                 .show();
     }
@@ -626,11 +627,8 @@ public final class GallerizeActivity extends Activity {
                     .setView(scroll)
                     .setNegativeButton("Close", null)
                     .setPositiveButton(
-                            card.length == null ? "Native witness" : "Preview / actions",
-                            (dialog, which) -> {
-                                if (card.length == null) showWitness(card);
-                                else actions(card);
-                            })
+                            card.length == null ? "Inspect / actions" : "Preview / actions",
+                            (dialog, which) -> actions(card))
                     .show();
         } catch (Exception error) {
             status.setText(error.toString());
@@ -638,26 +636,141 @@ public final class GallerizeActivity extends Activity {
     }
 
     private void actions(ContentMap.Card card) {
-        String[] options = {
-            "View in app",
-            "Export exact stored bytes",
-            "Hex at original offset",
-            "Inspect native witness",
-            "Inspect range with all tools"
-        };
+        List<String> labels = new ArrayList<>();
+        List<Runnable> actions = new ArrayList<>();
+        if (card.length != null) {
+            labels.add("View in app");
+            actions.add(() -> preview(card));
+            labels.add("Export exact stored bytes");
+            actions.add(() -> exportRange(card));
+        }
+        if (card.offset < session.input.size
+                && (card.nativeRow >= 0 || card.length != null && card.length > 0)) {
+            labels.add("Inspect archive / compressed stream here (parsing interval)");
+            actions.add(() -> openArchive(card));
+        }
+        labels.add("Choose inspection byte interval… (does not set a recovered file boundary)");
+        actions.add(() -> chooseRange(card));
+        labels.add("Hex at original offset");
+        actions.add(() -> nativeHex(card.offset));
+        labels.add("Inspect native witness");
+        actions.add(() -> showWitness(card));
+        if (card.length != null) {
+            labels.add("Inspect range with all tools");
+            actions.add(() -> preview(card));
+        }
         new AlertDialog.Builder(this)
                 .setTitle(card.label)
                 .setItems(
-                        options,
+                        labels.toArray(new String[0]), (dialog, which) -> actions.get(which).run())
+                .show();
+    }
+
+    private void openArchive(ContentMap.Card card) {
+        if (busy || session == null) return;
+        int ticket = begin("Checking the card and its source for archive inspection…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(
+                () -> {
+                    try {
+                        ArchiveLaunch launch = session.archiveLaunch(card, stop::get);
+                        EvidenceRows.check(stop::get);
+                        runOnUiThread(
+                                () -> {
+                                    if (isDestroyed() || ticket != generation) return;
+                                    end();
+                                    try {
+                                        startActivityForResult(
+                                                new Intent(
+                                                                this,
+                                                                NativeArchiveExplorerActivity.class)
+                                                        .putExtra(
+                                                                "path",
+                                                                session.input.file
+                                                                        .getAbsolutePath())
+                                                        .putExtra("name", name)
+                                                        .putExtra("sha256", launch.sha256)
+                                                        .putExtra("sourceSize", launch.size)
+                                                        .putExtra("scopeOffset", launch.offset)
+                                                        .putExtra("scopeLength", launch.length)
+                                                        .putExtra("archiveLaunch", launch.raw)
+                                                        .putExtra("originPreviewResult", true),
+                                                2);
+                                        status.setText(
+                                                "Archive inspection bytes ["
+                                                        + launch.offset
+                                                        + ", "
+                                                        + (launch.offset + launch.length)
+                                                        + ") · original card extent unchanged");
+                                    } catch (RuntimeException error) {
+                                        status.setText("Archive view could not open: " + error);
+                                    }
+                                });
+                    } catch (Exception error) {
+                        failed(ticket, error);
+                    }
+                });
+    }
+
+    private void chooseRange(ContentMap.Card associated) {
+        if (busy || session == null) return;
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(12), dp(4), dp(12), dp(4));
+        form.addView(
+                text(
+                        "Choose stored inspection bytes, not a recovered-file boundary. Source: "
+                                + session.input.size
+                                + " bytes; preview maximum 256 MiB. Decimal or 0x hexadecimal.",
+                        13));
+        EditText offset = new EditText(this), length = new EditText(this);
+        for (EditText value : new EditText[] {offset, length}) {
+            value.setSingleLine();
+            value.setInputType(
+                    android.text.InputType.TYPE_CLASS_TEXT
+                            | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+            value.setFilters(new InputFilter[] {new InputFilter.LengthFilter(32)});
+        }
+        offset.setTag("gallery-range-offset");
+        length.setTag("gallery-range-length");
+        offset.setHint("Source byte offset");
+        length.setHint("Selected byte length");
+        offset.setText("0x" + Long.toHexString(associated.offset));
+        long available = Math.max(0, session.input.size - associated.offset);
+        length.setText(
+                Long.toString(
+                        Math.min(
+                                FileRange.MAX_OPERATION_BYTES,
+                                associated.length == null ? available : associated.length)));
+        form.addView(offset);
+        form.addView(length);
+        new AlertDialog.Builder(this)
+                .setTitle("Explicit inspection interval")
+                .setView(form)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton(
+                        "Preview selected bytes",
                         (dialog, which) -> {
-                            if (which == 0) preview(card);
-                            else if (which == 1) exportRange(card);
-                            else if (which == 2) nativeHex(card.offset);
-                            else if (which == 3) showWitness(card);
-                            else preview(card); // The preview's tool menu operates on this
-                            // separately owned exact range.
+                            try {
+                                preview(
+                                        ContentMap.Card.inspection(
+                                                associated,
+                                                session.input.size,
+                                                byteNumber(offset.getText().toString()),
+                                                byteNumber(length.getText().toString())));
+                            } catch (Exception error) {
+                                status.setText(
+                                        "Inspection interval refused: " + error.getMessage());
+                            }
                         })
                 .show();
+    }
+
+    private static long byteNumber(String value) {
+        String text = value.trim();
+        return text.startsWith("0x") || text.startsWith("0X")
+                ? Long.parseLong(text.substring(2), 16)
+                : Long.parseLong(text, 10);
     }
 
     private void showWitness(ContentMap.Card card) {

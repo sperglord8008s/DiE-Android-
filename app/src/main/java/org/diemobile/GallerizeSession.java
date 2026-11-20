@@ -199,6 +199,35 @@ final class GallerizeSession implements AutoCloseable {
         return OwnedContent.stageRange(source, range, directory, stop);
     }
 
+    ArchiveLaunch archiveLaunch(ContentMap.Card card, BooleanSupplier stop) throws Exception {
+        input.checkIdentity(stop);
+        JSONObject context = new JSONObject().put("card", card.json()).put("gallery", provenance());
+        EvidenceRows.Row finding = null;
+        if (card.nativeRow >= 0) {
+            EvidenceRows captured = raw();
+            if (card.nativeRow >= captured.size())
+                throw new IOException("Gallery native witness index expired");
+            finding = captured.row(card.nativeRow, stop);
+            if (finding.index != card.nativeRow
+                    || !card.explicitInterval
+                            && (finding.physicalOffset == null
+                                    || finding.physicalOffset != card.offset
+                                    || !java.util.Objects.equals(finding.sizeBytes, card.length)))
+                throw new IOException("Gallery card differs from its retained native finding");
+            context.put("associatedFindingRaw", finding.encoded);
+        }
+        ArchiveLaunch launch;
+        if (finding != null && !card.explicitInterval)
+            launch = ArchiveLaunch.fromFinding(input, raw().kind, finding, backend.provenance());
+        else {
+            FileRange range = card.range(input.size);
+            launch = ArchiveLaunch.forInput(input.sha256, input.size, range.offset, range.length);
+        }
+        launch = launch.withGalleryContext(context);
+        input.checkIdentity(stop);
+        return launch;
+    }
+
     EvidenceRows raw() throws IOException {
         if (raw == null) throw new IOException("No completed native capture");
         return raw;
@@ -251,13 +280,15 @@ final class GallerizeSession implements AutoCloseable {
                         .put("textCandidateCount", content.textCount)
                         .put("coveredBytes", content.coveredBytes)
                         .put("textScannedBytes", content.textScannedBytes);
-        String encoded = header.toString();
+        java.io.StringWriter prefix = new java.io.StringWriter();
+        EvidenceJson.write(prefix, header, stop);
+        String encoded = prefix.toString();
         output.write(encoded, 0, encoded.length() - 1);
         output.write(",\"cards\":[");
         for (int i = 0; i < content.cards.size(); i++) {
             EvidenceRows.check(stop);
             if (i > 0) output.write(',');
-            output.write(content.cards.get(i).json().toString());
+            EvidenceJson.write(output, content.cards.get(i).json(), stop);
         }
         output.write("],\"nativeEvidence\":");
         raw.writeReport(output, backend.provenance(), "", 0, stop);

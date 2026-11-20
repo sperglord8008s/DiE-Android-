@@ -573,4 +573,180 @@ public final class GallerizeWorkbenchTest {
         assertFalse(staged.file.exists());
         assertNotNull(ReflectionHelpers.getField(activity, "grid"));
     }
+
+    private ContentMap.Card openGzipCard() throws Exception {
+        closeGallery();
+        ByteArrayOutputStream compressed = new ByteArrayOutputStream();
+        try (java.util.zip.GZIPOutputStream gzip = new java.util.zip.GZIPOutputStream(compressed)) {
+            gzip.write(
+                    ("Independent gallery gzip payload 世界 😀\n".repeat(1000))
+                            .getBytes(StandardCharsets.UTF_8));
+        }
+        ByteArrayOutputStream source = new ByteArrayOutputStream();
+        source.write(new byte[37]);
+        source.write(compressed.toByteArray());
+        blob = source.toByteArray();
+        Files.write(original.toPath(), blob);
+        Intent intent =
+                new Intent(RuntimeEnvironment.getApplication(), GallerizeActivity.class)
+                        .putExtra("path", original.getAbsolutePath())
+                        .putExtra("name", "mislabeled.image")
+                        .putExtra("sha256", Inspector.scan(original, 4).sha256)
+                        .putExtra("sourceSize", original.length());
+        controller = Robolectric.buildActivity(GallerizeActivity.class, intent).setup().visible();
+        activity = controller.get();
+        settle(activity);
+        ReflectionHelpers.callInstanceMethod(activity, "showGallery");
+        settle(activity);
+        ContentMap map = ReflectionHelpers.getField(activity, "map");
+        ContentMap.Card card =
+                map.cards.stream()
+                        .filter(
+                                c ->
+                                        c.nativeRow >= 0
+                                                && c.offset == 37
+                                                && c.kind == ContentMap.Kind.ARCHIVE)
+                        .findFirst()
+                        .orElseThrow();
+        assertNull(card.length);
+        return card;
+    }
+
+    private void cardAction(ContentMap.Card card, String part) throws Exception {
+        ReflectionHelpers.callInstanceMethod(
+                activity,
+                "details",
+                ReflectionHelpers.ClassParameter.from(ContentMap.Card.class, card));
+        AlertDialog detail = ShadowAlertDialog.getLatestAlertDialog();
+        assertEquals(
+                "Inspect / actions",
+                detail.getButton(AlertDialog.BUTTON_POSITIVE).getText().toString());
+        detail.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+        AlertDialog actions = ShadowAlertDialog.getLatestAlertDialog();
+        ListView list = actions.getListView();
+        for (int i = 0; i < list.getAdapter().getCount(); i++) {
+            String name = list.getAdapter().getItem(i).toString();
+            assertFalse(
+                    "An unknown extent must not become an automatic carve",
+                    name.equals("Export exact stored bytes"));
+            if (name.contains(part)) {
+                list.performItemClick(null, i, i);
+                actions.dismiss();
+                settle(activity);
+                return;
+            }
+        }
+        fail("Missing card action " + part);
+    }
+
+    @Test
+    public void headerOnlyArchiveCardOpensItsObservedParsingTailWithCompleteContext()
+            throws Exception {
+        ContentMap.Card card = openGzipCard();
+        int calls = nativeCalls.get();
+        cardAction(card, "Inspect archive / compressed stream here");
+        var request = Shadows.shadowOf(activity).getNextStartedActivityForResult();
+        assertNotNull(status(activity), request);
+        assertEquals(2, request.requestCode);
+        assertEquals(
+                NativeArchiveExplorerActivity.class.getName(),
+                request.intent.getComponent().getClassName());
+        ArchiveLaunch launch = ArchiveLaunch.parse(request.intent.getStringExtra("archiveLaunch"));
+        assertEquals(card.offset, launch.offset);
+        assertEquals(blob.length - card.offset, launch.length);
+        assertEquals(card.nativeRow, launch.findingIndex.intValue());
+        assertTrue(request.intent.getBooleanExtra("originPreviewResult", false));
+        org.json.JSONObject context = launch.json().getJSONObject("galleryContext");
+        assertTrue(context.getJSONObject("card").isNull("sizeBytes"));
+        assertTrue(
+                new org.json.JSONObject(launch.json().getString("findingRecordRaw"))
+                        .isNull("reportedSizeBytes"));
+        assertTrue(launch.json().isNull("recoveredExtentBytes"));
+        assertNull(card.length);
+        assertEquals(calls, nativeCalls.get());
+        activity.onActivityResult(2, Activity.RESULT_CANCELED, null);
+        settle(activity);
+        assertTrue(status(activity), status(activity).contains("cancelled"));
+        assertTrue(
+                ReflectionHelpers.<GallerizeSession>getField(activity, "session")
+                        .input
+                        .file
+                        .isFile());
+    }
+
+    @Test
+    public void manualHeaderInspectionOwnsOnlyChosenBytesAndRetainsTheUnchangedFinding()
+            throws Exception {
+        ContentMap.Card card = openGzipCard();
+        cardAction(card, "Choose inspection byte interval");
+        AlertDialog range = ShadowAlertDialog.getLatestAlertDialog();
+        ((EditText) range.getWindow().getDecorView().findViewWithTag("gallery-range-offset"))
+                .setText("0x26");
+        ((EditText) range.getWindow().getDecorView().findViewWithTag("gallery-range-length"))
+                .setText("0x15");
+        range.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        settle(activity);
+        Intent target = Shadows.shadowOf(activity).getNextStartedActivity();
+        assertNotNull(status(activity), target);
+        assertEquals(ContentPreviewActivity.class.getName(), target.getComponent().getClassName());
+        assertEquals(38, target.getLongExtra("originalOffset", -1));
+        assertEquals(21, target.getLongExtra("sourceSize", -1));
+        File selected = new File(target.getStringExtra("path"));
+        assertArrayEquals(Arrays.copyOfRange(blob, 38, 59), Files.readAllBytes(selected.toPath()));
+        ContentOrigin origin =
+                ContentOrigin.restore(
+                        new File(activity.getCacheDir(), "content-origins"),
+                        target.getStringExtra("contentOrigin"),
+                        target.getStringExtra("sha256"),
+                        21,
+                        () -> false);
+        var lines = Files.readAllLines(origin.file.toPath());
+        org.json.JSONObject selection =
+                new org.json.JSONObject(lines.get(1)).getJSONObject("value");
+        assertTrue(selection.getBoolean("explicitInspectionInterval"));
+        assertTrue(selection.getString("extentMeaning").contains("not an inferred"));
+        org.json.JSONObject witness = new org.json.JSONObject(lines.get(3)).getJSONObject("value");
+        assertTrue(
+                new org.json.JSONObject(witness.getString("originalRecordJson"))
+                        .isNull("reportedSizeBytes"));
+        closeGallery();
+        assertTrue(original.delete());
+        previewController =
+                Robolectric.buildActivity(ContentPreviewActivity.class, target).setup().visible();
+        preview = previewController.get();
+        settle(preview);
+        assertNotNull(ReflectionHelpers.getField(preview, "origin"));
+        assertArrayEquals(
+                Arrays.copyOfRange(blob, 38, 59),
+                Files.readAllBytes(
+                        ReflectionHelpers.<InputSnapshot>getField(preview, "input").file.toPath()));
+        assertNull(card.length);
+    }
+
+    @Test
+    public void invalidManualCoordinatesRefuseBeforeAcquisitionAndLeaveTheGalleryUsable()
+            throws Exception {
+        ContentMap.Card card = openGzipCard();
+        GallerizeSession session = ReflectionHelpers.getField(activity, "session");
+        String sha = session.input.sha256;
+        cardAction(card, "Choose inspection byte interval");
+        AlertDialog range = ShadowAlertDialog.getLatestAlertDialog();
+        ((EditText) range.getWindow().getDecorView().findViewWithTag("gallery-range-offset"))
+                .setText("-1");
+        ((EditText) range.getWindow().getDecorView().findViewWithTag("gallery-range-length"))
+                .setText("2");
+        range.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        settle(activity);
+        assertTrue(status(activity), status(activity).contains("Inspection interval refused"));
+        assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
+        assertFalse(ReflectionHelpers.<Boolean>getField(activity, "busy"));
+        assertEquals(sha, session.input.sha256);
+        assertTrue(session.input.file.isFile());
+        cardAction(card, "Choose inspection byte interval");
+        ShadowAlertDialog.getLatestAlertDialog()
+                .getButton(AlertDialog.BUTTON_NEGATIVE)
+                .performClick();
+        assertNull(card.length);
+    }
 }

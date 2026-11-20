@@ -165,6 +165,7 @@ jobs:
       - run: bash scripts/test-binwalk.sh
       - run: bash scripts/test-photorec.sh
       - run: bash scripts/test-gallerize.sh
+      - run: bash scripts/test-gallery-ranges.sh
       - run: bash scripts/test-archive-engine.sh
       - run: bash scripts/test-native-archive-store.sh
       - run: bash scripts/test-archive-launch.sh
