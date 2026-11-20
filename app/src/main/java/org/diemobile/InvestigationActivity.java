@@ -572,15 +572,15 @@ public final class InvestigationActivity extends Activity {
                                                                     bytes,
                                                                     range,
                                                                     stop::get)
-                                                            : OwnedContent.exportRange(
+                                                            : RecoveredFiles.namedRange(
                                                                     owned,
                                                                     range,
                                                                     exportDirectory,
                                                                     recoveredName,
                                                                     stop::get)));
                 }
-            } catch (IllegalArgumentException ignored) {
-                /* Invalid/associated ranges remain metadata, not extractable bytes. */
+            } catch (Exception error) {
+                status.setText("Stored-file actions unavailable: " + error.getMessage());
             }
         labels.add("Export complete selected record JSON");
         actions.add(
@@ -720,13 +720,8 @@ public final class InvestigationActivity extends Activity {
     }
 
     private String capturedKind() { return source == null ? "selected-record" : source.kind + "-record"; }
-    private String recoveredName(EvidenceRows.Row row, FileRange range) {
-        String extension = row.name.toLowerCase(Locale.ROOT).trim();
-        if (extension.equals("jpeg")) extension = "jpg";
-        else if (extension.equals("gzip")) extension = "gz";
-        else if (extension.equals("bzip2")) extension = "bz2";
-        else if (extension.equals("zstd") || extension.equals("zstandard")) extension = "zst";
-        if (!extension.matches("[a-z0-9]{1,12}")) extension = "bin";
+    private String recoveredName(EvidenceRows.Row row, FileRange range) throws Exception {
+        String extension = RecoveredFiles.extension(row.json().optString("reportedExtension", row.name));
         String engine = source.kind.startsWith("photorec") ? "photorec" : "binwalk";
         return engine
                 + "-"

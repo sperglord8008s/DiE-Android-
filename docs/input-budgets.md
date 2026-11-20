@@ -19,7 +19,7 @@ These are adapter limits, not verified maximum sizes on a phone. MiB means
 | Desktop document batches | 256 MiB/file | 64 files, 512 MiB total captured input; 16 MiB/report, 64 MiB total stored reports |
 | Exact aligned binary comparison | 256 MiB/side | 512 MiB pair; difference-record and report bounds remain separate |
 | PhotoRec adapter 3 | 256 MiB | 250,000 candidates; 24 MiB native report; per-candidate/aggregate callback work and deadline bounds |
-| Gallerize content/gallery/grid input | 256 MiB | 50,000 cards, original native report/callback budgets; grid at most 1,048,576 cells; previews/renderers separately bounded |
+| Gallerize content/gallery/grid input | 256 MiB | PhotoRec whole-input scan; Binwalk separately limited to 64 MiB; 50,000 cards, original native report/callback budgets; grid at most 1,048,576 cells; previews/renderers separately bounded |
 | Binwalk adapter 2 | 64 MiB | Contiguous file-sized native copy; 20,000 raw magic matches and 32 MiB report |
 | MPV media probe | 256 MiB | Probe/property/worker limits; initialization is not full-frame/media-integrity verification |
 | Collected EXIF/IPTC/ICC/XMP metadata | 128 MiB | Reader dispatch plus directory/tag/XMP/value/report limits |
@@ -27,6 +27,7 @@ These are adapter limits, not verified maximum sizes on a phone. MiB means
 | Selected DEX document | 32 MiB | Container/entry/class/string/code bounds; APK and multidex parent acquisition have separate limits |
 | Compiled Android XML/resource payload | 64 MiB | Parent APK acquisition and each extracted payload have separate identities and budgets |
 | Captured base/split package set | 256 MiB/APK | 64 inputs, 512 MiB total; manifests at most 8 MiB each / 64 MiB total |
+| Recovered-file payload ZIP | 240 MiB total uncompressed payload | 4,096 distinct files; 256 MiB encoded stage; every selected-group page; original ranges/source identity checked |
 | Generic measured range/export | 256 MiB/operation | Must fit the exact selected source; unknown extents never become automatic carve-to-EOF |
 | Binder command observation | 1 MiB output | This is command output, not a selected binary cap; 4 MiB envelope / 20,000 parsed lines / cooperative time limit |
 
@@ -62,7 +63,9 @@ does not apply to it.
 
 Gallerize independently exercises a fully written **80 MiB + 17 byte** source,
 with a PNG beyond 64 MiB and Unicode tail text. The complete local-entropy grid
-accounts for every byte and agrees with independent streaming SHA-256. These
+accounts for every byte and agrees with independent streaming SHA-256. The
+beyond-64-MiB PNG also exports with exact bytes, `.png` and `image/png`;
+Binwalk is explicitly skipped at its own 64 MiB budget. These
 are host checks of the actual acquisition/PhotoRec/map/grid path; see
 [Gallerize contracts](gallerize-implementation.md).
 

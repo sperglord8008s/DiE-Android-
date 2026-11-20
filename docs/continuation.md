@@ -1,6 +1,6 @@
 # Development continuation point
 
-The verified workbench is on main through PR #9 as GlassDigestor in `sperglord8008s/DiE-Android-`. Current work uses `codex/gallery-inspection-ranges`; application ID remains `org.diemobile` with the existing debug signing configuration. Published pre-alpha.1–.7 checkpoints are immutable; current development is **0.6.0-pre-alpha.8 / code 14**. See [versioning](build-versioning.md). Full desktop parity and handset verification remain incomplete. Read AGENTS.md and the three design/parity documents before changes.
+The workbench is on main through PR #13 (`faa3272`) in **sperglord8008s/GlassDigestor** (the owner's rename of DiE-Android-, repository ID 1460636999). Current work uses `codex/recovered-file-gallery`, **0.6.0-pre-alpha.12 / code 18**. User priority is the actual recovered files: combined PhotoRec/Binwalk galleries, usable in-app previews and file exports. Preserve production `org.diemobile`, existing signing and immutable checkpoint APKs. Full desktop parity and handset verification remain incomplete. Read AGENTS.md and the three design/parity documents before changes.
 
 ## Implemented and fixture-verified in this work
 
@@ -899,3 +899,46 @@ Android execution remains pending. Current main `965d43a` was fast-forwarded
 into this branch without losing WIP, retaining its inherited CI-platform doc
 and keeping future PR trees aligned. Commit/push and inspect both workflows
 next, then audit/download/publish passing checkpoints.
+
+
+## Actual recovered-file gallery — pre-alpha.12
+
+PR #13 was merged after all five source checks passed. Source `85f28c5` passed
+all seven actual x86 Android API 26/35 lab contracts (run 44738875535), including
+installed-target compiled manifest parsing. Main `faa3272` also passes both
+workflows. The .11 publisher run 44768862555 succeeded. The renamed repository
+has the same verified ID; existing owner URL redirects. No production identity
+or signing migration occurred.
+
+The user redirected development to **actual PhotoRec/Binwalk files and their
+gallery/export flows**, explicitly ahead of more File info/header-location or
+system/package knowledge work. New gallery sessions now scan both engines over
+one owned input. Duplicate file cards retain both original witnesses; unknown
+and alternative boundaries remain distinct in evidence. Binwalk failures or
+its >64 MiB input scope leave PhotoRec files available, with explicit status.
+Legacy retained captures never silently acquire new scans.
+
+Default Files, direct previews/archive browsing, per-tile typed saves and a
+real-payload ZIP across all selected-group pages are implemented. The preview's
+own save and native finding saves preserve extension/MIME. Complete evidence
+and grid exports remain under Tools; long-press retains all existing actions.
+Native/Java/Python checks cover exact JPEG/PNG/WAV/GIF/gzip/MP4/text payloads,
+duplicates, unknown/conflicting extents, per-engine failures, changed captures
+and independent source/picker lifetime. Eighteen focused UI/media tests pass,
+including 29 images and their nested compressed payloads over multiple pages.
+
+Next: complete required generic/native/80 MiB/full-host/ARM64/lint gates, correct
+any failures, freeze the numbered working APK, commit, inspect five-job source
+CI, merge and publish an immutable passing checkpoint. Keep host, actual x86
+runtime and production ARM64/device/SAF claims separate. Then continue actual
+file render/recovery coverage (including PDF/other common formats and archive
+member gallery workflows), rather than File info work. See
+[recovered-file contracts](recovered-file-gallery.md).
+
+The complete .12 local gate passed: **180 host tests, no failures/errors/skips**;
+required generic/native checks; original unknown-header/archive/manual-range
+regressions; actual seven-payload Java/Python native fusion and ZIP checks; the
+fully written 80 MiB tail/PNG/grid case now also checks correct PNG bytes/name/
+MIME on export. ARM64 assembly/lint and APK signature/offline/identity/notices/
+fifteen-library alignment verification pass. Commit clean source, rebuild/freeze
+its exact numbered APK, push and inspect source CI before merge/publication.

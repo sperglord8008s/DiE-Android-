@@ -5,14 +5,14 @@
 <h1 align="center">GlassDigestor</h1>
 <p align="center"><strong>An offline investigation workbench for Android.</strong><br/>Explore the bytes. Follow the evidence. Understand the layers.</p>
 <p align="center">
-  <a href="https://github.com/sperglord8008s/DiE-Android-/releases">Pre-release downloads</a> ·
+  <a href="https://github.com/sperglord8008s/GlassDigestor/releases">Pre-release downloads</a> ·
   <a href="docs/FEATURE-PARITY.md">Verified scope</a> ·
   <a href="docs/continuation.md">Build & contribute</a> ·
-  <a href="https://github.com/sperglord8008s/DiE-Android-/issues">Report a problem</a>
+  <a href="https://github.com/sperglord8008s/GlassDigestor/issues">Report a problem</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/sperglord8008s/DiE-Android-/actions/workflows/android.yml"><img alt="Android and host checks" src="https://github.com/sperglord8008s/DiE-Android-/actions/workflows/android.yml/badge.svg?branch=main" /></a>
+  <a href="https://github.com/sperglord8008s/GlassDigestor/actions/workflows/android.yml"><img alt="Android and host checks" src="https://github.com/sperglord8008s/GlassDigestor/actions/workflows/android.yml/badge.svg?branch=main" /></a>
   <img alt="Android API 26+; ARM64" src="https://img.shields.io/badge/Android-API_26%2B_%C2%B7_ARM64-59e1ca?labelColor=101920" />
   <a href="LICENSE"><img alt="GPL-3.0-only frontend" src="https://img.shields.io/badge/license-GPL--3.0--only-ffbc66?labelColor=101920" /></a>
 </p>
@@ -23,8 +23,8 @@ Technical evidence is visible by default, with expandable explanations of what
 it means, where it came from and what remains unknown.
 
 **Previously DiE Android.** This is an independent FOSS application built around
-Detect It Easy / CDiE and other credited open-source engines. The repository URL
-and Android application ID (`org.diemobile`) remain stable.
+Detect It Easy / CDiE and other credited open-source engines. The original repository URL redirects here. The Android application ID
+remains `org.diemobile`.
 
 ## Start exploring
 
@@ -50,19 +50,21 @@ System visibility follows Android's permissions and sandbox.
 ## Install a pre-release
 
 Download the ARM64 APK and its checksum/build manifest from
-[GitHub Releases](https://github.com/sperglord8008s/DiE-Android-/releases).
-The published numbered checkpoint is **0.6.0-pre-alpha.10** (Android version code **16**), including [sourced package knowledge](docs/package-knowledge.md), [independent preview origin evidence](docs/content-origins.md), [large text/Hex and full report navigation](docs/text-paging.md), the [native archive workbench](docs/native-archives.md), [embedded finding links](docs/archive-launches.md) and [checked recovery previews/exports](docs/recovered-content.md).
+[GitHub Releases](https://github.com/sperglord8008s/GlassDigestor/releases).
+The published numbered checkpoint is **0.6.0-pre-alpha.11** (Android version code **17**), including [sourced package knowledge](docs/package-knowledge.md), [independent preview origin evidence](docs/content-origins.md), [large text/Hex and full report navigation](docs/text-paging.md), the [native archive workbench](docs/native-archives.md), [embedded finding links](docs/archive-launches.md) and [checked recovery previews/exports](docs/recovered-content.md).
 Android 8.0 / API 26 or later is required.
 
 Debug APKs have numbered, source-identified names, for example
 `GlassDigestor-0.6.0-pre-alpha.5-dev.g0123456789ab-arm64-v8a-debug.apk`.
-Current development builds use **0.6.0-pre-alpha.11** / code **17**, including
+Current development builds use **0.6.0-pre-alpha.12** / code **18**, including
 [direct gallery archive inspection and explicit byte-range previews](docs/gallery-inspection-ranges.md)
 and a separate [Android worker runtime laboratory](runtime-worker/README.md).
-The six worker/media-helper contracts passed on actual x86 Android API 26/35;
+Seven worker/media/compiled-manifest contracts passed on actual x86 Android API 26/35;
 [bounded gallery video frames/media observations](docs/gallery-media-previews.md)
-are covered by an actual platform-codec runtime check. Development now adds
-[observed APK → sourced community package knowledge](docs/apk-community-context.md).
+are covered by an actual platform-codec runtime check. Development now combines PhotoRec and Binwalk in an [actual recovered-file
+gallery with typed saves and payload ZIPs](docs/recovered-file-gallery.md).
+[Observed APK → sourced community package knowledge](docs/apk-community-context.md)
+remains available.
 Package knowledge retains all 5,402 original UAD-NG records, including duplicate IDs. Earlier published checkpoints remain unchanged.
 
 Tap the app title or **Options → Build details** to see the same version and
@@ -97,7 +99,7 @@ they do not establish malicious behavior, complete validity or safety.
 
 The [feature-parity checklist](docs/FEATURE-PARITY.md) distinguishes implemented,
 host-verified and device-unverified functionality. The verified workbench is on
-the default branch through [PR #9](https://github.com/sperglord8008s/DiE-Android-/pull/9).
+the default branch through [PR #9](https://github.com/sperglord8008s/GlassDigestor/pull/9).
 Gallery-range development continues on `codex/gallery-inspection-ranges`.
 
 ## Build and contribute

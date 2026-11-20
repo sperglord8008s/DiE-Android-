@@ -274,7 +274,7 @@ public final class ContentPreviewActivity extends Activity {
                     PreparedExport staged = null;
                     try {
                         staged =
-                                OwnedContent.exportRange(
+                                RecoveredFiles.namedRange(
                                         captured,
                                         new FileRange(captured.size, 0, captured.size),
                                         new File(getCacheDir(), "tool-exports"),
@@ -532,7 +532,9 @@ public final class ContentPreviewActivity extends Activity {
                         if (chosen.equals("Automatic")) {
                             String lower = type.toLowerCase(Locale.ROOT);
                             String preferred = getIntent().getStringExtra("preferred");
-                            if (lower.contains("image") || lower.equals("png")) chosen = "Image";
+                            if (lower.contains("image")
+                                    || lower.equals("png")
+                                    || "IMAGE".equals(preferred)) chosen = "Image";
                             else if (lower.contains("audio")
                                     || lower.contains("media")
                                     || "AUDIO".equals(preferred)

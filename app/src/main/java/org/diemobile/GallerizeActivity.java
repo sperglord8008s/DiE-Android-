@@ -22,7 +22,7 @@ public final class GallerizeActivity extends Activity {
     private ContentGalleryAdapter galleryAdapter;
     private GallerizeSession session;
     private ContentMap map;
-    private String retained, name, mode = "gallery", group = "All";
+    private String retained, name, mode = "gallery", group = "Files";
     private int page, generation;
     private boolean busy, pickerOpen;
     private AtomicBoolean cancellation = new AtomicBoolean();
@@ -78,7 +78,7 @@ public final class GallerizeActivity extends Activity {
         if (saved != null) {
             retained = saved.getString("session");
             mode = saved.getString("mode", "gallery");
-            group = saved.getString("group", "All");
+            group = saved.getString("group", "Files");
             page = Math.max(0, saved.getInt("page"));
             if (saved.getString("prepared") != null)
                 try {
@@ -133,7 +133,7 @@ public final class GallerizeActivity extends Activity {
         LinearLayout tools = new LinearLayout(this);
         add(tools, button("Views", this::chooseView));
         add(tools, button("Tools / evidence", this::tools));
-        add(tools, button("Export", this::export));
+        add(tools, button("Export files (ZIP)", this::exportFiles));
         cancel =
                 button(
                         "Cancel",
@@ -151,14 +151,15 @@ public final class GallerizeActivity extends Activity {
                 root,
                 "gallerize.scope",
                 "Evidence and presentation limits",
-                "Cards retain every accepted PhotoRec header, reported bounded artifact,"
-                    + " nested/overlapping range and unassigned gap. Header acceptance is not"
-                    + " complete-file validation. Raw findings include every rejection and the full"
-                    + " catalog. Text candidates are strict printable UTF-8 runs outside bounded"
-                    + " artifacts; other encodings and text within artifacts remain in Classified"
-                    + " strings. Thumbnail/preview decoding is a separate platform observation."
-                    + " Grid resolution partitions all bytes without sampling; entropy from one"
-                    + " byte is always zero. Tools and view modes remain manually selectable.",
+                "Files combine PhotoRec and Binwalk recoveries. Cards retain every accepted header,"
+                    + " reported bounded artifact, nested/overlapping range and unassigned gap."
+                    + " Header acceptance is not complete-file validation. Raw findings include"
+                    + " every rejection and the full catalog. Text candidates are strict printable"
+                    + " UTF-8 runs outside bounded artifacts; other encodings and text within"
+                    + " artifacts remain in Classified strings. Thumbnail/preview decoding is a"
+                    + " separate platform observation. Grid resolution partitions all bytes without"
+                    + " sampling; entropy from one byte is always zero. Tools and view modes remain"
+                    + " manually selectable.",
                 true,
                 false);
         gridControls = new LinearLayout(this);
@@ -192,6 +193,7 @@ public final class GallerizeActivity extends Activity {
                         this,
                         android.R.layout.simple_spinner_dropdown_item,
                         new String[] {
+                            "Files",
                             "All",
                             "Images",
                             "Audio / video",
@@ -305,6 +307,7 @@ public final class GallerizeActivity extends Activity {
                                         getIntent().getLongExtra("sourceSize", -1),
                                         retained,
                                         new BinaryWorkerClient(this, "photorec"),
+                                        new BinaryWorkerClient(this, "binwalk"),
                                         stop::get);
                         digest = session.digest(stop::get);
                     } catch (Exception error) {
@@ -361,6 +364,11 @@ public final class GallerizeActivity extends Activity {
 
     private boolean matches(ContentMap.Card card) {
         switch (group) {
+            case "Files":
+                return RecoveredFiles.fileCard(card)
+                        || card.kind == ContentMap.Kind.INPUT
+                                && map.boundedCount == 0
+                                && map.textCount == 0;
             case "Images":
                 return card.kind == ContentMap.Kind.IMAGE;
             case "Audio / video":
@@ -401,9 +409,15 @@ public final class GallerizeActivity extends Activity {
         gallery.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
         gallery.setHorizontalSpacing(dp(6));
         gallery.setVerticalSpacing(dp(6));
-        galleryAdapter = new ContentGalleryAdapter(this, shown, session.input, worker);
+        galleryAdapter =
+                new ContentGalleryAdapter(this, shown, session.input, worker, this::exportRange);
         gallery.setAdapter(galleryAdapter);
-        gallery.setOnItemClickListener((parent, view, index, id) -> details(shown.get(index)));
+        gallery.setOnItemClickListener((parent, view, index, id) -> openFile(shown.get(index)));
+        gallery.setOnItemLongClickListener(
+                (parent, view, index, id) -> {
+                    details(shown.get(index));
+                    return true;
+                });
         content.addView(gallery, new LinearLayout.LayoutParams(-1, -1));
         previous.setEnabled(page > 0);
         next.setEnabled(page + 1 < pages);
@@ -615,6 +629,13 @@ public final class GallerizeActivity extends Activity {
                         .putExtra("offset", offset));
     }
 
+    private void openFile(ContentMap.Card card) {
+        if (busy) return;
+        if (card.kind == ContentMap.Kind.ARCHIVE) openArchive(card);
+        else if (card.length != null) preview(card);
+        else actions(card);
+    }
+
     private void details(ContentMap.Card card) {
         if (busy) return;
         try {
@@ -788,8 +809,7 @@ public final class GallerizeActivity extends Activity {
         worker.execute(
                 () -> {
                     try {
-                        String raw =
-                                session.raw().row(card.nativeRow, stop::get).json().toString(2);
+                        String raw = session.findings(card, stop::get).toString(2);
                         runOnUiThread(
                                 () -> {
                                     if (!isDestroyed() && ticket == generation) {
@@ -800,7 +820,8 @@ public final class GallerizeActivity extends Activity {
                                         scroll.addView(value);
                                         new AlertDialog.Builder(this)
                                                 .setTitle(
-                                                        "Original PhotoRec row #" + card.nativeRow)
+                                                        "Original native findings · "
+                                                                + card.findings.size())
                                                 .setView(scroll)
                                                 .setPositiveButton("Close", null)
                                                 .show();
@@ -837,18 +858,22 @@ public final class GallerizeActivity extends Activity {
                                             records.value("galleryCard", card.json());
                                             records.value(
                                                     "galleryProvenance", session.provenance());
-                                            if (card.nativeRow >= 0)
+                                            if (card.nativeRow >= 0) {
                                                 records.value(
                                                         "selectedFinding",
                                                         new JSONObject()
+                                                                .put("engine", card.nativeEngine)
                                                                 .put("index", card.nativeRow)
                                                                 .put(
                                                                         "originalRecordJson",
-                                                                        session.raw()
-                                                                                .row(
-                                                                                        card.nativeRow,
+                                                                        session.primaryFinding(
+                                                                                        card,
                                                                                         stop::get)
                                                                                 .encoded));
+                                                records.value(
+                                                        "nativeFindings",
+                                                        session.findings(card, stop::get));
+                                            }
                                         },
                                         stop::get);
                         ContentOrigin capturedOrigin = origin;
@@ -870,7 +895,10 @@ public final class GallerizeActivity extends Activity {
                                                                 staged.file.getAbsolutePath())
                                                         .putExtra("sha256", staged.sha256)
                                                         .putExtra("sourceSize", staged.size)
-                                                        .putExtra("name", card.label)
+                                                        .putExtra("name", RecoveredFiles.name(card))
+                                                        .putExtra(
+                                                                "exportName",
+                                                                RecoveredFiles.name(card))
                                                         .putExtra(
                                                                 "originalSha256",
                                                                 session.input.sha256)
@@ -905,13 +933,18 @@ public final class GallerizeActivity extends Activity {
             "MPV codecs / streams / tags",
             "Browse archives / compressed streams",
             "Native hex",
-            "All native tools"
+            "All native tools",
+            "Reports / grid exports"
         };
         new AlertDialog.Builder(this)
                 .setTitle("Source tools")
                 .setItems(
                         labels,
                         (dialog, which) -> {
+                            if (which == 8) {
+                                export();
+                                return;
+                            }
                             if (which == 6) {
                                 nativeHex(0);
                                 return;
@@ -1010,6 +1043,25 @@ public final class GallerizeActivity extends Activity {
                 });
     }
 
+    private void exportFiles() {
+        if (busy || pickerOpen || session == null || map == null) return;
+        List<ContentMap.Card> files =
+                new ArrayList<>(mode.equals("gallery") ? selected : map.cards);
+        int ticket = begin("Staging recovered files from all pages of this group…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(
+                () -> {
+                    try {
+                        PreparedExport result =
+                                RecoveredFiles.zip(
+                                        session.input, files, exportDirectory, stop::get);
+                        staged(ticket, result);
+                    } catch (Exception error) {
+                        failed(ticket, error);
+                    }
+                });
+    }
+
     private void exportRange(ContentMap.Card card) {
         if (busy || pickerOpen) return;
         int ticket = begin("Staging exact original range…");
@@ -1017,20 +1069,9 @@ public final class GallerizeActivity extends Activity {
         worker.execute(
                 () -> {
                     try {
-                        session.input.checkIdentity(stop::get);
                         PreparedExport result =
-                                PreparedExport.range(
-                                        exportDirectory,
-                                        "range-" + card.offset + ".bin",
-                                        session.input.file,
-                                        card.range(session.input.size),
-                                        stop::get);
-                        try {
-                            session.input.checkIdentity(stop::get);
-                        } catch (Exception error) {
-                            result.discard();
-                            throw error;
-                        }
+                                RecoveredFiles.file(
+                                        session.input, card, exportDirectory, stop::get);
                         staged(ticket, result);
                     } catch (Exception error) {
                         failed(ticket, error);
