@@ -29,6 +29,7 @@ final class ContentMap {
         final long offset;
         final Long length;
         final int nativeRow;
+        final boolean explicitInterval;
 
         Card(
                 Kind kind,
@@ -38,6 +39,19 @@ final class ContentMap {
                 Long length,
                 String preview,
                 int nativeRow) {
+            this(kind, label, format, offset, length, preview, nativeRow, false);
+        }
+
+        Card(
+                Kind kind,
+                String label,
+                String format,
+                long offset,
+                Long length,
+                String preview,
+                int nativeRow,
+                boolean explicitInterval) {
+            this.explicitInterval = explicitInterval;
             this.kind = kind;
             this.label = label;
             this.format = format;
@@ -45,6 +59,32 @@ final class ContentMap {
             this.length = length;
             this.preview = preview;
             this.nativeRow = nativeRow;
+        }
+
+        static Card inspection(Card associated, long sourceSize, long offset, long length)
+                throws Exception {
+            if (sourceSize < 0
+                    || offset < 0
+                    || length <= 0
+                    || offset > sourceSize
+                    || length > sourceSize - offset)
+                throw new IOException(
+                        "Choose a nonempty inspection interval within the captured input");
+            FileRange range = new FileRange(sourceSize, offset, length);
+            range.requireOperationBudget();
+            return new Card(
+                    Kind.OTHER,
+                    "Inspection bytes [0x"
+                            + Long.toHexString(offset)
+                            + ", 0x"
+                            + Long.toHexString(offset + length)
+                            + ")",
+                    "bytes",
+                    offset,
+                    length,
+                    "",
+                    associated.nativeRow,
+                    true);
         }
 
         JSONObject json() throws Exception {
@@ -56,23 +96,51 @@ final class ContentMap {
                     .put("sizeBytes", length == null ? JSONObject.NULL : length)
                     .put("nativeRowIndex", nativeRow < 0 ? JSONObject.NULL : nativeRow)
                     .put("textPreview", preview)
+                    .put("explicitInspectionInterval", explicitInterval)
+                    .put(
+                            "nativeWitnessRelationship",
+                            nativeRow < 0
+                                    ? JSONObject.NULL
+                                    : explicitInterval
+                                            ? "Associated original finding; selected inspection"
+                                                    + " bytes need not match its reported range"
+                                            : "Original native finding for this card")
                     .put(
                             "extentMeaning",
-                            kind == Kind.INPUT
-                                    ? "Exact selected input, not an inferred embedded-file boundary"
-                                    : kind == Kind.TEXT
-                                            ? "Exact printable UTF-8 run outside reported bounded"
-                                                    + " artifacts; candidate text, not a recovered"
-                                                    + " text-file boundary"
-                                            : kind == Kind.UNASSIGNED
-                                                    ? "Complement of reported bounded artifacts;"
-                                                            + " not proof of meaningless data"
-                                                    : length == null
-                                                            ? "Accepted native header only; extent"
-                                                                  + " unknown, no automatic carving"
-                                                            : "Native reported stored extent;"
-                                                                  + " full-file checks and complete"
-                                                                  + " decoding remain separate");
+                            explicitInterval
+                                    ? "Explicit user-selected inspection interval; not an inferred"
+                                            + " or native recovered-file boundary"
+                                    : kind == Kind.INPUT
+                                            ? "Exact selected input, not an inferred embedded-file"
+                                                    + " boundary"
+                                            : kind == Kind.TEXT
+                                                    ? "Exact printable UTF-8 run outside reported"
+                                                            + " bounded artifacts; candidate text,"
+                                                            + " not a recovered text-file boundary"
+                                                    : kind == Kind.UNASSIGNED
+                                                            ? "Complement of reported bounded"
+                                                                    + " artifacts; not proof of"
+                                                                    + " meaningless data"
+                                                            : length == null
+                                                                    ? "Accepted native header only;"
+                                                                            + " extent unknown, no"
+                                                                            + " automatic carving"
+                                                                    : nativeRow < 0
+                                                                            ? "Explicit selected"
+                                                                                  + " stored bytes;"
+                                                                                  + " no native"
+                                                                                  + " recovered-file"
+                                                                                  + " boundary"
+                                                                                  + " asserted"
+                                                                            : "Native reported"
+                                                                                    + " stored"
+                                                                                    + " extent;"
+                                                                                    + " full-file"
+                                                                                    + " checks and"
+                                                                                    + " complete"
+                                                                                    + " decoding"
+                                                                                    + " remain"
+                                                                                    + " separate");
         }
 
         FileRange range(long sourceSize) {
