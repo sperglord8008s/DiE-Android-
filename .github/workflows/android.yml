@@ -44,6 +44,7 @@ jobs:
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;28.2.13676358' 'cmake;3.22.1'
       - run: DIE_REQUIRE_AAPT2=true bash scripts/test-resources.sh
       - run: bash scripts/test.sh
+      - run: bash scripts/test-utf8-pages.sh
       - run: bash scripts/fetch-engine.sh
       - run: bash scripts/fetch-knowledge.sh
       - run: bash scripts/fetch-metadata.sh
