@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/sperglord8008s/DiE-Android-/actions/workflows/android.yml"><img alt="Android and host checks" src="https://github.com/sperglord8008s/DiE-Android-/actions/workflows/android.yml/badge.svg?branch=codex%2Fworkbench-parity" /></a>
+  <a href="https://github.com/sperglord8008s/DiE-Android-/actions/workflows/android.yml"><img alt="Android and host checks" src="https://github.com/sperglord8008s/DiE-Android-/actions/workflows/android.yml/badge.svg?branch=main" /></a>
   <img alt="Android API 26+; ARM64" src="https://img.shields.io/badge/Android-API_26%2B_%C2%B7_ARM64-59e1ca?labelColor=101920" />
   <a href="LICENSE"><img alt="GPL-3.0-only frontend" src="https://img.shields.io/badge/license-GPL--3.0--only-ffbc66?labelColor=101920" /></a>
 </p>
@@ -51,13 +51,15 @@ System visibility follows Android's permissions and sandbox.
 
 Download the ARM64 APK and its checksum/build manifest from
 [GitHub Releases](https://github.com/sperglord8008s/DiE-Android-/releases).
-The published numbered checkpoint is **0.6.0-pre-alpha.7** (Android version code **13**), including [sourced package knowledge](docs/package-knowledge.md), [independent preview origin evidence](docs/content-origins.md), [large text/Hex and full report navigation](docs/text-paging.md), the [native archive workbench](docs/native-archives.md), [embedded finding links](docs/archive-launches.md) and [checked recovery previews/exports](docs/recovered-content.md).
+The published numbered checkpoint is **0.6.0-pre-alpha.8** (Android version code **14**), including [sourced package knowledge](docs/package-knowledge.md), [independent preview origin evidence](docs/content-origins.md), [large text/Hex and full report navigation](docs/text-paging.md), the [native archive workbench](docs/native-archives.md), [embedded finding links](docs/archive-launches.md) and [checked recovery previews/exports](docs/recovered-content.md).
 Android 8.0 / API 26 or later is required.
 
 Debug APKs have numbered, source-identified names, for example
 `GlassDigestor-0.6.0-pre-alpha.5-dev.g0123456789ab-arm64-v8a-debug.apk`.
-Current development builds use **0.6.0-pre-alpha.8** / code **14** and add
-[direct gallery archive inspection and explicit byte-range previews](docs/gallery-inspection-ranges.md).
+Current development builds use **0.6.0-pre-alpha.9** / code **15**, including
+[direct gallery archive inspection and explicit byte-range previews](docs/gallery-inspection-ranges.md)
+and a separate [Android worker runtime laboratory](runtime-worker/README.md).
+The new emulator runtime checks are pending execution.
 Package knowledge retains all 5,402 original UAD-NG records, including duplicate IDs. Earlier published checkpoints remain unchanged.
 
 Tap the app title or **Options → Build details** to see the same version and
@@ -71,7 +73,7 @@ from separate CI runners can differ. The historical
 ## What has been verified
 
 The published checkpoint passed **all five GitHub Actions jobs** and
-**167 Android host checks**, using real JNI/parsers
+**170 Android host checks**, using real JNI/parsers
 where documented. ARM64 compilation, APK signature/offline packaging, static
 16 KiB alignment, source identities and independent host fixtures are checked.
 
