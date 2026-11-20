@@ -536,7 +536,8 @@ public final class InvestigationActivity extends Activity {
                                                 range,
                                                 inputName + " · " + row.name + " #" + row.index,
                                                 false,
-                                                recoveredName));
+                                                recoveredName,
+                                                row));
                     }
                     labels.add("Export exact stored range");
                     actions.add(
@@ -636,7 +637,7 @@ public final class InvestigationActivity extends Activity {
                                 .putExtra("path", input.file.getAbsolutePath()).putExtra("name", inputName)
                                 .putExtra("sha256", input.sha256).putExtra("sourceSize", input.size)
                                 .putExtra("offset", launch.offset).putExtra("length", launch.length)
-                                .putExtra("archiveLaunch", launch.raw), 3);
+                                .putExtra("archiveLaunch", launch.raw).putExtra("originPreviewResult", true), 3);
                         status.setText("Opened an explicit parsing tail at 0x" + Long.toHexString(launch.offset)
                                 + "; the original finding's extent is unchanged");
                     } catch (RuntimeException failure) {
@@ -688,7 +689,14 @@ public final class InvestigationActivity extends Activity {
             String display,
             boolean gallery,
             String suggestedName) {
+        openStoredContent(sourceInput, range, display, gallery, suggestedName, null);
+    }
+
+    private void openStoredContent(InputSnapshot sourceInput, FileRange range, String display,
+            boolean gallery, String suggestedName, EvidenceRows.Row finding) {
         if (busy || pickerOpen) return;
+        final String findingKind = source == null ? "unavailable" : source.kind;
+        final String capturedProvenance = provenance, capturedMetadata = metadata;
         int ticket =
                 begin(
                         gallery
@@ -698,6 +706,7 @@ public final class InvestigationActivity extends Activity {
         worker.execute(
                 () -> {
                     InputSnapshot staged = null;
+                    ContentOrigin origin = null;
                     try {
                         staged =
                                 OwnedContent.stageRange(
@@ -707,13 +716,24 @@ public final class InvestigationActivity extends Activity {
                                                 getCacheDir(),
                                                 gallery ? "gallery-handoffs" : "content-previews"),
                                         stop::get);
+                        if (!gallery && finding != null) {
+                            origin = ContentOrigin.create(new File(getCacheDir(), "content-origins"), staged,
+                                    ContentOrigin.stored(sourceInput, range), records ->
+                                            records.value("selectedFinding", new JSONObject()
+                                                    .put("kind", findingKind).put("index", finding.index)
+                                                    .put("originalRecordJson", finding.encoded)
+                                                    .put("provenanceJson", capturedProvenance)
+                                                    .put("metadataJson", capturedMetadata)), stop::get);
+                        }
                         EvidenceRows.check(stop::get);
+                        ContentOrigin capturedOrigin = origin;
                         InputSnapshot owned = staged;
                         staged = null;
                         runOnUiThread(
                                 () -> {
                                     if (isDestroyed() || ticket != generation) {
                                         owned.close();
+                                        if (capturedOrigin != null) capturedOrigin.close();
                                         return;
                                     }
                                     busy = false;
@@ -738,6 +758,8 @@ public final class InvestigationActivity extends Activity {
                                                         .putExtra("originalSize", sourceInput.size)
                                                         .putExtra("originalOffset", range.offset)
                                                         .putExtra("originalKind", "stored-range");
+                                        if (capturedOrigin != null)
+                                            intent.putExtra("contentOrigin", capturedOrigin.descriptor());
                                         if (gallery) intent.putExtra("ownedInputHandoff", true);
                                         if (suggestedName != null)
                                             intent.putExtra("exportName", suggestedName);
@@ -747,13 +769,15 @@ public final class InvestigationActivity extends Activity {
                                                         + owned.size
                                                         + " bytes · SHA-256 "
                                                         + owned.sha256);
-                                    } catch (RuntimeException error) {
+                                    } catch (Exception error) {
                                         owned.close();
+                                        if (capturedOrigin != null) capturedOrigin.close();
                                         status.setText("Content view could not open: " + error);
                                     }
                                 });
                     } catch (Exception error) {
                         if (staged != null) staged.close();
+                        if (origin != null) origin.close();
                         failed(ticket, "Content acquisition failed: " + error.getMessage());
                     }
                 });

@@ -24,7 +24,7 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | OS Binder service registrations | typed immutable normal-UID command captures, explicit registration/diagnostic/unknown separation, exact source/output identities, original rows/ranges, complete exports and pinned offline AOSP reference; trusted-process IO/parser/ownership fixtures and three Android host cases pass (124 full-suite checks); actual OS command/UID/SELinux/SAF/handset behavior remains unverified; see [contract](binder-registry.md) |
 | Live process/service diagnostics and privileged files | pending; explicit bridge required |
 | ZIP/APK nested member selection/extraction | complete bounded inventories, searchable 50-row folder pages, nested Back/recreation, private extraction with full-directory revalidation, size/CRC32/SHA-256 checks; host malformed/stale/duplicate/cancel fixtures and five Robolectric navigation/lifecycle/budget cases verified; handset flow and persistent cross-scan parent history pending |
-| Broader archive engine / codecs | implemented native worker/typed source-bound inventory, content-based virtual tree/All entries, indexed duplicate-name acquisition, nested Back/retention, explicit embedded scope, checked preview/member return and complete native-chain/failed-attempt exports; pinned libarchive 3.8.11 + four source-built codecs/platform zlib; 25 captures / 37 payloads independently verified at core and model levels, plus five actual-JNI API 28 browser cases, Main/CDiE member-result boundary and worker refusal/descriptor guards pass; full 147-case suite, ARM64 assembly/lint and fifteen-library APK static checks pass; all five source CI jobs passed and pre-alpha.3 published; real UID/Binder/SAF/handset, exhaustive reader subtype coverage, arbitrary deobfuscation/passwords and persistent per-preview native-origin history remain incomplete/unverified; see [contracts](native-archives.md) |
+| Broader archive engine / codecs | implemented native worker/typed source-bound inventory, content-based virtual tree/All entries, indexed duplicate-name acquisition, nested Back/retention, explicit embedded scope, checked preview/member return and complete native-chain/failed-attempt exports; pinned libarchive 3.8.11 + four source-built codecs/platform zlib; 25 captures / 37 payloads independently verified at core and model levels, plus five actual-JNI API 28 browser cases, Main/CDiE member-result boundary and worker refusal/descriptor guards pass; full 147-case suite, ARM64 assembly/lint and fifteen-library APK static checks pass; all five source CI jobs passed and pre-alpha.3 published; real UID/Binder/SAF/handset, exhaustive reader subtype coverage, arbitrary deobfuscation/passwords and current-chain per-preview origin captures implemented; all-visited/cross-Activity history remains incomplete; device behavior remains unverified; see [contracts](native-archives.md) |
 | Native resource payload extraction | selected resource or manually validated physical range staged for exact SAF byte export; host payload equality and Robolectric picker-delay/recreation/output checks verified; real document-provider flow pending |
 | Binary manifest/resource tables | source-built Google binary-resources 32.5.1 plus bounded wire inventory; fourteen tables cover chunks/pools/styles, XML events/duplicate attributes, packages/configurations, dense/offset16/sparse/compact entries, absent/aliased slots and every duplicate bag mapping; local resource-ID/value links, whole-parent APK SHA-256/CRC acquisition and complete JSON/encoded-byte/UTF-16LE exports; actual engine/report/ownership/boundary host fixtures, independent ordinary/sparse/deduplicated AAPT2 references and five Robolectric cases verified; opaque overlay/staged aliases, canonical XML reconstruction, framework/split resolution and production worker/handset flows remain incomplete/unverified |
 | DEX metadata, Unicode class names and bytecode | pinned Google smali/dexlib2 + baksmali 3.0.10; Unicode/MUTF-8 report indexing and explicit integrity/table evidence; lazy Android tables, classified strings, payloads/debug/handlers, reference/caller links, exact offsets, range actions and actual method smali; classic 035–040/041 shared containers host verified; four report and seven viewer Robolectric cases verified; compact/optimized formats, inherited/framework/cross-split resolution and handset flow pending |
@@ -260,7 +260,7 @@ viewer/result cases and the full **151-case** Android host suite pass with zero
 failures/errors/skips, plus required generic/native checks, archive regressions,
 ARM64 assembly/lint and fifteen-library APK static verification. All five source CI jobs passed; pre-alpha.4 is published. See
 [archive launch contracts](archive-launches.md). Device behavior and per-preview
-native-origin history remain unverified/incomplete.
+native-origin captures are now implemented for independent previews; cross-Activity history and device behavior remain incomplete/unverified.
 
 
 Five text-paging cases bring the complete Android host suite to **156 tests**,
@@ -269,6 +269,23 @@ source expiry, recreation, unchanged full report exports and first-frame Close
 ownership pass. Independent 128 MiB-JVM Unicode/raw-byte oracles reconstruct
 161,892 complete pages and a fully written 24,117,266-byte file. Required
 generic/native checks, ARM64 assembly/lint and the fifteen-library APK static
-verifier pass; source CI is the next gate for this slice. These do not establish
+verifier pass. All five text-paging source CI jobs passed in run `44661425550`
+and PR #7 merged. These do not establish
 real SAF, device rendering, process death or API 26/35 acceptance.
 See [large text/report contracts](text-paging.md).
+
+
+Independent preview origins are implemented for bounded Binwalk/PhotoRec
+findings, Gallerize cards and native archive member previews. Full selected-row
+provenance/metadata and current-chain raw inspection/acquisition/failure/launch
+witnesses survive parent expiry, retain exact UTF-16 and logical-versus-physical
+relationships, and have checked complete JSON Lines exports. Four new viewer
+cases and one actual nested libarchive case bring the full suite to **161**,
+with zero failures/errors/skips; actual Binwalk/PhotoRec/Gallerize cases also
+assert the produced captures. Independent raw-byte/Python all-UTF-16/unknown
+field/mutation/ownership/refusal checks, required generic/native/archive model
+checks, ARM64 assembly/lint and the fifteen-library APK verifier pass. Source
+CI is the next gate for this slice. Main return-and-rescan, Classic ZIP and
+cross-Activity ancestry inheritance remain incomplete; actual device/SAF/UID/
+process-death/cache-pressure acceptance is unverified.
+See [origin contracts](content-origins.md).
