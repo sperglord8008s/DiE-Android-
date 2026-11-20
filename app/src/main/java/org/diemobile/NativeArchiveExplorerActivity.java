@@ -600,12 +600,45 @@ public final class NativeArchiveExplorerActivity extends Activity {
                 () -> {
                     File handoff = null;
                     String sha = null, error = null;
+                    ContentOrigin origin = null;
                     try {
                         if (mode == 2) session.browse(member, stop::get);
                         else {
                             File target = new File(getCacheDir(), "archive-snapshots");
                             try (NativeArchiveStore.Acquired acquired =
                                     session.acquire(member, target, stop::get)) {
+                                if (mode == 0
+                                        || getIntent()
+                                                .getBooleanExtra("originPreviewResult", false)) {
+                                    origin =
+                                            ContentOrigin.create(
+                                                    new File(getCacheDir(), "content-origins"),
+                                                    acquired.input,
+                                                    ContentOrigin.member(
+                                                            session.current().input, member.index),
+                                                    records -> {
+                                                        records.json(
+                                                                "archiveTrail",
+                                                                out ->
+                                                                        session
+                                                                                .writeCapturedEvidence(
+                                                                                        out,
+                                                                                        stop::get));
+                                                        records.value(
+                                                                "selectedMember",
+                                                                new org.json.JSONObject()
+                                                                        .put(
+                                                                                "entryIndex",
+                                                                                member.index)
+                                                                        .put(
+                                                                                "entryRawJson",
+                                                                                member.raw)
+                                                                        .put(
+                                                                                "acquisitionRawJson",
+                                                                                acquired.extractionReport));
+                                                    },
+                                                    stop::get);
+                                }
                                 handoff =
                                         File.createTempFile("archive-member-", ".snapshot", target);
                                 Files.move(
@@ -618,15 +651,19 @@ public final class NativeArchiveExplorerActivity extends Activity {
                         }
                     } catch (Exception failure) {
                         if (handoff != null) handoff.delete();
+                        if (origin != null) origin.close();
+                        origin = null;
                         handoff = null;
                         error = failure.toString();
                     }
                     File result = handoff;
+                    ContentOrigin capturedOrigin = origin;
                     String identity = sha, failure = error;
                     runOnUiThread(
                             () -> {
                                 if (!current(ticket)) {
                                     if (result != null) result.delete();
+                                    if (capturedOrigin != null) capturedOrigin.close();
                                     return;
                                 }
                                 settled();
@@ -637,6 +674,7 @@ public final class NativeArchiveExplorerActivity extends Activity {
                                 }
                                 if (stop.get()) {
                                     if (result != null) result.delete();
+                                    if (capturedOrigin != null) capturedOrigin.close();
                                     status.setText("Archive operation cancelled");
                                     return;
                                 }
@@ -665,6 +703,16 @@ public final class NativeArchiveExplorerActivity extends Activity {
                                                 .putExtra(
                                                         "archiveSourceSha256",
                                                         session.current().input.sha256);
+                                try {
+                                    if (capturedOrigin != null)
+                                        intent.putExtra(
+                                                "contentOrigin", capturedOrigin.descriptor());
+                                } catch (Exception invalid) {
+                                    result.delete();
+                                    if (capturedOrigin != null) capturedOrigin.close();
+                                    status.setText("Origin handoff failed: " + invalid);
+                                    return;
+                                }
                                 if (mode == 1) {
                                     setResult(RESULT_OK, intent);
                                     finish();

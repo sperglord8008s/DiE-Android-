@@ -24,6 +24,9 @@ final class ArchivePreviewLauncher {
         worker.execute(
                 () -> {
                     InputSnapshot staged = null;
+                    ContentOrigin origin = null;
+                    String originDescriptor = result.getStringExtra("contentOrigin");
+                    File origins = new File(owner.getCacheDir(), "content-origins");
                     try {
                         String path = result.getStringExtra("path");
                         if (path == null)
@@ -38,6 +41,15 @@ final class ArchivePreviewLauncher {
                                         new File(owner.getCacheDir(), "archive-snapshots"),
                                         new File(owner.getCacheDir(), "content-previews"),
                                         stop);
+                        if (originDescriptor != null)
+                            origin =
+                                    ContentOrigin.restore(
+                                            origins,
+                                            originDescriptor,
+                                            staged.sha256,
+                                            staged.size,
+                                            stop);
+                        ContentOrigin capturedOrigin = origin;
                         InputSnapshot input = staged;
                         staged = null;
                         String name = display;
@@ -45,6 +57,7 @@ final class ArchivePreviewLauncher {
                                 () -> {
                                     if (!current.getAsBoolean() || stop.getAsBoolean()) {
                                         input.close();
+                                        if (capturedOrigin != null) capturedOrigin.close();
                                         return;
                                     }
                                     settled.run();
@@ -59,8 +72,9 @@ final class ArchivePreviewLauncher {
                                                         .putExtra("name", name)
                                                         .putExtra("originalSha256", parentSha)
                                                         .putExtra("originalSize", parentSize)
+                                                        .putExtra("originalKind", "archive-member")
                                                         .putExtra(
-                                                                "originalKind", "archive-member"));
+                                                                "contentOrigin", originDescriptor));
                                         status.accept(
                                                 "Acquired exact archive member · "
                                                         + input.size
@@ -68,11 +82,15 @@ final class ArchivePreviewLauncher {
                                                         + input.sha256);
                                     } catch (RuntimeException error) {
                                         input.close();
+                                        if (capturedOrigin != null) capturedOrigin.close();
                                         status.accept("Archive preview failed: " + error);
                                     }
                                 });
                     } catch (Exception error) {
                         if (staged != null) staged.close();
+                        if (origin != null) origin.close();
+                        else if (originDescriptor != null)
+                            ContentOrigin.discard(origins, originDescriptor);
                         owner.runOnUiThread(
                                 () -> {
                                     if (current.getAsBoolean()) {

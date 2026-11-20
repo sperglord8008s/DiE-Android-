@@ -30,7 +30,10 @@ public final class ContentPreviewActivity extends Activity {
     private String name, mode = "Automatic", retainedPath;
     private TextView status, identity;
     private TextView exportNotice;
-    private Button exportBytes;
+    private Button exportBytes, originButton;
+    private ContentOrigin origin;
+    private boolean originBusy;
+    private String originNotice = "No full discovery capture accompanied this preview";
     private PreparedExport contentExport;
     private boolean exportBusy, exportPickerOpen;
     private int exportGeneration;
@@ -115,9 +118,9 @@ public final class ContentPreviewActivity extends Activity {
                                     saved.getLong("contentExportSize"));
                     exportPickerOpen = true;
                     restoredExportNotice =
-                            "Captured byte export is ready; finish choosing its destination";
+                            "Captured export is ready; finish choosing its destination";
                 } catch (IOException error) {
-                    restoredExportNotice = "Prepared byte export expired; prepare it again";
+                    restoredExportNotice = "Prepared export expired; prepare it again";
                 }
         }
         LinearLayout root = new LinearLayout(this);
@@ -146,6 +149,12 @@ public final class ContentPreviewActivity extends Activity {
         identity = text("Checking owned preview bytes…", 12);
         identity.setTextIsSelectable(true);
         root.addView(identity);
+        originButton = button("Origin / captured evidence", this::showOrigin);
+        originButton.setTag("content-origin");
+        originButton.setEnabled(false);
+        originButton.setVisibility(
+                getIntent().getStringExtra("contentOrigin") == null ? View.GONE : View.VISIBLE);
+        root.addView(originButton);
         LinearLayout tools = new LinearLayout(this);
         add(tools, button("View as…", this::chooseMode));
         add(tools, button("Inspect / metadata", this::tools));
@@ -176,9 +185,34 @@ public final class ContentPreviewActivity extends Activity {
                                         getIntent().getLongExtra("sourceSize", -1),
                                         getIntent().getStringExtra("sha256"),
                                         cancellation::get);
+                        String descriptor = getIntent().getStringExtra("contentOrigin");
+                        if (descriptor != null) {
+                            try {
+                                origin =
+                                        ContentOrigin.restore(
+                                                new File(getCacheDir(), "content-origins"),
+                                                descriptor,
+                                                input.sha256,
+                                                input.size,
+                                                cancellation::get);
+                                originNotice =
+                                        "Captured origin · "
+                                                + origin.relationship
+                                                + " · "
+                                                + origin.size
+                                                + " evidence bytes · SHA-256 "
+                                                + origin.sha256;
+                            } catch (Exception unavailable) {
+                                originNotice =
+                                        "Origin evidence unavailable: " + unavailable.getMessage();
+                            }
+                        }
                         runOnUiThread(
                                 () -> {
                                     if (isDestroyed() || ticket != generation) return;
+                                    originButton.setEnabled(origin != null);
+                                    if (origin == null && descriptor != null)
+                                        originButton.setText(originNotice);
                                     identity.setText(
                                             input.size
                                                     + " exact bytes · SHA-256 "
@@ -194,7 +228,9 @@ public final class ContentPreviewActivity extends Activity {
                                                                                             0))
                                                             : " · derived archive member; original"
                                                                     + " physical offset"
-                                                                    + " unavailable"));
+                                                                    + " unavailable")
+                                                    + "\n"
+                                                    + originNotice);
                                     exportBytes.setEnabled(!exportBusy && !exportPickerOpen);
                                     render();
                                 });
@@ -298,13 +334,14 @@ public final class ContentPreviewActivity extends Activity {
         exportPickerOpen = false;
         if (staged == null) {
             exportBytes.setEnabled(input != null);
-            exportMessage("Prepared byte export expired; prepare it again");
+            exportMessage("Prepared export expired; prepare it again");
             return;
         }
+        String exportLabel = "Export";
         if (result != RESULT_OK || data == null || data.getData() == null) {
             staged.discard();
             exportBytes.setEnabled(input != null);
-            exportMessage("Byte export cancelled");
+            exportMessage(exportLabel + " cancelled");
             return;
         }
         Uri destination = data.getData();
@@ -319,10 +356,11 @@ public final class ContentPreviewActivity extends Activity {
                             getContentResolver().openOutputStream(destination, "wt")) {
                         if (output == null) throw new IOException("Destination unavailable");
                         staged.copyTo(output, cancellation::get);
-                        message = "Byte export saved · " + staged.size + " exact bytes";
+                        message = exportLabel + " saved · " + staged.size + " exact bytes";
                     } catch (Exception error) {
                         message =
-                                "Byte export failed; destination may contain partial data: "
+                                exportLabel
+                                        + " failed; destination may contain partial data: "
                                         + error.getMessage();
                     } finally {
                         staged.discard();
@@ -336,6 +374,107 @@ public final class ContentPreviewActivity extends Activity {
                                     exportMessage(response);
                                 }
                             });
+                });
+    }
+
+    private void showOrigin() {
+        if (origin == null || originBusy || exportBusy || exportPickerOpen) return;
+        originBusy = true;
+        originButton.setEnabled(false);
+        ContentOrigin captured = origin;
+        worker.execute(
+                () -> {
+                    try {
+                        captured.checkIdentity(cancellation::get);
+                        runOnUiThread(
+                                () -> {
+                                    if (isDestroyed()) return;
+                                    originBusy = false;
+                                    originButton.setEnabled(true);
+                                    PagedTextDialog.show(
+                                            this,
+                                            worker,
+                                            "Captured origin · " + captured.size + " bytes",
+                                            captured.file,
+                                            captured.size,
+                                            cancellation::get,
+                                            () -> {},
+                                            this::exportOrigin,
+                                            () -> {});
+                                });
+                    } catch (Exception error) {
+                        runOnUiThread(
+                                () -> {
+                                    if (isDestroyed()) return;
+                                    originBusy = false;
+                                    originButton.setEnabled(true);
+                                    exportMessage(
+                                            "Origin evidence unavailable: " + error.getMessage());
+                                });
+                    }
+                });
+    }
+
+    private void exportOrigin() {
+        if (origin == null || exportBusy || exportPickerOpen) return;
+        ContentOrigin captured = origin;
+        int operation = ++exportGeneration;
+        exportBusy = true;
+        exportBytes.setEnabled(false);
+        exportMessage("Checking and staging complete origin evidence…");
+        worker.execute(
+                () -> {
+                    PreparedExport staged = null;
+                    try {
+                        staged =
+                                captured.export(
+                                        new File(getCacheDir(), "tool-exports"), cancellation::get);
+                        EvidenceRows.check(cancellation::get);
+                        PreparedExport ready = staged;
+                        staged = null;
+                        runOnUiThread(
+                                () -> {
+                                    if (isDestroyed() || operation != exportGeneration) {
+                                        ready.discard();
+                                        return;
+                                    }
+                                    exportBusy = false;
+                                    contentExport = ready;
+                                    exportPickerOpen = true;
+                                    exportMessage(
+                                            "Captured complete origin · "
+                                                    + ready.size
+                                                    + " bytes · SHA-256 "
+                                                    + captured.sha256);
+                                    try {
+                                        startActivityForResult(
+                                                new Intent(Intent.ACTION_CREATE_DOCUMENT)
+                                                        .addCategory(Intent.CATEGORY_OPENABLE)
+                                                        .setType(ready.mime)
+                                                        .putExtra(Intent.EXTRA_TITLE, ready.name),
+                                                1);
+                                    } catch (RuntimeException error) {
+                                        contentExport = null;
+                                        exportPickerOpen = false;
+                                        ready.discard();
+                                        exportBytes.setEnabled(input != null);
+                                        exportMessage(
+                                                "Origin export could not open: "
+                                                        + error.getMessage());
+                                    }
+                                });
+                    } catch (Exception error) {
+                        if (staged != null) staged.discard();
+                        runOnUiThread(
+                                () -> {
+                                    if (isDestroyed() || operation != exportGeneration) return;
+                                    exportBusy = false;
+                                    exportBytes.setEnabled(input != null && !exportPickerOpen);
+                                    exportMessage(
+                                            "Origin export preparation failed: "
+                                                    + error.getMessage());
+                                });
+                    }
                 });
     }
 
@@ -847,6 +986,7 @@ public final class ContentPreviewActivity extends Activity {
                                                             : InvestigationActivity.class;
                             Intent intent =
                                     new Intent(this, target)
+                                            .putExtra("originPreviewResult", true)
                                             .putExtra("path", input.file.getAbsolutePath())
                                             .putExtra("name", name)
                                             .putExtra("sha256", input.sha256)
@@ -956,6 +1096,11 @@ public final class ContentPreviewActivity extends Activity {
         worker.execute(
                 () -> {
                     if (!retain) {
+                        if (origin != null) origin.close();
+                        else
+                            ContentOrigin.discard(
+                                    new File(getCacheDir(), "content-origins"),
+                                    getIntent().getStringExtra("contentOrigin"));
                         if (input != null) input.close();
                         else if (retainedPath != null)
                             try {
