@@ -1,6 +1,6 @@
 # Development continuation point
 
-The verified workbench is on main through PR #8 as GlassDigestor in `sperglord8008s/DiE-Android-`. Current work uses `codex/package-knowledge-cards`; application ID remains `org.diemobile` with the existing debug signing configuration. Published pre-alpha.1–.6 checkpoints are immutable; current development is **0.6.0-pre-alpha.7 / code 13**. See [versioning](build-versioning.md). Full desktop parity and handset verification remain incomplete. Read AGENTS.md and the three design/parity documents before changes.
+The verified workbench is on main through PR #9 as GlassDigestor in `sperglord8008s/DiE-Android-`. Current work uses `codex/gallery-inspection-ranges`; application ID remains `org.diemobile` with the existing debug signing configuration. Published pre-alpha.1–.7 checkpoints are immutable; current development is **0.6.0-pre-alpha.8 / code 14**. See [versioning](build-versioning.md). Full desktop parity and handset verification remain incomplete. Read AGENTS.md and the three design/parity documents before changes.
 
 ## Implemented and fixture-verified in this work
 
@@ -724,3 +724,42 @@ remaining desktop parity. Knowledge follow-up includes captured APK/signer
 correlation, more attributed sources, user overlays and version/device scopes.
 Real handset/UID/Binder/SAF/media/PDF/process-death/heap/cache/16 KiB runtime
 acceptance remains unverified. Preserve current/fallback APKs and exact sources.
+
+
+## Package knowledge published; gallery archive/range actions
+
+Knowledge commit `facd03afe76e7b9cb813f71d970440c3c4349551` passed all five
+jobs in run `44719613831` (#144), merged through PR #9 to main
+`3c17379d9d0019ffdc5f0101b8f6d718f3df151c`. Pre-alpha.7 is public from
+exact CI source `9b750e6cb0796d0d4fe7506f4d8dbe89f83a1a48`; publisher run
+`44721996928` succeeded. Public APK SHA-256
+`55428bea8f5617c5e42489980d50e2142d72b81a5bb44969cb009475618cc4c8`.
+The separate clean local .7 checkpoint at `facd03a` has SHA-256
+`e502195626865e30b65ce294a6d51fc0583cd14ba192839b087b9571601a8dd7`.
+
+The .8 slice gives header-only gallery cards real actions and exposes direct
+source-bound archive parsing plus decimal/hex inspection intervals. Original
+card geometry is checked against its native witness before launch. Original
+known/null extents remain unchanged; manual/grid origins state their selected
+byte scope and preserve associated native findings without claiming a recovered
+file boundary. `galleryContext` retains complete card/provenance/row evidence
+through native restoration, scope changes, reports and member-preview origins.
+Gallery header/card JSON now uses the exact UTF-16 writer. Existing tools and
+checked byte exports remain available.
+
+Three new API 28 viewer cases bring the full suite to **170**, with zero
+failures/errors/skips. Actual PhotoRec → unknown-extent embedded gzip gallery
+card → libarchive tests pass exact independent payload/hash expectations, full
+UTF-16 context/origins, source expiry/no-rescan restoration and stale/cancel/
+budget/geometry refusals. The real four-file/text and fully written 80 MiB + 17
+byte gallery/grid regression remains green. Required generic/native checks,
+ARM64 assembly/lint and fifteen-library APK checks pass; source CI is next.
+See [gallery range contracts](gallery-inspection-ranges.md).
+
+Next focus: real Android worker/descriptor/UID acceptance where an Android
+runtime can be supplied, then inherited origin chains, broader useful media
+presentation and remaining parity. The current environment has no KVM/device;
+a separate x86 Android runtime lab using the actual production worker/hash/
+archive sources is under consideration, not implemented or verified yet. Keep
+production ARM64 identity/signing and immutable checkpoint fallbacks unchanged.
+Handset/SAF/Binder/UID/media/PDF/process-death/16 KiB acceptance remains unverified.

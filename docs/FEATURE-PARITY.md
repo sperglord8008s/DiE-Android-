@@ -41,7 +41,7 @@ Status labels: wired = integration exists, not validated on hardware; partial = 
 | Custom database import and persistence | local ZIP snapshots, SHA-256 identity, native load check, activation/rollback and original-ZIP export wired; host import/CRC/path/size/persistence tests and native activation/tag/reload fixtures verified; Android picker/restart flows pending |
 | Full original Qt DiE rule compatibility comparison | pending |
 | Searchable typed evidence with source offsets and structured tool exports | desktop detection tree plus eight native record types and dedicated DEX/string/metadata/media/resource/hash models; search/50-row pages, field details/help and 64-location Back history implemented; captured parameters, full-table exports, staged range exports and recreation checked with host/Robolectric fixtures; remaining legacy strings/hex outputs also have dedicated classified/byte views; typed structures include raw/variant values, semantic flags, parent links and reviewed field domains; handset flow pending |
-| Gallerize content map / labeled gallery | implemented: owned input/original PhotoRec capture, source/type/composition summaries, accepted/header-only/nested/overlap/unassigned and strict UTF-8 cards, original witnesses, 24-card group pages and complete native/catalog exports; actual four-file/text, corruption/restoration and fully written 80 MiB host fixtures; eight Android host cases cover gallery/preview/grid/lifecycle/export paths and real nested-ZIP handoffs; handset and broader discovery/rendering remain unverified/incomplete; see [contracts](gallerize-implementation.md) |
+| Gallerize content map / labeled gallery | implemented: owned input/original PhotoRec capture, source/type/composition summaries, accepted/header-only/nested/overlap/unassigned and strict UTF-8 cards, original witnesses, 24-card group pages and complete native/catalog exports; actual four-file/text, corruption/restoration and fully written 80 MiB host fixtures; eight Android host cases cover gallery/preview/grid/lifecycle/export paths and real nested-ZIP handoffs; direct card archive parsing/manual interval actions and explicit grid/inspection origins now implemented with three additional host cases and a real PhotoRec → libarchive chain; handset and broader discovery/rendering remain unverified/incomplete; see [contracts](gallerize-implementation.md) and [range actions](gallery-inspection-ranges.md) |
 | Byte / local entropy visual grids | implemented: complete streaming mean/entropy measurements, exact row-major cell partitions, automatic and common/custom layouts including 640 × 640, persistent manual overrides, touch-to-original-hex and full values/IEEE exports; independent byte/log2/partition and 80 MiB host checks plus Android widget cases; actual handset graphics/performance remain unverified |
 | In-app media/text/document previews | bounded first-frame images; full-input UTF-8/Hex page navigation, exact Unicode seams, byte jumps/Tail/history/recreation and owned ranges with metadata/MPV/tool links; independent 24 MB text / 161,892-page fixtures and five additional Android host cases pass; complete generated text snapshots are paged without rerendering and exports retain all bytes; selected fact dialogs retain their explicit display cap; local FD MediaPlayer and PDF pages wired, handset decoding/playback/PDF unverified; animation, thumbnails, broader encodings/documents and MPV playback fallback pending; see [text contracts](text-paging.md) |
 | Checked recovered-content previews / exports | Binwalk/PhotoRec bounded findings acquire independent exact previews, parent-identity-checked recovery exports, safe suggested names and private whole-input gallery handoff; preview byte export retains immutable picker state through source expiry/recreation; four actual-JNI Android host cases plus pure ownership/mutation/cancel and existing gallery/carving cases pass; 139-case full host suite, ARM64 assembly, lint and static APK checks pass; CI for this slice is pending, real SAF/UID/codec/crash/cache flows and persistent native-origin sidecars remain incomplete/unverified; see [contracts](recovered-content.md) |
@@ -302,7 +302,21 @@ duplicate-preserving APK summary. Independent 128 MiB-JVM/Python oracles
 reconstruct every original field and UTF-16 unit with exact numeric/raw data,
 unknowns, graph and refusal/ownership fixtures. Required generic/native, 924
 tracker reference/strict-import and shared prefilter checks, ARM64 assembly/lint
-and fifteen-library APK checks pass. Source CI is the next gate. Community
+and fifteen-library APK checks pass. All five source CI jobs passed in run `44719613831`; pre-alpha.7 is published. Community
 claims are not measured device behavior; handset/SAF/PackageManager acceptance
 and broader knowledge/correlation remain incomplete. See
 [package knowledge](package-knowledge.md).
+
+
+Gallery per-card archive inspection and explicit manual byte intervals bring
+the full suite to **170 Android host tests**, with zero failures/errors/skips.
+Original native finding geometry is checked before launch; known/null extents
+remain unchanged. Full gallery/card/associated-row context survives the native
+trail and origin export. Manual and grid ranges are labeled as selected bytes,
+not native recovered-file boundaries; exact previews retain associated findings
+after parent expiry. Actual PhotoRec → unknown-extent gzip gallery card →
+libarchive decoded-member/independent-hash/restoration/UTF-16/refusal tests and
+the fully written 80 MiB-plus gallery regression pass. Required generic/native
+checks, ARM64 assembly/lint and fifteen-library APK checks pass. Source CI is
+next; real Android UID/Binder/SAF/media/PDF/process-death/16 KiB runtime remains
+unverified. See [gallery interval contracts](gallery-inspection-ranges.md).

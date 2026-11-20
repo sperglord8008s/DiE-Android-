@@ -8,7 +8,7 @@ trap 'rm -rf "$tmp"' EXIT
 source scripts/test-dependencies.sh
 load_json_test_dependency "$tmp"
 javac -cp "$json_test_jar" -d "$tmp/classes" \
-  app/src/main/java/org/diemobile/{Inspector,EvidenceRows,EvidenceJson,InputSnapshot,InvestigationBackend,FileRange,RangeAnalysis,PreparedExport,PhotoRecEngine,PhotoRecReport,BinaryRunner,CarvingBackend,PhotoRecBackend,ContentMap,ByteGrid,OwnedContent,GallerizeSession}.java \
+  app/src/main/java/org/diemobile/{Inspector,EvidenceRows,EvidenceJson,InputSnapshot,InvestigationBackend,FileRange,RangeAnalysis,PreparedExport,PhotoRecEngine,PhotoRecReport,BinaryRunner,CarvingBackend,PhotoRecBackend,ContentMap,ByteGrid,OwnedContent,GallerizeSession,ArchiveLaunch,NativeArchiveStore,ArchiveRunner,ArchiveEngine}.java \
   tests/fixtures/metadata/MetadataFixtureFactory.java tests/GallerizeTest.java tests/OwnedContentTest.java
 java -Xmx192m --add-opens=java.base/java.io=ALL-UNNAMED -Djava.library.path="$PWD/app/build/host-photorec" \
   -cp "$tmp/classes:$json_test_jar" org.diemobile.GallerizeTest "$tmp"
