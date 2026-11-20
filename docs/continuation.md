@@ -826,3 +826,14 @@ separate scope from the existing five-job production gate. See
 Next: inspect/correct the new Android codec evidence and full host/ARM64 gates;
 commit and publish only passing checkpoints, preserving earlier APKs. Continue
 origin inheritance, wider preview support and desktop parity after these gates.
+
+The first .10 runtime attempt (`44732427853`) stopped before building/running
+tests because the pinned host did not supply FFmpeg. The 991-byte owned
+generated video is now retained with a checked SHA-256 and optional exact
+generation recipe; Python generates PCM. An empty-PATH fixture test proves
+o external codec is needed and edited canonical bytes refuse before output.
+The complete clean 175-case/ARM64/lint/APK gate at `2662f86` passed; its local
+.10 checkpoint is frozen with SHA-256
+`a26e251e8ec60fb4cc9a8d911743f81123da2260f621f67e9c67c2c9637f76a2`.
+The follow-up changes test assets/setup only; actual new codec execution remains
+pending until the next emulator jobs pass.

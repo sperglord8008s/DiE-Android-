@@ -26,7 +26,9 @@ The additional platform media check is pending execution for the new source.
 ## Reproduce
 
 Use JDK 17, Gradle 8.11.1, SDK/build-tools 35, NDK 28.2.13676358 and CMake
-3.22.1, plus FFmpeg for owned test-fixture generation. Fetches use the existing
+3.22.1. Owned pinned video and Python-generated PCM fixtures need no FFmpeg
+installation; the optional [regeneration recipe](../tests/fixtures/media/README.md)
+retains its original FFmpeg command/version. Fetches use the existing
 pinned source/patch/checksum contracts. Retain
 the dependency caches and toolchains for later `--offline` builds.
 

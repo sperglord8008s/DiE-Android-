@@ -38,8 +38,8 @@ jobs:
           log-accepted-android-sdk-licenses: 'false'
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;28.2.13676358' 'cmake;3.22.1'
       - run: bash scripts/fetch-engine.sh
-      - name: Check fixture generator
-        run: command -v ffmpeg && ffmpeg -version
+      - name: Check offline owned fixtures
+        run: python3 tests/test-media-preview-fixture.py
       - run: ./gradlew --no-daemon :runtime-worker:assembleDebug :runtime-worker:assembleDebugAndroidTest
       - run: python3 scripts/verify-worker-runtime.py
       - name: Enable KVM on the disposable runner

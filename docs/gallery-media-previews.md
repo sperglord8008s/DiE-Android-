@@ -55,7 +55,9 @@ fallback; changed/cancelled/empty/foreign scopes and unknown-extent cards never
 reaching a decoder. The platform codec is substituted in these host tests.
 
 The separate Android runtime laboratory now generates owned solid-green MPEG-4
-and PCM fixtures with FFmpeg. It tests actual embedded-range metadata, video
+and PCM fixtures. The 991-byte owned clip is retained with its SHA-256 and
+FFmpeg generation recipe; Python generates PCM. Ordinary builds need neither
+FFmpeg nor network for these fixtures. It tests actual embedded-range metadata, video
 geometry/duration, bounded green frame pixels on API 35, metadata-only API 26
 behavior and audio-only absence of a frame. The complete **175-case host suite**, required generic/native checks and
 ARM64 assembly/lint/fifteen-library APK verification pass; the final frame-budget
@@ -65,6 +67,6 @@ five worker contracts already passed on both API levels at source `26ad7d6`;
 that evidence does not substitute for executing the new preview code.
 
 No production native dependency or source pin changes. The Android framework
-supplies the preview implementation; FFmpeg is a build/test fixture generator
-and is not added to the production APK by this change. Existing separately
+supplies the preview implementation. Optional video regeneration uses FFmpeg;
+it is not added to the production APK or required by ordinary runtime-lab builds. Existing separately
 pinned MPV/FFmpeg investigation engines and notices remain unchanged.
