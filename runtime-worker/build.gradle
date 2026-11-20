@@ -18,6 +18,7 @@ def stageWorkerSources = tasks.register('stageWorkerSources', Sync) {
                 'org/diemobile/InputSnapshot.java', 'org/diemobile/RangeAnalysis.java',
                 'org/diemobile/FileRange.java', 'org/diemobile/NativeArchiveStore.java'
         include 'org/diemobile/MediaFrame.java'
+        include 'org/diemobile/PackageManifest.java'
     }
     into layout.buildDirectory.dir('shared-worker-sources')
 }

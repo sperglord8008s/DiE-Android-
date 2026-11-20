@@ -837,3 +837,65 @@ The complete clean 175-case/ARM64/lint/APK gate at `2662f86` passed; its local
 `a26e251e8ec60fb4cc9a8d911743f81123da2260f621f67e9c67c2c9637f76a2`.
 The follow-up changes test assets/setup only; actual new codec execution remains
 pending until the next emulator jobs pass.
+
+## Gallery checkpoint published; captured APK community context
+
+PR #11 merged to `d17476d30979eaab04a82c62b00537977a0eb48b`; all five
+jobs in `44731816686` passed after the host platform pin. Pre-alpha.9 is public
+from exact CI source `5d4bafb16310b0ba5a61c42a9a657cb7c053d7ec`; publisher
+`44733302689` succeeded. Public APK SHA-256
+`65fe04b9cab27ddc762de39cd231c953d1ed78f0272830d9b2f84580b10a2c25`.
+Its downloaded complete checkpoint, matching public digests and exact-source
+APK verifier were independently checked.
+
+Gallery PR #12 merged to `965d43a28ea6d80d028a8e81b3cc102b96e6fdf9`.
+All five source jobs passed in PR run `44733375708` and exact push run
+`44733208727`. Six actual emulator contracts passed on API 26/35 in
+`44733208678` at `8f2ab38af319a02c85618a0f398d654c1b48c15a`; downloaded
+reports, APK/shared-source hashes and artifact digests were independently
+checked. API 35 decoded a 24×18 frame with center `ff018001`; both APIs reported
+1000/500 ms video/audio durations, and API 26 kept its explicit frame limit.
+[Retained evidence](verification/android-worker-runtime-8f2ab38.json).
+
+Publisher `44735638728` correctly rejected the PR capture's tree differing
+from its reported head by an inherited documentation file. No guard was weakened.
+Publisher `44736203614` succeeded using exact push run `44733208727` instead:
+pre-alpha.10 is public from `8f2ab38`, code 16, APK SHA-256
+`ca32f1fef93a9cdfefe885c5b6a0c08ac306cf2a8490b95dccd2b5f3168161f9`.
+Public .10 checkpoint download/independent inventory/static verification is the
+next publication audit. Local clean .10 at `2662f86` remains frozen with SHA-256
+`a26e251e8ec60fb4cc9a8d911743f81123da2260f621f67e9c67c2c9637f76a2`.
+Only verified duplicate outer download wrappers .7–.9 were reclaimed; every
+original inner APK/checkpoint is retained. Audit is outside the repo at
+`/workspace/work/reclaimed-checkpoint-wrappers-7-through-9.json`.
+
+Current branch `codex/apk-community-context` advances to **pre-alpha.11 / code
+17**. Selected-APK and per-source handoffs now retain a strict independently
+owned 1 MiB `PackageKnowledgeSubject`, original literal attribute and complete
+input/parser/signer/error identities. Community provenance/full exports include
+that observation while preserving all duplicates and raw source tokens. Failed
+restores preserve existing owners. Main's direct route captures the selected
+input first; automatic handoff is attempted once per parent state. Three new
+actual AAPT2/signing/widget flows pass, with 18 focused cases total. Standalone
+Java/Python ownership/strict-schema/budget/cancellation/path/all-UTF-16/raw-number
+oracles pass, alongside the complete real knowledge-source oracle.
+
+The full 178-case host/ARM64/lint/APK gate is running. A seventh instrumented
+case using actual `resources` worker/Binder/PFD parsing and unchanged
+`PackageManifest` is implemented; local test-APK compile and actual API 26/35
+execution remain pending. See [association contracts](apk-community-context.md).
+Next: inspect/correct full gates, incorporate current main without losing WIP,
+compile/test the lab, commit coherent sources, run both CI workflows and publish
+passing immutable checkpoints. Keep observed exact-ID association separate from
+behavior/publisher/device/version/removal conclusions and earlier origin gaps.
+
+The full .11 local gate passed: **178 tests, zero failures/errors/skips**,
+required generic/native checks, ARM64 assembly/lint and fifteen-library APK
+verification. A follow-up actual-widget assertion verifies parent recreation
+does not repeat its automatic handoff; all seven package-set cases pass.
+The seven-case runtime target/instrumentation APKs compile and pass static
+source/manifest/version/signature/native/notice checks. Actual seventh-case
+Android execution remains pending. Current main `965d43a` was fast-forwarded
+into this branch without losing WIP, retaining its inherited CI-platform doc
+and keeping future PR trees aligned. Commit/push and inspect both workflows
+next, then audit/download/publish passing checkpoints.

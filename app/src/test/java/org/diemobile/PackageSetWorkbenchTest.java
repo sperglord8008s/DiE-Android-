@@ -95,13 +95,18 @@ public final class PackageSetWorkbenchTest {
     }
 
     private void open() throws Exception {
+        open(false);
+    }
+
+    private void open(boolean community) throws Exception {
         Intent intent =
                 new Intent(RuntimeEnvironment.getApplication(), InvestigationActivity.class)
                         .putExtra("provider", "package-set")
                         .putExtra("path", paths.get(0))
                         .putExtra("name", "captured package fixture")
                         .putStringArrayListExtra("packagePaths", paths)
-                        .putExtra("inventoryPackage", "org.diemobile.split.reference");
+                        .putExtra("inventoryPackage", "org.diemobile.split.reference")
+                        .putExtra("openCapturedPackageKnowledge", community);
         controller =
                 Robolectric.buildActivity(InvestigationActivity.class, intent).setup().visible();
         activity = controller.get();
@@ -201,6 +206,109 @@ public final class PackageSetWorkbenchTest {
         settle();
         assertTrue(status(), status().contains("Export saved"));
         return output.toByteArray();
+    }
+
+    @Test
+    public void exactManifestCommunityContextSurvivesParentExpiryAndChildRecreation()
+            throws Exception {
+        destroy();
+        paths = new ArrayList<>(List.of(sign("community", "fixture").getAbsolutePath()));
+        open(true);
+        PackageSetBackend parent = ReflectionHelpers.getField(activity, "backend");
+        JSONObject captured = parent.provenance().getJSONArray("inputs").getJSONObject(0);
+        String apkSha = captured.getString("sha256");
+        String manifestSha = captured.getJSONObject("manifestInput").getString("sha256");
+        Intent handoff = Shadows.shadowOf(activity).getNextStartedActivity();
+        assertNotNull(status(), handoff);
+        assertEquals("package-knowledge", handoff.getStringExtra("provider"));
+        assertEquals("com.aura.oobe.motorola", handoff.getStringExtra("knowledgePackageId"));
+        JSONObject descriptor = new JSONObject(handoff.getStringExtra("knowledgeSubject"));
+        File subject = new File(descriptor.getString("path"));
+        assertTrue(subject.isFile());
+        recreate();
+        assertNull(
+                "Parent recreation repeated its automatic handoff",
+                Shadows.shadowOf(activity).getNextStartedActivity());
+        assertTrue(subject.isFile());
+        Files.delete(Path.of(paths.get(0)));
+        destroy();
+        assertTrue("Parent cleanup removed independently owned association", subject.isFile());
+
+        controller =
+                Robolectric.buildActivity(InvestigationActivity.class, handoff).setup().visible();
+        activity = controller.get();
+        settle();
+        JSONObject metadata =
+                new JSONObject(ReflectionHelpers.<String>getField(activity, "metadata"));
+        assertEquals(2, metadata.getInt("exactIdRecordCount"));
+        Set<Integer> sourceRecords = new HashSet<>();
+        int descriptions = 0;
+        for (int i = 0; i < list().getAdapter().getCount(); i++) {
+            JSONObject item = row(i).json();
+            assertEquals("com.aura.oobe.motorola", item.getString("packageId"));
+            sourceRecords.add(item.getInt("sourceRecordIndex"));
+            if (item.optString("sourceField").equals("description")) descriptions++;
+        }
+        assertEquals(2, sourceRecords.size());
+        assertEquals(2, descriptions);
+        JSONObject provenance =
+                new JSONObject(ReflectionHelpers.<String>getField(activity, "provenance"));
+        JSONObject observed = provenance.getJSONObject("capturedApkAssociation");
+        assertEquals(apkSha, observed.getJSONObject("capturedApk").getString("sha256"));
+        assertEquals(
+                manifestSha,
+                observed.getJSONObject("capturedApk")
+                        .getJSONObject("manifestInput")
+                        .getString("sha256"));
+        assertEquals("literal", observed.getJSONObject("packageDeclaration").getString("status"));
+        assertTrue(
+                observed.getJSONObject("capturedApk")
+                        .getJSONArray("errors")
+                        .toString()
+                        .contains("inventory-package-association"));
+        assertFalse(observed.toString().contains(subject.getAbsolutePath()));
+        recreate();
+        assertEquals(
+                descriptor.getString("sha256"),
+                new JSONObject(ReflectionHelpers.<String>getField(activity, "provenance"))
+                        .getString("capturedAssociationSha256"));
+        button("export").performClick();
+        settle();
+        JSONObject report = new JSONObject(new String(export(), StandardCharsets.UTF_8));
+        assertEquals(
+                apkSha,
+                report.getJSONObject("provenance")
+                        .getJSONObject("capturedApkAssociation")
+                        .getJSONObject("capturedApk")
+                        .getString("sha256"));
+        root("Captured APK declaration");
+        TextView body =
+                ShadowAlertDialog.getLatestAlertDialog()
+                        .getWindow()
+                        .getDecorView()
+                        .findViewWithTag("text-page-body");
+        assertNotNull(body);
+        settle();
+        assertTrue(body.getText().toString().contains("apk-literal-package"));
+        ShadowAlertDialog.getLatestAlertDialog().dismiss();
+        destroy();
+        assertFalse("Final consumer retained its private association", subject.exists());
+    }
+
+    @Test
+    public void expiredCapturedApkRefusesCommunityHandoffWithoutRescanningOrPartialOwnership()
+            throws Exception {
+        root("Captured APK sources");
+        PackageSetBackend backend = ReflectionHelpers.getField(activity, "backend");
+        PackageSetDocument document = ReflectionHelpers.getField(backend, "document");
+        assertTrue(document.sources.get(0).apk.file.delete());
+        File subjects = new File(activity.getCacheDir(), "package-knowledge-subjects");
+        int before = subjects.isDirectory() ? subjects.list().length : 0;
+        action(0, "What does this captured package");
+        assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
+        assertTrue(status(), status().contains("APK package association failed"));
+        assertEquals(before, subjects.isDirectory() ? subjects.list().length : 0);
+        assertNotNull(ReflectionHelpers.getField(activity, "source"));
     }
 
     @Test

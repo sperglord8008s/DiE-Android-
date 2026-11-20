@@ -296,7 +296,7 @@ final class PackageSetBackend extends InvestigationBackend {
         if (rows.size() >= PackageSetRows.MAX_ROWS)
             throw new IOException(
                     "Selected package-set scope exceeds 100,000 records; choose an individual"
-                        + " source/table");
+                            + " source/table");
         rows.add(row);
     }
 
@@ -539,6 +539,62 @@ final class PackageSetBackend extends InvestigationBackend {
             }
         }
         return links;
+    }
+
+    /** Only one known literal declaration can seed a community-ID lookup. */
+    Integer knowledgeSource(EvidenceRows rows, EvidenceRows.Row row) throws Exception {
+        int index;
+        if (rows instanceof PackageSetRows)
+            index = ((PackageSetRows) rows).record(row.index).source;
+        else if (rows.kind.equals("package-manifest-input")
+                || rows.kind.equals("package-apk-input")) index = row.json().getInt("sourceIndex");
+        else return null;
+        if (index < 0) return null;
+        PackageSetDocument.Source input = source(index);
+        if (input.apk == null
+                || input.xml == null
+                || input.manifest == null
+                || !input.identityStable) return null;
+        String id = input.manifest.packageName();
+        return id == null || id.isEmpty() || id.length() > 1024 ? null : index;
+    }
+
+    PackageKnowledgeSubject captureKnowledgeSubject(int index, File directory, BooleanSupplier stop)
+            throws Exception {
+        ensure(stop);
+        PackageSetDocument.Source input = source(index);
+        if (input.apk == null
+                || input.xml == null
+                || input.manifest == null
+                || !input.identityStable
+                || input.manifest.packageName() == null
+                || input.manifest.packageName().isEmpty())
+            throw new IOException(
+                    "No single captured literal APK package declaration is available");
+        input.apk.checkIdentity(stop);
+        checkFile(input.xml.file, input.xml.size, input.xml.sha256, stop);
+        JSONObject context =
+                new JSONObject()
+                        .put("schema", PackageKnowledgeSubject.SCHEMA)
+                        .put("schemaVersion", 1)
+                        .put("kind", "apk-literal-package")
+                        .put("packageId", input.manifest.packageName())
+                        .put("capturedAt", java.time.Instant.now().toString())
+                        .put("capturedApk", input.identity())
+                        .put("manifestEvidence", new JSONObject(input.manifest.source.toString()))
+                        .put("packageDeclaration", input.manifest.fields.get("package").json())
+                        .put("meaning", PackageKnowledgeSubject.MEANING);
+        PackageKnowledgeSubject captured =
+                PackageKnowledgeSubject.capture(directory, context, stop);
+        boolean success = false;
+        try {
+            input.apk.checkIdentity(stop);
+            checkFile(input.xml.file, input.xml.size, input.xml.sha256, stop);
+            success = true;
+            return captured;
+        } finally {
+            if (!success) captured.close();
+        }
     }
 
     private List<Link> sourceLinks(int index) throws Exception {

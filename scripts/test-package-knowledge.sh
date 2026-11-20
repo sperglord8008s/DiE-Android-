@@ -11,9 +11,10 @@ trap 'rm -rf "$tmp"' EXIT
 source scripts/test-dependencies.sh
 load_json_test_dependency "$tmp"
 javac -cp "$json_test_jar" -d "$tmp/classes" \
-  app/src/main/java/org/diemobile/{PackageKnowledge,PackageKnowledgeBackend,CatalogJson,EvidenceJson,EvidenceRows,InvestigationBackend,InputSnapshot,PreparedExport,RangeAnalysis,FileRange,Inspector}.java \
-  tests/PackageKnowledgeTest.java
+  app/src/main/java/org/diemobile/{PackageKnowledge,PackageKnowledgeSubject,PackageKnowledgeBackend,CatalogJson,EvidenceJson,EvidenceRows,InvestigationBackend,InputSnapshot,PreparedExport,RangeAnalysis,FileRange,Inspector}.java \
+  tests/{PackageKnowledgeTest,PackageKnowledgeSubjectTest}.java
 java -Xmx128m -cp "$tmp/classes:$json_test_jar" org.diemobile.PackageKnowledgeTest "$tmp/oracle" generated-assets/knowledge/uad.json
+java -Xmx128m -cp "$tmp/classes:$json_test_jar" org.diemobile.PackageKnowledgeSubjectTest "$tmp/subject-oracle"
 python3 - "$tmp/oracle" <<'PY'
 from decimal import Decimal
 import json
@@ -47,4 +48,18 @@ assert len(rows)==len(real)==5402
 assert len({key for key,value in real})==5399
 assert [(r['packageId'],r['fullOriginalRecord']) for r in rows]==[(key,normal(value)) for key,value in real]
 print('Independent Python reconstructed all 5,402 actual source records / 5,399 distinct IDs, including every duplicate, numeric/raw token and all 65,536 UTF-16 units.')
+PY
+python3 - "$tmp/subject-oracle" <<'PY'
+from decimal import Decimal
+import json
+from pathlib import Path
+import sys
+root=Path(sys.argv[1])
+subject=json.loads((root/'subject.json').read_bytes())
+expected=(root/'expected-utf16be').read_bytes()
+assert subject['unknownFutureField']['rawText'].encode('utf-16-be','surrogatepass')==expected
+record=json.loads((root/'community-record.json').read_bytes(),parse_float=Decimal)
+assert record['originalRecord']['unknown']==Decimal('1.2300e+9999')
+assert record['provenance']['capturedApkAssociation']==subject
+print('Independent Python reconstructed every observed-context UTF-16 unit and complete duplicate-claim provenance/raw numeric token.')
 PY

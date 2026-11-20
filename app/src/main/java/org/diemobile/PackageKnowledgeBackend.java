@@ -18,6 +18,9 @@ final class PackageKnowledgeBackend extends InvestigationBackend {
     private final String initialPackage, retained, expectedSha;
     private InputSnapshot input;
     private PackageKnowledge knowledge;
+    private final File subjectDirectory;
+    private final String incomingSubject;
+    private PackageKnowledgeSubject subject;
 
     PackageKnowledgeBackend(Source source, File directory, String initialPackage, String retained) {
         this(source, directory, initialPackage, retained, PackageKnowledge.PINNED_SHA256);
@@ -29,17 +32,48 @@ final class PackageKnowledgeBackend extends InvestigationBackend {
             String initialPackage,
             String retained,
             String expectedSha) {
+        this(source, directory, initialPackage, retained, expectedSha, null, null);
+    }
+
+    PackageKnowledgeBackend(
+            Source source,
+            File directory,
+            String initialPackage,
+            String retained,
+            File subjectDirectory,
+            String subjectDescriptor) {
+        this(
+                source,
+                directory,
+                initialPackage,
+                retained,
+                PackageKnowledge.PINNED_SHA256,
+                subjectDirectory,
+                subjectDescriptor);
+    }
+
+    PackageKnowledgeBackend(
+            Source source,
+            File directory,
+            String initialPackage,
+            String retained,
+            String expectedSha,
+            File subjectDirectory,
+            String subjectDescriptor) {
         this.source = source;
         this.directory = directory;
         this.initialPackage = initialPackage;
         this.retained = retained;
         this.expectedSha = expectedSha;
+        this.subjectDirectory = subjectDirectory;
+        incomingSubject = subjectDescriptor;
     }
 
     private void acquire(BooleanSupplier stop) throws Exception {
         if (knowledge != null) return;
         InputSnapshot candidate = null;
         try {
+            String subjectDescriptor = incomingSubject;
             if (retained == null) {
                 try (InputStream in = source.open()) {
                     candidate =
@@ -53,6 +87,7 @@ final class PackageKnowledgeBackend extends InvestigationBackend {
                         || !(saved.get("schemaVersion") instanceof Integer)
                         || saved.getInt("schemaVersion") != 1)
                     throw new IOException("Unsupported package knowledge state");
+                if (saved.has("subject")) subjectDescriptor = string(saved, "subject");
                 Object size = saved.get("sizeBytes");
                 if (!(size instanceof Integer) && !(size instanceof Long))
                     throw new IOException("Knowledge state size is not an exact integer");
@@ -63,6 +98,14 @@ final class PackageKnowledgeBackend extends InvestigationBackend {
                                 ((Number) size).longValue(),
                                 string(saved, "sha256"),
                                 stop);
+            }
+            if (subjectDescriptor != null) {
+                if (subjectDirectory == null || initialPackage == null)
+                    throw new IOException(
+                            "Captured APK association has no explicit package ID/directory");
+                subject =
+                        PackageKnowledgeSubject.restore(
+                                subjectDirectory, subjectDescriptor, initialPackage, stop);
             }
             PackageKnowledge parsed;
             try (InputStream in = new FileInputStream(candidate.file)) {
@@ -77,7 +120,7 @@ final class PackageKnowledgeBackend extends InvestigationBackend {
             candidate = null;
             knowledge = parsed;
         } finally {
-            if (candidate != null) candidate.close();
+            if (candidate != null && retained == null) candidate.close();
         }
     }
 
@@ -140,6 +183,12 @@ final class PackageKnowledgeBackend extends InvestigationBackend {
         EvidenceRows.check(stop);
         String id = string(request(encoded), "packageId");
         List<Link> links = new ArrayList<>();
+        if (subject != null)
+            links.add(
+                    Link.text(
+                            "Captured APK declaration / association evidence and limits",
+                            query("subject", subject.packageId, "", "", false),
+                            "captured-apk-association.json"));
         if (!id.isEmpty()) {
             links.add(
                     Link.view(
@@ -227,12 +276,28 @@ final class PackageKnowledgeBackend extends InvestigationBackend {
 
     @Override
     JSONObject provenance() throws Exception {
-        return knowledge.provenance();
+        JSONObject result = new JSONObject(knowledge.provenance().toString());
+        if (subject != null)
+            result.put("capturedApkAssociation", subject.json())
+                    .put("capturedAssociationSizeBytes", subject.input.size)
+                    .put("capturedAssociationSha256", subject.input.sha256)
+                    .put("associationMeaning", PackageKnowledgeSubject.MEANING);
+        return result;
     }
 
     @Override
     File byteSource() {
         return input == null ? new File(directory, "unacquired") : input.file;
+    }
+
+    @Override
+    String statusSummary() {
+        return subject == null
+                ? ""
+                : "Captured APK declared "
+                        + subject.packageId
+                        + " · community association uses that exact ID; linked IDs remain separate"
+                        + " claims";
     }
 
     @Override
@@ -242,7 +307,8 @@ final class PackageKnowledgeBackend extends InvestigationBackend {
 
     @Override
     String help(String request) {
-        return PackageKnowledge.MEANING
+        return (subject == null ? "" : PackageKnowledgeSubject.MEANING + " ")
+                + PackageKnowledge.MEANING
                 + " Practical descriptions are the original community text, with every"
                 + " original/unknown field available separately. Removal categories are attributed"
                 + " source values. Dependencies and neededBy preserve directions, duplicate"
@@ -258,13 +324,19 @@ final class PackageKnowledgeBackend extends InvestigationBackend {
         acquire(stop);
         JSONObject value = request(encoded);
         String view = string(value, "view"), id = string(value, "packageId");
+        if (view.equals("subject")) {
+            if (subject == null)
+                throw new IOException("No captured APK association accompanied this catalog");
+            subject.write(output, stop);
+            return;
+        }
         if (view.equals("source")) {
-            EvidenceJson.write(output, knowledge.provenance(), stop);
+            EvidenceJson.write(output, provenance(), stop);
             return;
         }
         PackageKnowledge.Entry entry = knowledge.record(id, recordIndex(value));
         output.write("{\"provenance\":");
-        EvidenceJson.write(output, knowledge.provenance(), stop);
+        EvidenceJson.write(output, provenance(), stop);
         output.write(",\"packageId\":");
         EvidenceJson.write(output, id, stop);
         if (view.equals("record")) {
@@ -294,13 +366,15 @@ final class PackageKnowledgeBackend extends InvestigationBackend {
     @Override
     String retentionState() throws Exception {
         if (input == null) return null;
-        return new JSONObject()
-                .put("schema", "org.diemobile.package-knowledge-state")
-                .put("schemaVersion", 1)
-                .put("path", input.file.getAbsolutePath())
-                .put("sizeBytes", input.size)
-                .put("sha256", input.sha256)
-                .toString();
+        JSONObject state =
+                new JSONObject()
+                        .put("schema", "org.diemobile.package-knowledge-state")
+                        .put("schemaVersion", 1)
+                        .put("path", input.file.getAbsolutePath())
+                        .put("sizeBytes", input.size)
+                        .put("sha256", input.sha256);
+        if (subject != null) state.put("subject", subject.descriptor());
+        return state.toString();
     }
 
     @Override
@@ -311,6 +385,11 @@ final class PackageKnowledgeBackend extends InvestigationBackend {
     @Override
     void close(boolean retain) {
         if (input != null && !retain) input.close();
+        if (!retain) {
+            if (subject != null) subject.close();
+            else if (retained == null && incomingSubject != null && subjectDirectory != null)
+                PackageKnowledgeSubject.discard(subjectDirectory, incomingSubject);
+        }
     }
 
     private static int recordIndex(JSONObject value) throws Exception {
