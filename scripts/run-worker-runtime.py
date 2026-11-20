@@ -15,6 +15,7 @@ CHECKS = {
     "real-isolated-archive-read-write-descriptors",
     "exact-range-platform-media-preview",
     "real-isolated-compiled-manifest-declaration",
+    "isolated-photorec-pdf-recovery",
     "token-scoped-kill-with-blocked-report-pipe",
     "normal-client-recovers-after-worker-death",
 }

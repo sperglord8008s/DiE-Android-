@@ -3,6 +3,7 @@
 // whole-blob matching, bounded read-only inputs, evidence and JNI transport.
 #include "config.h"
 #include "blob_input.h"
+#include "read_only_file.h"
 #include <jni.h>
 #include <algorithm>
 #include <array>
@@ -168,6 +169,7 @@ struct Registry {
 struct Budget {
     uint64_t bytes = 0;
     size_t limited_candidates = 0;
+    size_t file_attempted = 0, file_checked = 0, file_limited = 0;
     std::chrono::steady_clock::time_point deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
     void check(uint64_t amount = 0) {
         if (amount > MAX_WORK - bytes) throw std::runtime_error("PhotoRec callback buffer work exceeds 256 MiB; no complete result");
@@ -270,6 +272,39 @@ std::string candidate(const Registry &registry, size_t pattern, uint64_t magic,
             }
         } else meaning = "header-accepted/data-incomplete/extent-unknown";
     }
+    // Only this reviewed upstream module's file callback is enabled. Its footer/date readers
+    // use the supplied FILE; no rename or arbitrary format callback is executed.
+    const bool file_attempted = accepted && has_file && std::strcmp(hint->extension, "pdf") == 0;
+    bool file_checked = false;
+    uint64_t file_check_work = 0, file_check_size = 0;
+    std::string file_failure;
+    if (file_attempted) {
+        ++budget.file_attempted;
+        diemobile::ReadOnlyFile view(input, start, remaining, MAX_CANDIDATE_WORK,
+                [&budget](uint64_t count) { budget.check(count); });
+        FILE *stream = view.open();
+        if (stream != nullptr) {
+            file_checked = true;
+            ++budget.file_checked;
+            recovered.handle = stream;
+            recovered.file_size = remaining; // Parse scope only; never published as a recovered size.
+            recovered.file_check(&recovered);
+            recovered.handle = nullptr;
+            fclose(stream);
+            file_check_size = recovered.file_size;
+        }
+        file_check_work = view.work();
+        if (view.failure() != nullptr) file_failure = view.failure();
+        if (!file_failure.empty()) ++budget.file_limited;
+        extent = 0;
+        if (file_failure.empty() && file_check_size > 0 && file_check_size >= minimum
+                && file_check_size <= remaining && file_check_size <= hint->max_filesize
+                && recovered.offset_error == 0) {
+            extent = file_check_size;
+            meaning = "header-accepted/upstream-pdf-file-check-bounded-extent";
+        } else meaning = file_failure.empty() ? "header-accepted/upstream-pdf-file-check-rejected"
+                : "header-accepted/upstream-pdf-file-check-limited/extent-unknown";
+    }
     std::ostringstream out;
     out << "{\"name\":" << quoted(hint->extension) << ",\"description\":" << quoted(hint->description)
         << ",\"patternIndex\":" << pattern << ",\"physicalOffset\":" << start
@@ -299,7 +334,13 @@ std::string candidate(const Registry &registry, size_t pattern, uint64_t magic,
         << ",\"upstreamCheckpointStatus\":" << recovered.checkpoint_status
         << ",\"upstreamDataCheckTemporary\":" << recovered.data_check_tmp
         << ",\"fileCheckAvailable\":" << (has_file ? "true" : "false")
-        << ",\"fileCheckExecuted\":false,\"renameCheckExecuted\":false"
+        << ",\"fileCheckAttempted\":" << (file_attempted ? "true" : "false")
+        << ",\"fileCheckExecuted\":" << (file_checked ? "true" : "false")
+        << ",\"fileCheckMode\":" << quoted(file_checked ? "upstream-pdf/read-only-relative-stdio" : "not-run")
+        << ",\"fileCheckSourceBytesProcessed\":" << file_check_work
+        << ",\"fileCheckSizeBytes\":" << (file_checked ? quoted(std::to_string(file_check_size).c_str()) : "null")
+        << ",\"fileCheckFailureReason\":" << (file_failure.empty() ? "null" : quoted(file_failure.c_str()))
+        << ",\"renameCheckExecuted\":false"
         << ",\"upstreamTime\":" << int64_t(recovered.time) << ",\"upstreamFlags\":" << recovered.flags << '}';
     return out.str();
 }
@@ -378,14 +419,14 @@ std::string scan(int fd) {
     out << "{\"ok\":true,\"schema\":\"org.diemobile.photorec-evidence\",\"schemaVersion\":2"
         << ",\"engine\":\"PhotoRec\",\"engineVersion\":\"7.2\",\"sourceRevision\":" << quoted(REVISION)
         << ",\"sourceArchiveSha256\":\"0cfd82ca6890188a3a4fe01c9b970f654eb3af396580f408ed024789e2873616\""
-        << ",\"adapter\":\"diemobile-photorec-3\",\"fileSizeBytes\":" << source_size
+        << ",\"adapter\":\"diemobile-photorec-4\",\"fileSizeBytes\":" << source_size
         << ",\"compactRejectedCandidateCount\":" << compact_rejections
         << ",\"rejectedRecoveryStateCount\":" << rejected_states.size()
         << ",\"compactRejectedEncoding\":\"[patternIndex,magicOffset,recoveryStateIndex]; original row ordinal is unchanged\""
         << ",\"maximumInputBytes\":" << MAX_BLOB_BYTES << ",\"maximumCandidateRecords\":" << MAX_ROWS
         << ",\"maximumReportBytes\":" << MAX_REPORT << ",\"cooperativeDeadlineMs\":30000"
         << ",\"inputReadMode\":\"bounded-pread-windows\",\"inputSizedBufferAllocation\":false"
-        << ",\"maximumInputReadBufferBytes\":" << diemobile::BlobInput::MAX_INPUT_READ_BUFFERS
+        << ",\"maximumInputReadBufferBytes\":" << diemobile::BlobInput::MAX_INPUT_READ_BUFFERS + diemobile::ReadOnlyFile::BUFFER_BYTES
         << ",\"scanReadBufferBytes\":" << diemobile::BlobInput::SCAN_BYTES
         << ",\"headerCacheWindows\":" << diemobile::BlobInput::HEADER_WINDOWS
         << ",\"headerCacheWindowBytes\":" << diemobile::BlobInput::WINDOW_BYTES
@@ -394,7 +435,13 @@ std::string scan(int fd) {
         << ",\"headerWindowMode\":\"borrowed bounded pread cache; explicit zero padding near EOF\""
         << ",\"rejectedRecoveryStateFields\":[\"headerCalculatedSizeBytes\",\"minimumFileSizeBytes\",\"dataCheckAvailable\",\"fileCheckAvailable\",\"upstreamTime\",\"upstreamFlags\",\"upstreamOffsetOk\",\"upstreamOffsetError\",\"upstreamExtra\",\"upstreamCheckpointOffset\",\"upstreamCheckpointStatus\",\"upstreamDataCheckTemporary\",\"dataCheckFileSizeCounterBytes\",\"reportedExtension\"]"
         << ",\"fullBlobSearch\":true,\"nestedResultsPruned\":false,\"unknownExtentsInferred\":false"
-        << ",\"externalExtractorsExecuted\":false,\"fileCheckCallbacksExecuted\":false"
+        << ",\"externalExtractorsExecuted\":false,\"fileCheckCallbacksExecuted\":" << (budget.file_checked > 0 ? "true" : "false")
+        << ",\"fileCheckCallbackScope\":\"pdf-only/read-only-relative-stdio\""
+        << ",\"fileCheckCandidatesAttempted\":" << budget.file_attempted
+        << ",\"fileCheckCandidatesExecuted\":" << budget.file_checked
+        << ",\"fileCheckCandidatesLimited\":" << budget.file_limited
+        << ",\"maximumCandidateFileReadBytes\":" << MAX_CANDIDATE_WORK
+        << ",\"fileCheckReadBufferBytes\":" << diemobile::ReadOnlyFile::BUFFER_BYTES
         << ",\"renameCallbacksExecuted\":false,\"filesystemRecoveryExecuted\":false"
         << ",\"safeHeaderOnly\":true,\"auxiliarySignatureFiles\":false,\"optionalLibraries\":[]"
         << ",\"callbackBufferWorkBytes\":" << budget.bytes << ",\"maximumCallbackBufferWorkBytes\":" << MAX_WORK

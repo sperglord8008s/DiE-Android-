@@ -22,14 +22,16 @@ unsearched because their whole-blob expansion requires a separate anchored scope
 There are 581 searched patterns and 349 registered upstream format groups.
 These are catalog counts, not a claim of complete validation of 349 file formats.
 
-The adapter does **not** invoke full `file_check`/`file_rename` callbacks or the
-PhotoRec recovery program. Auxiliary signature acquisition is disabled. Every
+Adapter 4 enables only the reviewed upstream PDF `file_check` through a bounded
+read-only relative FILE view; other file-check modules, every `file_rename` and
+the PhotoRec recovery program remain disabled. See [PDF recovery](../docs/pdf-file-recovery.md). Auxiliary signature acquisition is disabled. Every
 upstream translation unit redirects path-based `fopen`/`rename` to denying
 functions; timestamp-changing capabilities are not configured. The app supplies
 read-only input bytes. No command, codec subprocess or inspected app is executed.
 
-Only a positive, source-bounded `calculated_file_size` after `DC_STOP`, within the
-upstream minimum/maximum and without an offset error, enables stored-byte carving.
+A positive, source-bounded `calculated_file_size` after `DC_STOP`, or the reviewed
+PDF file-check's successful bounded size, enables stored-byte carving only within
+the upstream minimum/maximum and without an offset error.
 An extent remains an upstream data-check report, not full integrity verification:
 PNG CRC errors, for example, do not prevent its chunk-boundary callback stopping.
 See [evidence contracts](../docs/photorec-investigation.md).
@@ -78,3 +80,10 @@ written 80 MiB blobs with exact media across buffer/old-limit/EOF seams, a compl
 256 MiB sparse scan, descriptor lifetime/truncation tests and legacy decoding.
 The complete source ZIP includes these test inputs/generators and the new
 `blob_input.h`; its independent offline rebuild is checked separately.
+
+Adapter 4 adds a fixed 64 KiB relative-stdio buffer for PDF file checks. Maximum
+input-read payload buffers are now 1.3125 MiB, excluding separately documented
+upstream callback scratch/records/JNI/process overhead. PDF reads have an 8 MiB
+per-candidate work cap and share the existing 256 MiB aggregate callback budget.
+Read/write/seek/budget/exception/descriptor guards have host checks; actual
+Bionic callback execution is not established by host tests or ARM64 compilation.

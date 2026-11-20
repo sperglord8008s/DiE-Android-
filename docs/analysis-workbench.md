@@ -144,3 +144,15 @@ pending. Selected APKs now have an exact-literal-ID community lookup with
 independently retained original manifest and input evidence;
 [association contracts](apk-community-context.md). Three new host/widget flows
 and independent Unicode/ownership/export oracles pass; full source gates pending.
+
+
+## Actual recovered files
+
+Gallerize now combines PhotoRec/Binwalk over one owned input, defaults to Files,
+opens previews/archive contents directly, and exports typed individual files
+or an actual-payload ZIP across all pages. Source 123193d passed all five source
+CI jobs and seven actual x86 Android lab contracts; pre-alpha.12 is published.
+New adapter 4 PDF file checks supply native bounded PDF payloads. All 181 host
+cases and ARM64/static gates pass. An eighth actual Bionic/PhotoRec contract is
+compiled/static-checked, with Android execution and source CI pending. See
+[file gallery](recovered-file-gallery.md) and [PDF recovery](pdf-file-recovery.md).

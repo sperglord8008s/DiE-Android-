@@ -14,13 +14,14 @@ if (upstream / 'source-identity.txt').read_text().strip() != lock['archiveSha256
     raise SystemExit('Prepare pinned PhotoRec sources before verifying notices')
 notice = ('PhotoRec / TestDisk ' + lock['version'] + '\n'
           'Copyright Christophe GRENIER and the upstream contributors.\n'
-          'Unmodified format registration, header and data-check sources; GPL-2.0-or-later.\n'
+          'Unmodified format registration, header/data and PDF file-check sources; GPL-2.0-or-later.\n'
           'DiE Android descriptor adapter: GPL-3.0-only, carving-engine/ in the app source.\n'
           'Upstream: https://www.cgsecurity.org/ and https://github.com/cgsecurity/testdisk\n'
           'Source revision: ' + lock['revision'] + '\nArchive: ' + lock['url'] + '\n'
           'Archive SHA-256: ' + lock['archiveSha256'] + '\n'
           'Reproduce: bash scripts/build-photorec.sh android\n'
-          'Optional libjpeg/zlib dependencies, auxiliary signatures, full file-check/rename '
+          'Adapter 4 enables only the upstream PDF file-check through bounded read-only relative stdio.\n'
+          'Optional libjpeg/zlib dependencies, auxiliary signatures, other file checks, rename '
           'callbacks and filesystem/fragment recovery are not enabled.\n\n'
           + (upstream / 'COPYING').read_text())
 headers = ['PhotoRec 7.2 upstream source headers (unmodified source archive pinned above).\n']

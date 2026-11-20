@@ -14,12 +14,14 @@ trap 'rm -rf "$tmp"' EXIT
 source scripts/test-dependencies.sh
 load_json_test_dependency "$tmp"
 javac -cp "$json_test_jar" -d "$tmp/classes" \
-  app/src/main/java/org/diemobile/{Inspector,EvidenceRows,EvidenceJson,InputSnapshot,InvestigationBackend,FileRange,RangeAnalysis,PreparedExport,PhotoRecEngine,PhotoRecReport,BinaryRunner,CarvingBackend,PhotoRecBackend}.java \
+  app/src/main/java/org/diemobile/{Inspector,EvidenceRows,EvidenceJson,InputSnapshot,InvestigationBackend,FileRange,RangeAnalysis,PreparedExport,PhotoRecEngine,PhotoRecReport,BinaryRunner,CarvingBackend,PhotoRecFileChecks,PhotoRecBackend}.java \
   tests/fixtures/metadata/MetadataFixtureFactory.java tests/fixtures/carving/CarvingFixture.java tests/{PhotoRecInvestigationTest,PhotoRecStreamingTest}.java
 java --add-opens=java.base/java.io=ALL-UNNAMED -Djava.library.path="$PWD/app/build/host-photorec" \
   -cp "$tmp/classes:$json_test_jar" org.diemobile.PhotoRecInvestigationTest "$tmp"
 
 c++ -std=c++17 -O2 -Wall -Wextra -Werror -Icarving-engine tests/blob_input_test.cpp -o "$tmp/blob-input-test"
 "$tmp/blob-input-test" "$tmp"
+c++ -std=c++17 -O2 -Wall -Wextra -Werror -Icarving-engine tests/read_only_file_test.cpp -o "$tmp/read-only-file-test"
+"$tmp/read-only-file-test" "$tmp"
 java -Xmx128m --add-opens=java.base/java.io=ALL-UNNAMED -Djava.library.path="$PWD/app/build/host-photorec" \
   -cp "$tmp/classes:$json_test_jar" org.diemobile.PhotoRecStreamingTest "$tmp"

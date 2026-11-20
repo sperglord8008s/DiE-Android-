@@ -317,6 +317,68 @@ public final class GallerizeWorkbenchTest {
     }
 
     @Test
+    public void recoveredPdfOpensAnActualFileAndSavesWithItsNativeBoundaryAndPdfType()
+            throws Exception {
+        closeGallery();
+        byte[] pdf = MetadataFixtureFactory.pdf();
+        ByteArrayOutputStream source = new ByteArrayOutputStream();
+        source.write(new byte[37]);
+        source.write(pdf);
+        source.write(new byte[97]);
+        blob = source.toByteArray();
+        Files.write(original.toPath(), blob);
+        Intent intent =
+                new Intent(RuntimeEnvironment.getApplication(), GallerizeActivity.class)
+                        .putExtra("path", original.getAbsolutePath())
+                        .putExtra("name", "not-a-pdf.jpg")
+                        .putExtra("sha256", Inspector.scan(original, 4).sha256)
+                        .putExtra("sourceSize", blob.length);
+        controller = Robolectric.buildActivity(GallerizeActivity.class, intent).setup().visible();
+        activity = controller.get();
+        settle(activity);
+        GridView gallery = (GridView) tagged(activity, "gallerize-gallery");
+        int index = -1;
+        for (int i = 0; i < gallery.getAdapter().getCount(); i++) {
+            ContentMap.Card card = (ContentMap.Card) gallery.getAdapter().getItem(i);
+            if (card.format.equals("pdf")
+                    && card.offset == 37
+                    && card.length != null
+                    && card.length == pdf.length) index = i;
+        }
+        assertTrue(status(activity), index >= 0);
+        ContentMap.Card card = (ContentMap.Card) gallery.getAdapter().getItem(index);
+        assertEquals(ContentMap.Kind.DOCUMENT, card.kind);
+        assertEquals("photorec", card.nativeEngine);
+        View tile = gallery.getAdapter().getView(index, null, gallery);
+        tile.findViewWithTag("save-recovered-file:" + card.offset + ":" + card.length)
+                .performClick();
+        settle(activity);
+        Intent picker = Shadows.shadowOf(activity).getNextStartedActivity();
+        assertEquals("application/pdf", picker.getType());
+        PreparedExport export = ReflectionHelpers.getField(activity, "prepared");
+        assertArrayEquals(pdf, Files.readAllBytes(export.file.toPath()));
+        activity.onActivityResult(1, Activity.RESULT_CANCELED, null);
+        settle(activity);
+        gallery.performItemClick(tile, index, index);
+        settle(activity);
+        Intent target = Shadows.shadowOf(activity).getNextStartedActivity();
+        assertEquals(ContentPreviewActivity.class.getName(), target.getComponent().getClassName());
+        assertEquals("DOCUMENT", target.getStringExtra("preferred"));
+        assertTrue(target.getStringExtra("exportName").endsWith(".pdf"));
+        File child = new File(target.getStringExtra("path"));
+        assertArrayEquals(pdf, Files.readAllBytes(child.toPath()));
+        ContentOrigin origin =
+                ContentOrigin.restore(
+                        new File(activity.getCacheDir(), "content-origins"),
+                        target.getStringExtra("contentOrigin"),
+                        target.getStringExtra("sha256"),
+                        pdf.length,
+                        () -> false);
+        origin.close();
+        child.delete();
+    }
+
+    @Test
     public void manualGridDimensionsExactCellHexAndStateRemainBoundToOriginalSource()
             throws Exception {
         ReflectionHelpers.setField(activity, "mode", "bytes");

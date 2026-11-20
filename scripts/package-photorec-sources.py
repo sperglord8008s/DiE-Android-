@@ -23,14 +23,14 @@ for name in ['LICENSE', 'scripts/build-photorec.sh', 'scripts/fetch-photorec.sh'
              'scripts/photorec-notices.py', 'scripts/package-photorec-sources.py',
              'scripts/test-photorec.sh', 'scripts/test-dependencies.sh',
              'tests/PhotoRecInvestigationTest.java', 'tests/PhotoRecStreamingTest.java',
-             'tests/blob_input_test.cpp', 'tests/fixtures/carving/CarvingFixture.java',
+             'tests/blob_input_test.cpp', 'tests/read_only_file_test.cpp', 'tests/fixtures/carving/CarvingFixture.java',
              'tests/fixtures/metadata/MetadataFixtureFactory.java',
              'app/src/main/assets/notices/photorec-7.2.txt',
              'app/src/main/assets/notices/photorec-source-headers.txt']:
     files[name] = root / name
 for name in ['Inspector', 'EvidenceRows', 'EvidenceJson', 'InputSnapshot', 'InvestigationBackend',
              'FileRange', 'RangeAnalysis', 'PreparedExport', 'PhotoRecEngine',
-             'PhotoRecReport', 'BinaryRunner', 'CarvingBackend', 'PhotoRecBackend']:
+             'PhotoRecReport', 'PhotoRecFileChecks', 'BinaryRunner', 'CarvingBackend', 'PhotoRecBackend']:
     path = 'app/src/main/java/org/diemobile/' + name + '.java'
     files[path] = root / path
 directory = root / 'app/build/photorec-sources'

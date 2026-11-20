@@ -80,5 +80,36 @@ public final class MetadataFixtureFactory {
         ByteArrayOutputStream info=new ByteArrayOutputStream();info.write("INFO".getBytes(StandardCharsets.US_ASCII));riff(info,"INAM",ascii("Fixture tone"));riff(info,"IART",ascii("FOSS community"));riff(body,"LIST",info.toByteArray());riff(body,"data",new byte[16]);
         ByteArrayOutputStream out=new ByteArrayOutputStream();out.write("RIFF".getBytes(StandardCharsets.US_ASCII));out.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(body.size()).array());body.writeTo(out);return out.toByteArray();
     }
+    public static byte[] pdf() throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        bytes.write("%PDF-1.4\n%".getBytes(StandardCharsets.US_ASCII));
+        bytes.write(new byte[] {(byte) 0xe2, (byte) 0xe3, (byte) 0xcf, (byte) 0xd3, 10});
+        List<Integer> objects = new ArrayList<>();
+        String[] data = {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 144 144] /Contents 4 0 R /Resources << >>"
+                    + " >>",
+            "<< /Length 4 >>\nstream\nq Q\nendstream"
+        };
+        for (int i = 0; i < data.length; i++) {
+            objects.add(bytes.size());
+            bytes.write(
+                    ((i + 1) + " 0 obj\n" + data[i] + "\nendobj\n")
+                            .getBytes(StandardCharsets.US_ASCII));
+        }
+        int xref = bytes.size();
+        bytes.write(("xref\n0 5\n0000000000 65535 f \n").getBytes(StandardCharsets.US_ASCII));
+        for (int at : objects)
+            bytes.write(
+                    String.format(Locale.ROOT, "%010d 00000 n \n", at)
+                            .getBytes(StandardCharsets.US_ASCII));
+        bytes.write(
+                ("trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n")
+                        .getBytes(StandardCharsets.US_ASCII));
+        return bytes.toByteArray();
+    }
+
+
     private static void riff(OutputStream out,String type,byte[] value)throws Exception {out.write(type.getBytes(StandardCharsets.US_ASCII));out.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(value.length).array());out.write(value);if((value.length&1)!=0)out.write(0);}
 }

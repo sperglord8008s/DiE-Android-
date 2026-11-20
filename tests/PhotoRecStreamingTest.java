@@ -43,12 +43,12 @@ public final class PhotoRecStreamingTest {
         JSONObject report = new JSONObject(PhotoRecEngine.scanPath(source.toString()));
         require(report.optBoolean("ok"), report.optString("error"));
         require(
-                report.getString("adapter").equals("diemobile-photorec-3")
+                report.getString("adapter").equals("diemobile-photorec-4")
                         && report.getLong("fileSizeBytes") == size,
                 "Streaming source/version mismatch");
         require(
                 !report.getBoolean("inputSizedBufferAllocation")
-                        && report.getLong("maximumInputReadBufferBytes") == 1310720,
+                        && report.getLong("maximumInputReadBufferBytes") == 1376256,
                 "Input-size allocation returned");
         require(
                 report.getLong("sourceReadBytes") >= size
@@ -166,7 +166,7 @@ public final class PhotoRecStreamingTest {
         System.out.println(
                 "PhotoRec streamed JNI passed: 80 MiB exact PNGs at header/1 MiB/64 MiB/EOF seams,"
                     + " independent bytes, fully written 80 MiB data, large provider ownership, 256"
-                    + " MiB complete scan, caps and legacy transport; 1.25 MiB input-read buffer"
+                    + " MiB complete scan, caps and legacy transport; 1.3125 MiB input-read buffer"
                     + " bound.");
     }
 }
