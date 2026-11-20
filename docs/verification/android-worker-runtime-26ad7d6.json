@@ -1,0 +1,54 @@
+{
+  "schema": "org.diemobile.documented-runtime-verification",
+  "schemaVersion": 1,
+  "sourceRevision": "26ad7d6a2b5f0e7f676d4f8373b6dcf9845eebba",
+  "workflowRun": 44729667760,
+  "workflowUrl": "https://github.com/sperglord8008s/DiE-Android-/actions/runs/44729667760",
+  "scope": "Actual production worker/client and hash/archive JNI on x86 Android. Downloaded complete reports and APK/source digests independently checked. This does not verify ARM64, other engines, UI, SAF, playback/PDF or 16 KiB runtime.",
+  "apis": [
+    {
+      "api": 26,
+      "sourceRevision": "26ad7d6a2b5f0e7f676d4f8373b6dcf9845eebba",
+      "applicationUid": 10077,
+      "firstWorkerUid": 99000,
+      "elapsedMs": 2617,
+      "fullyReadBytes": 16777233,
+      "prefilledPipeBytes": 65536,
+      "checks": [
+        "isolated-native-hash-vectors",
+        "fully-written-large-file-through-real-isolated-fd",
+        "real-isolated-archive-read-write-descriptors",
+        "token-scoped-kill-with-blocked-report-pipe",
+        "normal-client-recovers-after-worker-death"
+      ]
+    },
+    {
+      "api": 35,
+      "sourceRevision": "26ad7d6a2b5f0e7f676d4f8373b6dcf9845eebba",
+      "applicationUid": 10209,
+      "firstWorkerUid": 99000,
+      "elapsedMs": 13176,
+      "fullyReadBytes": 16777233,
+      "prefilledPipeBytes": 65536,
+      "checks": [
+        "isolated-native-hash-vectors",
+        "fully-written-large-file-through-real-isolated-fd",
+        "real-isolated-archive-read-write-descriptors",
+        "token-scoped-kill-with-blocked-report-pipe",
+        "normal-client-recovers-after-worker-death"
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "api": 26,
+      "id": 14626261283,
+      "sha256": "8e5318572e7678d69dc9bc0461ff02e37952418853d61e23ea68ac76cfe904f6"
+    },
+    {
+      "api": 35,
+      "id": 14626261363,
+      "sha256": "bd96b04bb1937a21f2c3601b9b96873d610b49b29f91e271faf55a0775720e4b"
+    }
+  ]
+}

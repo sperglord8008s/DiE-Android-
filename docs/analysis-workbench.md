@@ -127,3 +127,11 @@ cancellation and recovery. API 26/35 emulator jobs retain complete evidence
 and source/APK identities. Compilation/static checks are implemented; actual
 Android execution is pending. This does not verify ARM64, other engines, SAF,
 UI, media/PDF or 16 KiB runtime. See [laboratory contracts](../runtime-worker/README.md).
+
+The original five contracts passed on actual API 26 and API 35 x86 emulators
+at source `26ad7d6`, run `44729667760`; downloaded complete reports, APK/source
+identities and artifact digests were independently checked.
+[Verification summary](verification/android-worker-runtime-26ad7d6.json).
+The next source adds a separately tested production gallery media-preview
+helper; its Android codec case is pending, and it runs in the normal app UID.
+See [gallery media contracts](gallery-media-previews.md).

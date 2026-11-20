@@ -19,6 +19,7 @@ final class ContentGalleryAdapter extends BaseAdapter implements AutoCloseable {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Map<Integer, Bitmap> thumbnails = new HashMap<>();
     private final Map<Integer, String> failures = new HashMap<>();
+    private final Map<Integer, MediaFrame.Result> media = new HashMap<>();
     private final Set<Integer> pending = new HashSet<>();
     private volatile boolean closed;
 
@@ -76,7 +77,10 @@ final class ContentGalleryAdapter extends BaseAdapter implements AutoCloseable {
                                 + "\n"
                                 + (card.length == null ? "Extent unknown" : card.length + " bytes"),
                         12));
-        if (card.kind == ContentMap.Kind.IMAGE && card.length != null) {
+        if ((card.kind == ContentMap.Kind.IMAGE
+                        || card.kind == ContentMap.Kind.AUDIO
+                        || card.kind == ContentMap.Kind.VIDEO)
+                && card.length != null) {
             ImageView image = new ImageView(context);
             image.setContentDescription(card.label);
             image.setScaleType(ImageView.ScaleType.FIT_CENTER);
@@ -84,10 +88,16 @@ final class ContentGalleryAdapter extends BaseAdapter implements AutoCloseable {
             TextView status = text("Decoding thumbnail…", 11);
             tile.addView(status);
             Bitmap bitmap = thumbnails.get(index);
+            if (bitmap == null && (media.containsKey(index) || card.kind == ContentMap.Kind.AUDIO))
+                image.setVisibility(View.GONE);
             if (bitmap != null) {
                 image.setImageBitmap(bitmap);
-                status.setText("Platform decoded thumbnail · tap for preview/evidence");
-            } else if (failures.containsKey(index))
+                status.setText(
+                        media.containsKey(index)
+                                ? media.get(index).description()
+                                : "Platform decoded thumbnail · tap for preview/evidence");
+            } else if (media.containsKey(index)) status.setText(media.get(index).description());
+            else if (failures.containsKey(index))
                 status.setText("Thumbnail unavailable: " + failures.get(index));
             else if (!closed && pending.add(index)) thumbnail(index, card);
         } else if (card.kind == ContentMap.Kind.TEXT) {
@@ -98,7 +108,8 @@ final class ContentGalleryAdapter extends BaseAdapter implements AutoCloseable {
             tile.addView(
                     text(
                             card.length == null
-                                    ? "Inspect the native witness; no inferred extraction"
+                                    ? "Extent unknown · inspect witness or choose explicit"
+                                            + " inspection bytes"
                                     : "Tap to preview, inspect or export exact bytes",
                             12));
         return tile;
@@ -109,13 +120,22 @@ final class ContentGalleryAdapter extends BaseAdapter implements AutoCloseable {
                 () -> {
                     if (closed) return;
                     Bitmap bitmap = null;
+                    MediaFrame.Result observation = null;
                     String error = "";
                     try {
-                        bitmap = ContentPreview.image(input.file, card.range(input.size), 256);
+                        if (card.kind == ContentMap.Kind.IMAGE)
+                            bitmap = ContentPreview.image(input.file, card.range(input.size), 256);
+                        else {
+                            observation =
+                                    MediaFrame.read(
+                                            input, card.range(input.size), 256, () -> closed);
+                            bitmap = observation.bitmap;
+                        }
                     } catch (Exception failure) {
                         error = failure.toString();
                     }
                     Bitmap result = bitmap;
+                    MediaFrame.Result captured = observation;
                     String failure = error;
                     main.post(
                             () -> {
@@ -124,17 +144,25 @@ final class ContentGalleryAdapter extends BaseAdapter implements AutoCloseable {
                                     return;
                                 }
                                 pending.remove(index);
-                                if (result == null) failures.put(index, failure);
-                                else thumbnails.put(index, result);
+                                if (captured != null) media.put(index, captured);
+                                if (result != null) thumbnails.put(index, result);
+                                else if (captured == null) failures.put(index, failure);
                                 notifyDataSetChanged();
                             });
                 });
+    }
+
+    org.json.JSONObject mediaObservation(ContentMap.Card card) throws Exception {
+        int index = cards.indexOf(card);
+        MediaFrame.Result result = media.get(index);
+        return result == null ? null : result.report();
     }
 
     @Override
     public void close() {
         closed = true;
         thumbnails.clear();
+        media.clear();
         failures.clear();
         pending.clear();
         // Bitmaps already referenced by displayed ImageViews remain valid until those views are

@@ -17,6 +17,7 @@ def stageWorkerSources = tasks.register('stageWorkerSources', Sync) {
                 'org/diemobile/EvidenceJson.java', 'org/diemobile/Inspector.java',
                 'org/diemobile/InputSnapshot.java', 'org/diemobile/RangeAnalysis.java',
                 'org/diemobile/FileRange.java', 'org/diemobile/NativeArchiveStore.java'
+        include 'org/diemobile/MediaFrame.java'
     }
     into layout.buildDirectory.dir('shared-worker-sources')
 }
@@ -52,6 +53,7 @@ android {
         jniLibs.srcDir '../app/build/generated-archive-jni'
         assets.srcDir '../app/build/generated-archive-assets'
         assets.srcDir layout.buildDirectory.dir('runtime-notices')
+        assets.srcDir layout.buildDirectory.dir('generated-runtime-assets')
     }
     applicationVariants.configureEach { variant ->
         variant.outputs.configureEach {
@@ -68,4 +70,13 @@ def buildRuntimeArchive = tasks.register('buildRuntimeArchive', Exec) {
     inputs.files(rootProject.fileTree('archive-engine'), rootProject.files('scripts/build-archive.sh', 'scripts/build-archive-libraries.sh'))
     outputs.file(rootProject.file('app/build/generated-archive-jni/x86_64/libdiearchive.so'))
 }
-tasks.named('preBuild').configure { dependsOn buildRuntimeArchive, stageWorkerSources, stageWorkerNotices }
+def generateRuntimeMediaFixture = tasks.register('generateRuntimeMediaFixture', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'python3', rootProject.file('tests/fixtures/media/generate-preview.py').absolutePath,
+            layout.buildDirectory.dir('generated-runtime-assets/test-fixtures').get().asFile.absolutePath
+    inputs.file rootProject.file('tests/fixtures/media/generate-preview.py')
+    outputs.dir layout.buildDirectory.dir('generated-runtime-assets/test-fixtures')
+}
+tasks.named('preBuild').configure {
+    dependsOn buildRuntimeArchive, stageWorkerSources, stageWorkerNotices, generateRuntimeMediaFixture
+}
