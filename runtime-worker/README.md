@@ -13,12 +13,23 @@ original. There is no substitute service, fake native engine or test opcode in
 production. Unexercised Binwalk/PhotoRec/MPV Java bridge references are retained;
 the laboratory packages only the real hash and archive native libraries. Google
 resource-parser Java dependencies are compiled because the shared service
-references them; resource parsing is not covered by these five runtime checks.
+references them; these worker and platform-preview checks do not exercise
+resource parsing.
+
+Actual worker source `26ad7d6a2b5f0e7f676d4f8373b6dcf9845eebba` passed
+all five original contracts on API 26 and 35 in run
+[`44729667760`](https://github.com/sperglord8008s/DiE-Android-/actions/runs/44729667760).
+Downloaded reports, source/APK identities and artifact digests were independently
+checked; [retained summary](../docs/verification/android-worker-runtime-26ad7d6.json).
+The additional platform media check is pending execution for the new source.
 
 ## Reproduce
 
 Use JDK 17, Gradle 8.11.1, SDK/build-tools 35, NDK 28.2.13676358 and CMake
-3.22.1. Fetches use the existing pinned source/patch/checksum contracts. Retain
+3.22.1. Owned pinned video and Python-generated PCM fixtures need no FFmpeg
+installation; the optional [regeneration recipe](../tests/fixtures/media/README.md)
+retains its original FFmpeg command/version. Fetches use the existing
+pinned source/patch/checksum contracts. Retain
 the dependency caches and toolchains for later `--offline` builds.
 
 ```sh
@@ -45,6 +56,10 @@ gate. A workflow file or successful APK compilation is not runtime evidence.
 
 ## What is checked
 
+The first five below passed for the exact source above. The sixth exercises
+the production gallery helper in the normal target UID, separately from the
+isolated worker. No host codec shadow counts as platform runtime verification.
+
 1. A real normal-UID client binds the private isolated service, passes a
    read-only descriptor and receives all eight native digests. UID and engine
    identity, complete byte counts, MD4 and CRC32 known vectors are asserted.
@@ -65,6 +80,13 @@ gate. A workflow file or successful APK compilation is not runtime evidence.
    is needed to keep the request active.
 5. A fresh ordinary client completes another native hash request after worker
    death, demonstrating recovery.
+6. Generated solid-green 64×48 MPEG-4 and 500 ms PCM clips are embedded behind
+   a prefix and before a trailer. The unchanged production `MediaFrame` helper
+   must pass only the selected descriptor interval, retain real metadata and
+   null timestamp semantics, decode a bounded independently expected green
+   frame on API 35, and use metadata without unbounded frame decoding on API 26.
+   Audio-only input must not acquire an invented frame. This case is pending
+   actual emulator execution for the current source.
 
 The instrumentation writes a complete private JSON report even on failure.
 The runner retains that report, instrumentation/install logs, emulator
@@ -75,8 +97,9 @@ CI uploads these with the signed test APKs under
 
 ## Limits and licensing
 
-Passing these checks would verify only the stated x86 Android worker contracts.
-It would not verify production ARM64, a physical handset, SAF grants/providers,
+The original five checks verify the stated x86 Android worker contracts at the
+exact recorded source. Additional cases need their own successful execution.
+They do not verify production ARM64, a physical handset, SAF grants/providers,
 UI/accessibility, other engines, playback/PDF, arbitrary hostile-input
 resilience, all crash modes or 16 KiB-page execution. See
 [feature parity](../docs/FEATURE-PARITY.md) for current results and gaps.

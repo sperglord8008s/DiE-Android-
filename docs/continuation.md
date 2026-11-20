@@ -795,3 +795,45 @@ passed on retry). Publisher `44729105874` published pre-alpha.8 from exact CI
 source `e32161f8b8ff97deb0c6316bf3432f9b14a56e56`, code 14. Public APK SHA-256
 `669e60fe3ba312126b73188337881a517f241a3aebf8fa50d3b155eb2d761ea3`.
 The original local .8 frozen APK and preceding public checkpoints are retained.
+
+## Worker runtime verified; gallery media preview slice
+
+Original five contracts passed on actual x86 Android API 26 and 35 in runtime
+run `44729667760` at exact source `26ad7d6a2b5f0e7f676d4f8373b6dcf9845eebba`.
+Downloaded complete evidence, APK/shared-source hashes and artifact digests were
+independently checked. Normal app UIDs were 10077/10209; first isolated worker
+UID was 99000. Both read all 16,777,233 bytes, decoded the embedded gzip, refused
+the client alias, survived wrong-token cancellation, disconnected on the correct
+token with a 65,536-byte full report pipe, and recovered with a fresh client.
+See [retained verification summary](verification/android-worker-runtime-26ad7d6.json).
+The local clean .9 APK at that source is frozen with SHA-256
+`8eb18dcb055d1a867a45510b7e99e14a236130b5403ab9941ad113203571027e`.
+Its source CI release gate is still pending the build job; the other four passed.
+
+Current source advances to **0.6.0-pre-alpha.10 / code 16**. `MediaFrame` adds
+source-checked exact-range platform metadata/scaled video frames to bounded
+Gallerize audio/video cards, preserves null/raw/errors and keeps observations
+separate from native finding bounds. API 26 has no unbounded frame fallback.
+All 175 Android host tests, final frame-budget guard rerun, required generic/
+native checks, ARM64 assembly/lint/fifteen-library APK checks and runtime APK
+compilation/static verification pass. Source CI is pending.
+A sixth instrumented case now uses generated green MPEG-4/PCM clips to verify
+actual Android codecs and exact prefix/trailer intervals; execution is pending.
+The runtime workflow now also runs on main and pull requests, preserving its
+separate scope from the existing five-job production gate. See
+[media preview contracts](gallery-media-previews.md).
+
+Next: inspect/correct the new Android codec evidence and full host/ARM64 gates;
+commit and publish only passing checkpoints, preserving earlier APKs. Continue
+origin inheritance, wider preview support and desktop parity after these gates.
+
+The first .10 runtime attempt (`44732427853`) stopped before building/running
+tests because the pinned host did not supply FFmpeg. The 991-byte owned
+generated video is now retained with a checked SHA-256 and optional exact
+generation recipe; Python generates PCM. An empty-PATH fixture test proves
+o external codec is needed and edited canonical bytes refuse before output.
+The complete clean 175-case/ARM64/lint/APK gate at `2662f86` passed; its local
+.10 checkpoint is frozen with SHA-256
+`a26e251e8ec60fb4cc9a8d911743f81123da2260f621f67e9c67c2c9637f76a2`.
+The follow-up changes test assets/setup only; actual new codec execution remains
+pending until the next emulator jobs pass.

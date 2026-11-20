@@ -13,6 +13,7 @@ CHECKS = {
     "isolated-native-hash-vectors",
     "fully-written-large-file-through-real-isolated-fd",
     "real-isolated-archive-read-write-descriptors",
+    "exact-range-platform-media-preview",
     "token-scoped-kill-with-blocked-report-pipe",
     "normal-client-recovers-after-worker-death",
 }

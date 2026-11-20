@@ -56,10 +56,12 @@ Android 8.0 / API 26 or later is required.
 
 Debug APKs have numbered, source-identified names, for example
 `GlassDigestor-0.6.0-pre-alpha.5-dev.g0123456789ab-arm64-v8a-debug.apk`.
-Current development builds use **0.6.0-pre-alpha.9** / code **15**, including
+Current development builds use **0.6.0-pre-alpha.10** / code **16**, including
 [direct gallery archive inspection and explicit byte-range previews](docs/gallery-inspection-ranges.md)
 and a separate [Android worker runtime laboratory](runtime-worker/README.md).
-The new emulator runtime checks are pending execution.
+The five hash/archive worker contracts passed on actual x86 Android API 26/35;
+[bounded gallery video frames/media observations](docs/gallery-media-previews.md)
+add a separate platform-codec runtime check in the current development slice.
 Package knowledge retains all 5,402 original UAD-NG records, including duplicate IDs. Earlier published checkpoints remain unchanged.
 
 Tap the app title or **Options → Build details** to see the same version and
@@ -85,8 +87,10 @@ oracles also reconstruct every knowledge source record and UTF-16 unit. See the
 [knowledge](docs/package-knowledge.md), [text](docs/text-paging.md) and
 [origin contracts](docs/content-origins.md).
 
-**This remains a pre-alpha workbench.** Actual handset/SAF/isolated-UID/media
-runtime tests and full desktop Detect It Easy parity are incomplete. Header
+**This remains a pre-alpha workbench.** Five real isolated-worker contracts pass
+on x86 Android API 26/35 ([exact evidence](docs/verification/android-worker-runtime-26ad7d6.json)).
+Production ARM64/handset/SAF/UI/media runtime acceptance and full desktop Detect
+It Easy parity remain incomplete. Header
 matches, declared permissions and high entropy are evidence to investigate;
 they do not establish malicious behavior, complete validity or safety.
 

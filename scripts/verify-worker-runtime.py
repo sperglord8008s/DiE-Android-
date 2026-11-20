@@ -100,6 +100,9 @@ def verify(sdk):
             ).read_bytes()
         assert archive.read("assets/notices/runtime-scope.txt")
         assert archive.read("assets/notices/archive-codecs.txt")
+        assert archive.read("assets/test-fixtures/green-64x48.mp4") == (
+            ROOT / "tests/fixtures/media/green-64x48.mp4"
+        ).read_bytes()
     return {
         "schema": "org.diemobile.worker-runtime-build", "schemaVersion": 1,
         "applicationId": "org.diemobile.runtimecheck", "abi": "x86_64", "testOnly": True,

@@ -618,7 +618,12 @@ public final class GallerizeActivity extends Activity {
     private void details(ContentMap.Card card) {
         if (busy) return;
         try {
-            TextView value = text(card.json().toString(2), 13);
+            JSONObject details = card.json();
+            if (galleryAdapter != null) {
+                JSONObject observation = galleryAdapter.mediaObservation(card);
+                if (observation != null) details.put("transientPlatformPreview", observation);
+            }
+            TextView value = text(details.toString(2), 13);
             value.setTextIsSelectable(true);
             ScrollView scroll = new ScrollView(this);
             scroll.addView(value);

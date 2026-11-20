@@ -51,8 +51,9 @@ public final class WorkerRuntimeInstrumentation extends Instrumentation {
                     .put(
                             "scope",
                             "Actual x86_64 Android production worker, hash/archive JNI, Binder,"
-                                + " descriptors and token cancellation. This does not verify ARM64,"
-                                + " UI, media/PDF or 16 KiB-page runtime.");
+                                + " descriptors, token cancellation and the production platform"
+                                + " media preview helper. This does not verify ARM64, UI, MPV"
+                                + " playback/PDF or 16 KiB-page runtime.");
             require(
                     android.os.Process.myUid() == target.getApplicationInfo().uid,
                     "Instrumentation must run as the normal target app UID");
@@ -72,6 +73,7 @@ public final class WorkerRuntimeInstrumentation extends Instrumentation {
             record("isolated-native-hash-vectors", small);
             largeHash();
             archive();
+            mediaPreview();
             cancelBlockedReporter(abc);
             record("normal-client-recovers-after-worker-death", hash(abc));
             success = true;
@@ -261,6 +263,112 @@ public final class WorkerRuntimeInstrumentation extends Instrumentation {
             evidence.put("clientAliasRefusal", aliasRefusal);
             record("real-isolated-archive-read-write-descriptors", evidence);
         }
+    }
+
+    private byte[] asset(String name) throws Exception {
+        try (InputStream in = target.getAssets().open("test-fixtures/" + name);
+                ByteArrayOutputStream bytes = new ByteArrayOutputStream()) {
+            byte[] block = new byte[8192];
+            int count;
+            while ((count = in.read(block)) >= 0) {
+                require(bytes.size() + count <= 65536, "Owned media fixture exceeds its budget");
+                bytes.write(block, 0, count);
+            }
+            return bytes.toByteArray();
+        }
+    }
+
+    private void mediaPreview() throws Exception {
+        JSONObject evidence = new JSONObject();
+        for (String fixture : new String[] {"green-64x48.mp4", "pcm-500ms.wav"}) {
+            byte[] payload = asset(fixture);
+            ByteArrayOutputStream blob = new ByteArrayOutputStream();
+            blob.write(new byte[37]);
+            blob.write(payload);
+            blob.write(new byte[43]);
+            File source = new File(directory, "media-" + fixture + ".blob");
+            write(source, blob.toByteArray());
+            try (InputSnapshot input =
+                    InputSnapshot.acquire(source, directory, 65536, () -> false)) {
+                MediaFrame.Result preview =
+                        MediaFrame.read(
+                                input,
+                                new FileRange(input.size, 37, payload.length),
+                                24,
+                                () -> false);
+                try {
+                    JSONObject report = preview.report();
+                    require(
+                            report.getLong("physicalOffset") == 37
+                                    && report.getLong("storedSizeBytes") == payload.length,
+                            "Platform preview lost its exact embedded interval");
+                    require(
+                            report.getString("sourceSha256").equals(input.sha256),
+                            "Platform preview source identity differs");
+                    require(
+                            report.isNull("actualTimestampUs"),
+                            "Preview invented a frame timestamp");
+                    if (fixture.endsWith(".mp4")) {
+                        require(
+                                "yes".equals(preview.metadata.get("hasVideo")),
+                                "No actual video track");
+                        require(
+                                "64".equals(preview.metadata.get("videoWidth"))
+                                        && "48".equals(preview.metadata.get("videoHeight")),
+                                "Actual platform video dimensions differ from generated fixture");
+                        long duration = Long.parseLong(preview.metadata.get("durationMs"));
+                        require(
+                                duration >= 900 && duration <= 1100,
+                                "Actual video duration differs");
+                        if (Build.VERSION.SDK_INT >= 27) {
+                            require(
+                                    preview.bitmap != null,
+                                    "Actual scaled platform video frame unavailable: " + report);
+                            require(
+                                    preview.bitmap.getWidth() <= 24
+                                            && preview.bitmap.getHeight() <= 24,
+                                    "Actual video frame exceeded requested dimensions");
+                            int pixel =
+                                    preview.bitmap.getPixel(
+                                            preview.bitmap.getWidth() / 2,
+                                            preview.bitmap.getHeight() / 2);
+                            int red = android.graphics.Color.red(pixel),
+                                    green = android.graphics.Color.green(pixel),
+                                    blue = android.graphics.Color.blue(pixel);
+                            require(
+                                    green > 80 && red < 60 && blue < 60,
+                                    "Actual decoded fixture pixel is not independently expected"
+                                        + " green");
+                            report.put(
+                                    "independentCenterArgb",
+                                    String.format(Locale.ROOT, "%08x", pixel));
+                        } else {
+                            require(
+                                    preview.bitmap == null
+                                            && preview.frameStatus.contains("API 27+"),
+                                    "API 26 must keep metadata without unbounded video decoding");
+                        }
+                    } else {
+                        require(
+                                "yes".equals(preview.metadata.get("hasAudio")),
+                                "No actual audio track");
+                        require(
+                                preview.bitmap == null,
+                                "Audio-only fixture produced an invented frame");
+                        long duration = Long.parseLong(preview.metadata.get("durationMs"));
+                        require(duration >= 490 && duration <= 510, "Actual PCM duration differs");
+                    }
+                    input.checkIdentity(() -> false);
+                    evidence.put(fixture, report);
+                } finally {
+                    if (preview.bitmap != null) preview.bitmap.recycle();
+                }
+            }
+        }
+        evidence.put(
+                "fixtureManifest",
+                new JSONObject(new String(asset("fixture-manifest.json"), StandardCharsets.UTF_8)));
+        record("exact-range-platform-media-preview", evidence);
     }
 
     private void cancelBlockedReporter(File input) throws Exception {

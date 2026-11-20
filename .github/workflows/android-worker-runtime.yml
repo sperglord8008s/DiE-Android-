@@ -1,20 +1,14 @@
 name: Android worker runtime contracts
 on:
   workflow_dispatch:
+  pull_request:
   push:
-    branches: ['codex/android-worker-runtime']
-    paths:
-      - 'runtime-worker/**'
-      - 'app/src/main/java/org/diemobile/BinaryWorker*'
-      - 'scripts/*worker-runtime*'
-      - 'scripts/build-archive*.sh'
-      - 'archive-engine/CMakeLists.txt'
-      - '.github/workflows/android-worker-runtime.yml'
+    branches: ['main', 'codex/**']
 permissions:
   contents: read
 jobs:
   isolated-worker:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -44,6 +38,8 @@ jobs:
           log-accepted-android-sdk-licenses: 'false'
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;28.2.13676358' 'cmake;3.22.1'
       - run: bash scripts/fetch-engine.sh
+      - name: Check offline owned fixtures
+        run: python3 tests/test-media-preview-fixture.py
       - run: ./gradlew --no-daemon :runtime-worker:assembleDebug :runtime-worker:assembleDebugAndroidTest
       - run: python3 scripts/verify-worker-runtime.py
       - name: Enable KVM on the disposable runner
