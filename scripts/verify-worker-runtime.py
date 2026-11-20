@@ -81,7 +81,7 @@ def verify(sdk):
         original = ROOT / "app/src/main/java" / relative
         assert original.read_bytes() == file.read_bytes(), f"Shared production source changed: {relative}"
         sources[str(relative)] = sha256(file)
-    for name in ["BinaryWorkerClient", "BinaryWorkerService", "ArchiveEngine", "HashEngine", "AndroidResourceProbe"]:
+    for name in ["BinaryWorkerClient", "BinaryWorkerService", "ArchiveEngine", "HashEngine", "AndroidResourceProbe", "PackageManifest"]:
         assert "org/diemobile/" + name + ".java" in sources
     with zipfile.ZipFile(target) as archive:
         native = [name for name in archive.namelist() if name.endswith(".so")]

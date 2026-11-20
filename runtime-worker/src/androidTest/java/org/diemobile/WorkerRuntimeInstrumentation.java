@@ -51,9 +51,9 @@ public final class WorkerRuntimeInstrumentation extends Instrumentation {
                     .put(
                             "scope",
                             "Actual x86_64 Android production worker, hash/archive JNI, Binder,"
-                                + " descriptors, token cancellation and the production platform"
-                                + " media preview helper. This does not verify ARM64, UI, MPV"
-                                + " playback/PDF or 16 KiB-page runtime.");
+                                + " descriptors, compiled manifest declarations, token cancellation"
+                                + " and the production platform media preview helper. This does not"
+                                + " verify ARM64, UI, MPV playback/PDF or 16 KiB-page runtime.");
             require(
                     android.os.Process.myUid() == target.getApplicationInfo().uid,
                     "Instrumentation must run as the normal target app UID");
@@ -73,6 +73,7 @@ public final class WorkerRuntimeInstrumentation extends Instrumentation {
             record("isolated-native-hash-vectors", small);
             largeHash();
             archive();
+            compiledManifest();
             mediaPreview();
             cancelBlockedReporter(abc);
             record("normal-client-recovers-after-worker-death", hash(abc));
@@ -265,6 +266,79 @@ public final class WorkerRuntimeInstrumentation extends Instrumentation {
         }
     }
 
+    private void compiledManifest() throws Exception {
+        byte[] bytes;
+        CRC32 crc = new CRC32();
+        try (ZipFile apk = new ZipFile(target.getApplicationInfo().sourceDir)) {
+            ZipEntry entry = apk.getEntry("AndroidManifest.xml");
+            require(
+                    entry != null && entry.getSize() > 0 && entry.getSize() <= 65536,
+                    "Trusted runtime target has no bounded compiled manifest");
+            try (InputStream source = apk.getInputStream(entry);
+                    ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                byte[] block = new byte[8192];
+                int count;
+                while ((count = source.read(block)) >= 0) {
+                    require(output.size() + count <= 65536, "Compiled manifest fixture grew");
+                    output.write(block, 0, count);
+                    crc.update(block, 0, count);
+                }
+                bytes = output.toByteArray();
+            }
+            require(
+                    bytes.length == entry.getSize() && crc.getValue() == entry.getCrc(),
+                    "Trusted runtime manifest ZIP size/CRC differs");
+        }
+        File source = new File(directory, "own-compiled-manifest.blob");
+        write(source, bytes);
+        try (InputSnapshot input = InputSnapshot.acquire(source, directory, 65536, () -> false);
+                BinaryWorkerClient client = new BinaryWorkerClient(target, "resources")) {
+            String encoded = client.scan(input.file, () -> false);
+            JSONObject report = new JSONObject(encoded);
+            worker(report, "resources");
+            AndroidResourceDocument document =
+                    new AndroidResourceDocument(
+                            input.file,
+                            "Installed trusted runtime target AndroidManifest.xml",
+                            input.sha256,
+                            encoded,
+                            () -> false);
+            PackageManifest declarations = new PackageManifest(document, () -> false);
+            require(
+                    target.getPackageName().equals(declarations.packageName()),
+                    "Actual Android worker package declaration differs from the installed target"
+                        + " ID");
+            require(
+                    Long.valueOf(26).equals(declarations.fields.get("minSdkVersion").unsigned())
+                            && Long.valueOf(35)
+                                    .equals(declarations.fields.get("targetSdkVersion").unsigned()),
+                    "Actual Android worker SDK declarations differ from the compiled target");
+            require(
+                    document.tables.getJSONArray("attributes").length() >= 8,
+                    "Actual Android resource attribute table incomplete");
+            input.checkIdentity(() -> false);
+            record(
+                    "real-isolated-compiled-manifest-declaration",
+                    new JSONObject()
+                            .put("manifestInputSha256", input.sha256)
+                            .put("manifestInputBytes", input.size)
+                            .put(
+                                    "independentZipCrc32",
+                                    String.format(Locale.ROOT, "%08x", crc.getValue()))
+                            .put("expectedInstalledPackageId", target.getPackageName())
+                            .put(
+                                    "literalPackageDeclaration",
+                                    declarations.fields.get("package").json())
+                            .put(
+                                    "minSdkDeclaration",
+                                    declarations.fields.get("minSdkVersion").json())
+                            .put(
+                                    "targetSdkDeclaration",
+                                    declarations.fields.get("targetSdkVersion").json())
+                            .put("completeResourceReport", report));
+        }
+    }
+
     private byte[] asset(String name) throws Exception {
         try (InputStream in = target.getAssets().open("test-fixtures/" + name);
                 ByteArrayOutputStream bytes = new ByteArrayOutputStream()) {
@@ -338,7 +412,7 @@ public final class WorkerRuntimeInstrumentation extends Instrumentation {
                             require(
                                     green > 80 && red < 60 && blue < 60,
                                     "Actual decoded fixture pixel is not independently expected"
-                                        + " green");
+                                            + " green");
                             report.put(
                                     "independentCenterArgb",
                                     String.format(Locale.ROOT, "%08x", pixel));

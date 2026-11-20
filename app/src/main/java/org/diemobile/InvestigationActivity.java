@@ -34,7 +34,7 @@ public final class InvestigationActivity extends Activity {
     private String inputNotice = "";
     private long byteSize;
     private volatile int generation;
-    private boolean busy, binding, pickerOpen, expired;
+    private boolean busy, binding, pickerOpen, expired, communityAttempted;
     private AtomicBoolean cancellation = new AtomicBoolean();
     private PreparedExport prepared, preview;
     private EditText filter;
@@ -67,6 +67,7 @@ public final class InvestigationActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         explanations = new ExpandableHelp(this);
+        communityAttempted = state != null && state.getBoolean("communityAttempted");
         String path = getIntent().getStringExtra("path"); if (path == null) { finish(); return; }
         File root = new File(path); inputName = getIntent().getStringExtra("name"); if (inputName == null) inputName = root.getName();
         if(state!=null) { retentionState=state.getString("providerState");pendingInputRequest=state.getString("pendingInputRequest");if(pendingInputRequest!=null)pickerOpen=true; }
@@ -83,7 +84,7 @@ public final class InvestigationActivity extends Activity {
             getIntent().getStringExtra("sha256"),getIntent().getLongExtra("sourceSize",-1),retentionState);
         else if ("package-set".equals(getIntent().getStringExtra("provider"))) backend = new PackageSetBackend(root,new File(getCacheDir(),"package-snapshots"),inputName,
             getIntent().getStringExtra("sha256"),getIntent().getLongExtra("sourceSize",-1),getIntent().getStringArrayListExtra("packagePaths"),getIntent().getStringExtra("inventoryPackage"),retentionState,new BinaryWorkerClient(this,"resources"));
-        else if ("package-knowledge".equals(getIntent().getStringExtra("provider"))) backend = new PackageKnowledgeBackend(()->getAssets().open("knowledge/uad.json"), new File(getCacheDir(),"package-knowledge-snapshots"),getIntent().getStringExtra("knowledgePackageId"),retentionState);
+        else if ("package-knowledge".equals(getIntent().getStringExtra("provider"))) backend = new PackageKnowledgeBackend(()->getAssets().open("knowledge/uad.json"), new File(getCacheDir(),"package-knowledge-snapshots"),getIntent().getStringExtra("knowledgePackageId"),retentionState,new File(getCacheDir(),"package-knowledge-subjects"),getIntent().getStringExtra("knowledgeSubject"));
         else if ("sdk-rules".equals(getIntent().getStringExtra("provider"))) backend = new SdkCatalogBackend(()->getAssets().open("knowledge/libchecker-v5.json"),new File(getCacheDir(),"knowledge-snapshots"));
         else if ("tracker-rules".equals(getIntent().getStringExtra("provider"))) backend = new TrackerCatalogBackend(()->new FileInputStream(new File(getFilesDir(),"exodus-trackers.json")),new File(getCacheDir(),"tracker-snapshots"));
         else if ("metadata".equals(getIntent().getStringExtra("provider"))) backend = new MetadataBackend(root,new File(getCacheDir(),"metadata-snapshots"),inputName);
@@ -189,6 +190,11 @@ public final class InvestigationActivity extends Activity {
                     busy = false; source = rows; selection = selected; shown = page; roots = rootViews; bytes = input; inputName = display; byteSize = size; provenance = origin; metadata = meta;
                     retentionState=retainedState;
                     produced = new Location(request, target.filter, target.draft, page.number, target.pageSize); location = produced; present();
+                    if (!communityAttempted && backend instanceof PackageSetBackend
+                            && getIntent().getBooleanExtra("openCapturedPackageKnowledge", false)) {
+                        communityAttempted = true;
+                        openCapturedPackageKnowledge(0);
+                    }
                 });
             } catch (Exception | LinkageError | StackOverflowError error) { failed(ticket, "Investigation failed: " + error.getMessage()); }
         });
@@ -502,6 +508,17 @@ public final class InvestigationActivity extends Activity {
             labels.add(link.label);
             actions.add(() -> followLink(link));
         }
+        if (backend instanceof PackageSetBackend) {
+            try {
+                Integer sourceIndex = ((PackageSetBackend) backend).knowledgeSource(source, row);
+                if (sourceIndex != null) {
+                    labels.add("What does this captured package do? / sourced community records");
+                    actions.add(() -> openCapturedPackageKnowledge(sourceIndex));
+                }
+            } catch (Exception error) {
+                status.setText("Package association unavailable: " + error.getMessage());
+            }
+        }
         if (row.physicalOffset != null && row.physicalOffset < byteSize) {
             labels.add("Hex at associated physical offset");
             actions.add(
@@ -618,6 +635,42 @@ public final class InvestigationActivity extends Activity {
                 .setNegativeButton("Cancel", null)
                 .show();
     }
+    private void openCapturedPackageKnowledge(int sourceIndex) {
+        if (busy || pickerOpen || !(backend instanceof PackageSetBackend)) return;
+        PackageSetBackend capturedBackend = (PackageSetBackend) backend;
+        int ticket = begin("Capturing the exact APK package declaration for community lookup…");
+        AtomicBoolean stop = cancellation;
+        worker.execute(() -> {
+            try {
+                PackageKnowledgeSubject captured = capturedBackend.captureKnowledgeSubject(sourceIndex,
+                        new File(getCacheDir(), "package-knowledge-subjects"), stop::get);
+                runOnUiThread(() -> {
+                    if (isDestroyed() || ticket != generation || stop.get()) {
+                        captured.close();
+                        return;
+                    }
+                    busy = false;
+                    controls();
+                    try {
+                        startActivity(new Intent(this, InvestigationActivity.class)
+                                .putExtra("provider", "package-knowledge")
+                                .putExtra("path", new File(getCacheDir(), "package-knowledge-catalog").getAbsolutePath())
+                                .putExtra("name", captured.packageId)
+                                .putExtra("knowledgePackageId", captured.packageId)
+                                .putExtra("knowledgeSubject", captured.descriptor()));
+                        status.setText("Community lookup for captured manifest ID " + visible(captured.packageId)
+                                + " · exact-ID association, not verified runtime behavior");
+                    } catch (Exception error) {
+                        captured.close();
+                        status.setText("Community lookup could not open: " + error.getMessage());
+                    }
+                });
+            } catch (Exception error) {
+                failed(ticket, "APK package association failed: " + error.getMessage());
+            }
+        });
+    }
+
     private void openArchiveHypothesis(EvidenceRows.Row row) {
         if (busy || pickerOpen) return;
         InputSnapshot input = backend.ownedByteSource();
@@ -880,7 +933,7 @@ public final class InvestigationActivity extends Activity {
         });
     }
     @Override protected void onSaveInstanceState(Bundle state) {
-        super.onSaveInstanceState(state); if (location == null) return; state.putBundle("location", capture().bundle()); ArrayList<Bundle> trail = new ArrayList<>(); for (Location value : history) trail.add(value.bundle()); state.putParcelableArrayList("history",trail); state.putBoolean("expired",expired);
+        super.onSaveInstanceState(state); state.putBoolean("communityAttempted", communityAttempted); if (location == null) return; state.putBundle("location", capture().bundle()); ArrayList<Bundle> trail = new ArrayList<>(); for (Location value : history) trail.add(value.bundle()); state.putParcelableArrayList("history",trail); state.putBoolean("expired",expired);
         state.putString("inputNotice", inputNotice);
         if(retentionState!=null)state.putString("providerState",retentionState);
         if(pendingInputRequest!=null)state.putString("pendingInputRequest",pendingInputRequest);

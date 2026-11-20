@@ -97,6 +97,24 @@ public final class ContentPresentationWorkbenchTest {
     }
 
     @Test
+    public void selectedApkKnowledgeRouteKeepsCapturedInputIdentityAndExplicitLookupIntent()
+            throws Exception {
+        page(3);
+        Button lookup = (Button) tagged("apk-community-lookup");
+        assertNotNull(lookup);
+        lookup.performClick();
+        Intent intent = Shadows.shadowOf(activity).getNextStartedActivity();
+        assertNotNull(intent);
+        Inspector.Result captured = ReflectionHelpers.getField(activity, "result");
+        File source = ReflectionHelpers.getField(activity, "retainedFile");
+        assertEquals("package-set", intent.getStringExtra("provider"));
+        assertEquals(source.getAbsolutePath(), intent.getStringExtra("path"));
+        assertEquals(captured.sha256, intent.getStringExtra("sha256"));
+        assertEquals(captured.size, intent.getLongExtra("sourceSize", -1));
+        assertTrue(intent.getBooleanExtra("openCapturedPackageKnowledge", false));
+    }
+
+    @Test
     public void identityPrecedesGroupedToolsAndTheGuideIsPresentedOnlyOnce() throws Exception {
         page(1);
         LinearLayout pane = ReflectionHelpers.getField(activity, "pane");

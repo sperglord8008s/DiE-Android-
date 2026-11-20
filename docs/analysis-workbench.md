@@ -135,3 +135,12 @@ identities and artifact digests were independently checked.
 The next source adds a separately tested production gallery media-preview
 helper; its Android codec case is pending, and it runs in the normal app UID.
 See [gallery media contracts](gallery-media-previews.md).
+
+Six contracts now passed on actual x86 API 26/35 at source `8f2ab38` in
+run `44733208678`, including the normal-UID bounded platform media helper;
+[download-verified evidence](verification/android-worker-runtime-8f2ab38.json).
+The seventh compiled-manifest worker/declaration case is implemented, execution
+pending. Selected APKs now have an exact-literal-ID community lookup with
+independently retained original manifest and input evidence;
+[association contracts](apk-community-context.md). Three new host/widget flows
+and independent Unicode/ownership/export oracles pass; full source gates pending.

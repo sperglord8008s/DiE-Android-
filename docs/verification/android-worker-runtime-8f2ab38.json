@@ -1,0 +1,181 @@
+{
+  "schema": "org.diemobile.documented-runtime-verification",
+  "schemaVersion": 1,
+  "sourceRevision": "8f2ab38af319a02c85618a0f398d654c1b48c15a",
+  "workflowRun": 44733208678,
+  "workflowUrl": "https://github.com/sperglord8008s/DiE-Android-/actions/runs/44733208678",
+  "scope": "Six contracts on actual x86 Android API 26/35: isolated hash/archive worker/Binder/PFD/cancellation/recovery, plus the normal-UID production platform media preview helper. Downloaded complete reports and APK/shared-source digests independently checked. This does not verify production ARM64, other worker engines, SAF/UI, full playback/PDF or 16 KiB runtime.",
+  "apis": [
+    {
+      "api": 26,
+      "sourceRevision": "8f2ab38af319a02c85618a0f398d654c1b48c15a",
+      "applicationUid": 10077,
+      "firstWorkerUid": 99000,
+      "elapsedMs": 4889,
+      "fullyReadBytes": 16777233,
+      "prefilledPipeBytes": 65536,
+      "checks": [
+        "isolated-native-hash-vectors",
+        "fully-written-large-file-through-real-isolated-fd",
+        "real-isolated-archive-read-write-descriptors",
+        "exact-range-platform-media-preview",
+        "token-scoped-kill-with-blocked-report-pipe",
+        "normal-client-recovers-after-worker-death"
+      ],
+      "platformVideo": {
+        "schema": "org.diemobile.platform-media-preview",
+        "schemaVersion": 1,
+        "sourceSha256": "bf804871334450c2fe7b91c7d6ec3e010c46b472bef26cc3c0115e3ee5d6acae",
+        "sourceSizeBytes": 1071,
+        "physicalOffset": 37,
+        "storedSizeBytes": 991,
+        "sdk": 26,
+        "metadata": {
+          "mimeType": "video/mp4",
+          "durationMs": "1000",
+          "videoWidth": "64",
+          "videoHeight": "48",
+          "rotationDegrees": "0",
+          "bitrate": "7928",
+          "trackCount": "1",
+          "hasVideo": "yes",
+          "hasAudio": null
+        },
+        "metadataErrors": {},
+        "frameError": null,
+        "frameStatus": "Scaled video frames require Android API 27+; in-app playback remains available",
+        "requestedTimeUs": 0,
+        "selection": "OPTION_CLOSEST_SYNC",
+        "actualTimestampUs": null,
+        "maximumWidth": 24,
+        "maximumHeight": 24,
+        "decodedWidth": null,
+        "decodedHeight": null,
+        "meaning": "Transient platform preview observation of the selected stored interval. It does not change native finding bounds, validate every stream/frame, or establish playback support, complete validity or safety. Full media evidence remains available in MPV codecs / streams / tags."
+      },
+      "platformAudio": {
+        "schema": "org.diemobile.platform-media-preview",
+        "schemaVersion": 1,
+        "sourceSha256": "a880333f0923a41f6f76afa11b2890a651e2aa02f2c263896109c7d016b33da8",
+        "sourceSizeBytes": 8124,
+        "physicalOffset": 37,
+        "storedSizeBytes": 8044,
+        "sdk": 26,
+        "metadata": {
+          "mimeType": "audio/x-wav",
+          "durationMs": "500",
+          "videoWidth": null,
+          "videoHeight": null,
+          "rotationDegrees": null,
+          "bitrate": "128704",
+          "trackCount": "1",
+          "hasVideo": null,
+          "hasAudio": "yes"
+        },
+        "metadataErrors": {},
+        "frameError": null,
+        "frameStatus": "No platform video-track confirmation; no frame requested",
+        "requestedTimeUs": 0,
+        "selection": "OPTION_CLOSEST_SYNC",
+        "actualTimestampUs": null,
+        "maximumWidth": 24,
+        "maximumHeight": 24,
+        "decodedWidth": null,
+        "decodedHeight": null,
+        "meaning": "Transient platform preview observation of the selected stored interval. It does not change native finding bounds, validate every stream/frame, or establish playback support, complete validity or safety. Full media evidence remains available in MPV codecs / streams / tags."
+      }
+    },
+    {
+      "api": 35,
+      "sourceRevision": "8f2ab38af319a02c85618a0f398d654c1b48c15a",
+      "applicationUid": 10209,
+      "firstWorkerUid": 99000,
+      "elapsedMs": 20249,
+      "fullyReadBytes": 16777233,
+      "prefilledPipeBytes": 65536,
+      "checks": [
+        "isolated-native-hash-vectors",
+        "fully-written-large-file-through-real-isolated-fd",
+        "real-isolated-archive-read-write-descriptors",
+        "exact-range-platform-media-preview",
+        "token-scoped-kill-with-blocked-report-pipe",
+        "normal-client-recovers-after-worker-death"
+      ],
+      "platformVideo": {
+        "schema": "org.diemobile.platform-media-preview",
+        "schemaVersion": 1,
+        "sourceSha256": "bf804871334450c2fe7b91c7d6ec3e010c46b472bef26cc3c0115e3ee5d6acae",
+        "sourceSizeBytes": 1071,
+        "physicalOffset": 37,
+        "storedSizeBytes": 991,
+        "sdk": 35,
+        "metadata": {
+          "mimeType": "video/mp4",
+          "durationMs": "1000",
+          "videoWidth": "64",
+          "videoHeight": "48",
+          "rotationDegrees": "0",
+          "bitrate": "7928",
+          "trackCount": "1",
+          "hasVideo": "yes",
+          "hasAudio": null
+        },
+        "metadataErrors": {},
+        "frameError": null,
+        "frameStatus": "Decoded keyframe requested at 0 \u00b5s \u00b7 actual frame timestamp unknown",
+        "requestedTimeUs": 0,
+        "selection": "OPTION_CLOSEST_SYNC",
+        "actualTimestampUs": null,
+        "maximumWidth": 24,
+        "maximumHeight": 24,
+        "decodedWidth": 24,
+        "decodedHeight": 18,
+        "meaning": "Transient platform preview observation of the selected stored interval. It does not change native finding bounds, validate every stream/frame, or establish playback support, complete validity or safety. Full media evidence remains available in MPV codecs / streams / tags.",
+        "independentCenterArgb": "ff018001"
+      },
+      "platformAudio": {
+        "schema": "org.diemobile.platform-media-preview",
+        "schemaVersion": 1,
+        "sourceSha256": "a880333f0923a41f6f76afa11b2890a651e2aa02f2c263896109c7d016b33da8",
+        "sourceSizeBytes": 8124,
+        "physicalOffset": 37,
+        "storedSizeBytes": 8044,
+        "sdk": 35,
+        "metadata": {
+          "mimeType": "audio/x-wav",
+          "durationMs": "500",
+          "videoWidth": null,
+          "videoHeight": null,
+          "rotationDegrees": null,
+          "bitrate": "128704",
+          "trackCount": "1",
+          "hasVideo": null,
+          "hasAudio": "yes"
+        },
+        "metadataErrors": {},
+        "frameError": null,
+        "frameStatus": "No platform video-track confirmation; no frame requested",
+        "requestedTimeUs": 0,
+        "selection": "OPTION_CLOSEST_SYNC",
+        "actualTimestampUs": null,
+        "maximumWidth": 24,
+        "maximumHeight": 24,
+        "decodedWidth": null,
+        "decodedHeight": null,
+        "meaning": "Transient platform preview observation of the selected stored interval. It does not change native finding bounds, validate every stream/frame, or establish playback support, complete validity or safety. Full media evidence remains available in MPV codecs / streams / tags."
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "api": 26,
+      "id": 14627776755,
+      "sha256": "609030c30d75618464e9df74a7092914e73df2df3ac84b1ef4edb23b4789ca15"
+    },
+    {
+      "api": 35,
+      "id": 14627451980,
+      "sha256": "5fd3dbc3ad0f414b94ae806ebe2c9ae3d52d201827929b68575a34c878ec236c"
+    }
+  ]
+}

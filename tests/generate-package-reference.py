@@ -19,6 +19,7 @@ if not aapt.is_file() or not platform.is_file():
 
 destination.mkdir(parents=True, exist_ok=True)
 fixtures = {
+    "community": ("", "", ""),
     "base": ("", 'android:isolatedSplits="true" android:isSplitRequired="true" android:requiredSplitTypes="language,density"', ""),
     "core": ('split="feature.core"', 'android:isFeatureSplit="true"', ""),
     "notes": ('split="feature.notes"', 'android:isFeatureSplit="true"', '<uses-split android:name="feature.core"/>'),
@@ -28,9 +29,10 @@ fixtures = {
     "duplicate-notes": ('split="feature.notes"', 'android:isFeatureSplit="true"', '<uses-split android:name="feature.core"/>'),
 }
 for name, (identity, flags, children) in fixtures.items():
+    package = "com.aura.oobe.motorola" if name == "community" else "org.diemobile.split.reference"
     manifest = destination / (name + ".xml")
     manifest.write_text(f'''<manifest xmlns:android="http://schemas.android.com/apk/res/android"
- package="org.diemobile.split.reference" android:versionCode="2147483647"
+ package="{package}" android:versionCode="2147483647"
  android:versionCodeMajor="2" android:versionName="fixture Ω" {identity} {flags}>
  <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35"/>
  {children}<application android:hasCode="false"/>

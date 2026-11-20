@@ -51,17 +51,18 @@ System visibility follows Android's permissions and sandbox.
 
 Download the ARM64 APK and its checksum/build manifest from
 [GitHub Releases](https://github.com/sperglord8008s/DiE-Android-/releases).
-The published numbered checkpoint is **0.6.0-pre-alpha.8** (Android version code **14**), including [sourced package knowledge](docs/package-knowledge.md), [independent preview origin evidence](docs/content-origins.md), [large text/Hex and full report navigation](docs/text-paging.md), the [native archive workbench](docs/native-archives.md), [embedded finding links](docs/archive-launches.md) and [checked recovery previews/exports](docs/recovered-content.md).
+The published numbered checkpoint is **0.6.0-pre-alpha.10** (Android version code **16**), including [sourced package knowledge](docs/package-knowledge.md), [independent preview origin evidence](docs/content-origins.md), [large text/Hex and full report navigation](docs/text-paging.md), the [native archive workbench](docs/native-archives.md), [embedded finding links](docs/archive-launches.md) and [checked recovery previews/exports](docs/recovered-content.md).
 Android 8.0 / API 26 or later is required.
 
 Debug APKs have numbered, source-identified names, for example
 `GlassDigestor-0.6.0-pre-alpha.5-dev.g0123456789ab-arm64-v8a-debug.apk`.
-Current development builds use **0.6.0-pre-alpha.10** / code **16**, including
+Current development builds use **0.6.0-pre-alpha.11** / code **17**, including
 [direct gallery archive inspection and explicit byte-range previews](docs/gallery-inspection-ranges.md)
 and a separate [Android worker runtime laboratory](runtime-worker/README.md).
-The five hash/archive worker contracts passed on actual x86 Android API 26/35;
+The six worker/media-helper contracts passed on actual x86 Android API 26/35;
 [bounded gallery video frames/media observations](docs/gallery-media-previews.md)
-add a separate platform-codec runtime check in the current development slice.
+are covered by an actual platform-codec runtime check. Development now adds
+[observed APK → sourced community package knowledge](docs/apk-community-context.md).
 Package knowledge retains all 5,402 original UAD-NG records, including duplicate IDs. Earlier published checkpoints remain unchanged.
 
 Tap the app title or **Options → Build details** to see the same version and
@@ -75,7 +76,7 @@ from separate CI runners can differ. The historical
 ## What has been verified
 
 The published checkpoint passed **all five GitHub Actions jobs** and
-**170 Android host checks**, using real JNI/parsers
+**175 Android host checks**, using real JNI/parsers
 where documented. ARM64 compilation, APK signature/offline packaging, static
 16 KiB alignment, source identities and independent host fixtures are checked.
 
@@ -87,8 +88,8 @@ oracles also reconstruct every knowledge source record and UTF-16 unit. See the
 [knowledge](docs/package-knowledge.md), [text](docs/text-paging.md) and
 [origin contracts](docs/content-origins.md).
 
-**This remains a pre-alpha workbench.** Five real isolated-worker contracts pass
-on x86 Android API 26/35 ([exact evidence](docs/verification/android-worker-runtime-26ad7d6.json)).
+**This remains a pre-alpha workbench.** Six worker/media-helper contracts pass
+on x86 Android API 26/35 ([exact evidence](docs/verification/android-worker-runtime-8f2ab38.json)).
 Production ARM64/handset/SAF/UI/media runtime acceptance and full desktop Detect
 It Easy parity remain incomplete. Header
 matches, declared permissions and high entropy are evidence to investigate;
