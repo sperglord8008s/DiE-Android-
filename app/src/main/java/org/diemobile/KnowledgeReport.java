@@ -234,8 +234,25 @@ final class KnowledgeReport {
    components(o,rules,"services-libs","Services — background or bound work",p.services);
    components(o,rules,"receivers-libs","Receivers — handle broadcast events",p.receivers);
    components(o,rules,"providers-libs","Providers — structured data access interfaces",p.providers);
-   o.section("Debloat knowledge (UAD-NG; read-only)");
-   try{JSONObject d=asset(c,"knowledge/uad.json").optJSONObject(p.packageName);if(d==null)o.item("No exact package ID match in this pinned catalog. Absence is not a removal recommendation.");else{for(String k:new String[]{"list","description","removal","dependencies","neededBy","needed_by","labels"})if(d.has(k)&&!d.isNull(k))o.item(k+": "+d.optString(k));o.item("Community guidance, not a tested result on this device. Package IDs can be reused; removal can break boot, calls, updates or data. No removal action is provided.");}}catch(Exception e){o.item("UAD database unavailable: "+e.getMessage());}
+   o.section("What does it do? / sourced community knowledge (UAD-NG)");
+   try(InputStream input=c.getAssets().open("knowledge/uad.json")){
+    PackageKnowledge knowledge=PackageKnowledge.read(input,o.cancelled);
+    if(!knowledge.sha256.equals(PackageKnowledge.PINNED_SHA256))throw new IOException("Bundled knowledge differs from its pinned content hash");
+    List<PackageKnowledge.Entry> matches=knowledge.byId.get(p.packageName);
+    if(matches==null)o.item("No exact package ID match in this pinned catalog. Absence supplies no behavior or removal conclusion.");
+    else{
+     o.item(matches.size()+" original community record(s); every duplicate ID occurrence is retained without selecting a preferred description or category.");
+     for(PackageKnowledge.Entry entry:matches){
+      o.item("Original source record #"+entry.index+" • "+entry.id);
+      if(entry.value!=null)for(String key:new String[]{"description","list","removal","dependencies","neededBy","labels"})if(entry.value.has(key)){
+       StringWriter encoded=new StringWriter();EvidenceJson.write(encoded,entry.value.get(key),o.cancelled);o.item("Community "+key+": "+encoded);
+      }
+      for(String diagnostic:entry.diagnostics)o.item("Source coverage: "+diagnostic);
+     }
+    }
+    o.item("UAD-NG revision "+PackageKnowledge.REVISION+" • exact catalog SHA-256 "+knowledge.sha256+" • GPL-3.0. Full original fields and relationships are available in the package knowledge viewer.");
+    o.item(PackageKnowledge.MEANING);
+   }catch(InterruptedIOException cancelled){throw cancelled;}catch(Exception e){o.item("UAD knowledge unavailable: "+e.getMessage());}
   }catch(Exception e){o.item("Package metadata incomplete: "+e.getMessage());}
  }
  static void components(Output o,KnowledgeCatalog rules,String kind,String label,ComponentInfo[] a){
