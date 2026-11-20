@@ -21,3 +21,10 @@ mkdir -p "$output"
 cp "$build/libdiearchive.so" "$output/"
 
 cp archive-engine/{NOTICE.txt,source-headers.txt} "$output/"
+
+if [[ "$mode" = android ]]; then
+  assets=app/build/generated-archive-assets/notices
+  mkdir -p "$assets"
+  cp archive-engine/NOTICE.txt "$assets/archive-codecs.txt"
+  cp archive-engine/source-headers.txt "$assets/archive-source-headers.txt"
+fi

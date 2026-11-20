@@ -35,7 +35,7 @@ and Android application ID (`org.diemobile`) remain stable.
 | **Embedded content** | Run actual Binwalk and PhotoRec header/data checks, retain nested/overlapping findings, preview exact bounded payloads, export checked recovered bytes, and hand the captured input to Gallerize. |
 | **Executables** | Explore typed PE/ELF/Mach-O structures, maps, imports, exports, symbols, resources and disassembly; follow supported coordinates back to original bytes. |
 | **Android apps** | Inspect DEX and smali, binary manifests/resources, APK signatures and certificates, captured base/split relationships, SDK name rules and locally imported tracker rules. |
-| **Archives** | Browse and analyze nested ZIP/APK members. A pinned libarchive + codec core for broader formats is host-tested; its Android browser integration is the next development slice. |
+| **Archives** | Browse content-identified archives and compressed streams with virtual folders, complete indexed metadata, nested Back, checked member previews/exports and explicit embedded intervals. Classic ZIP remains available. See the [archive contracts](docs/native-archives.md). |
 | **System evidence** | Browse visible packages, declared services and readable files; capture normal-UID Binder registrations with their original output and limitations. |
 | **Repeatable work** | Save scan profiles, run document batches, compare exact bytes and native detection trees, and export complete source-identified reports. |
 
@@ -51,14 +51,14 @@ System visibility follows Android's permissions and sandbox.
 
 Download the ARM64 APK and its checksum/build manifest from
 [GitHub Releases](https://github.com/sperglord8008s/DiE-Android-/releases).
-The numbered checkpoint is **0.6.0-pre-alpha.1** (Android version code **7**).
+The published numbered checkpoint is **0.6.0-pre-alpha.2** (Android version code **8**), including [checked recovery previews and exports](docs/recovered-content.md).
 Android 8.0 / API 26 or later is required.
 
 Debug APKs have numbered, source-identified names, for example
-`GlassDigestor-0.6.0-pre-alpha.1-dev.g0123456789ab-arm64-v8a-debug.apk`.
-Current development builds use **0.6.0-pre-alpha.2** / code **8** and add the
-[checked recovered-content workflow](docs/recovered-content.md). The published
-0.6.0-pre-alpha.1 checkpoint remains unchanged.
+`GlassDigestor-0.6.0-pre-alpha.2-dev.g0123456789ab-arm64-v8a-debug.apk`.
+Current development builds use **0.6.0-pre-alpha.3** / code **9** and add the
+[broader native archive workbench](docs/native-archives.md). Earlier published
+checkpoints remain unchanged.
 
 Tap the app title or **Options → Build details** to see the same version and
 full source revision. See [build versioning](docs/build-versioning.md).
@@ -70,10 +70,14 @@ from separate CI runners can differ. The historical
 
 ## What has been verified
 
-The last archive-core checkpoint passed **all five GitHub Actions jobs**. The
-preceding full Android host suite passed **135 checks**, using real JNI/parsers
+The published recovery checkpoint passed **all five GitHub Actions jobs** and
+**139 Android host checks**, using real JNI/parsers
 where documented. ARM64 compilation, APK signature/offline packaging, static
 16 KiB alignment, source identities and independent host fixtures are checked.
+
+The current archive integration additionally passes **147 Android host tests**,
+ARM64 assembly/lint and the APK verifier for fifteen native libraries; its CI
+gate is tracked in the [archive contracts](docs/native-archives.md).
 
 **This remains a pre-alpha workbench.** Actual handset/SAF/isolated-UID/media
 runtime tests and full desktop Detect It Easy parity are incomplete. Header

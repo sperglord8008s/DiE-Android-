@@ -456,7 +456,7 @@ public final class GallerizeWorkbenchTest {
         assertNotNull(browser);
         assertEquals(2, browser.requestCode);
         assertEquals(
-                ArchiveExplorerActivity.class.getName(),
+                NativeArchiveExplorerActivity.class.getName(),
                 browser.intent.getComponent().getClassName());
         GallerizeSession session = ReflectionHelpers.getField(activity, "session");
         Intent member = memberResult(session.input.file);

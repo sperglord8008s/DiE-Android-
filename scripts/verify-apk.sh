@@ -59,7 +59,7 @@ assert any(':isolatedProcess(' in line and line.endswith('=true') for line in bl
 assert any(':exported(' in line and line.endswith('=false') for line in block),'Binary worker became externally accessible'
 assert any(':process(' in line and '":binary_worker"' in line for line in block),'Binary worker lost its separate process'
 print('Packaged binary worker is private and requests a separate isolated UID/process.')
-for activity in ('GallerizeActivity', 'ContentPreviewActivity'):
+for activity in ('GallerizeActivity', 'ContentPreviewActivity', 'NativeArchiveExplorerActivity'):
     found=[]
     for i,line in enumerate(lines):
         if line.strip().startswith('E: activity '):
@@ -80,7 +80,7 @@ import sys
 import zipfile
 with zipfile.ZipFile(sys.argv[1]) as archive:
     names=[name for name in archive.namelist() if name.startswith('lib/') and name.endswith('.so')]
-    assert {'lib/arm64-v8a/libdiemobile.so','lib/arm64-v8a/libdiebinwalk.so','lib/arm64-v8a/libdiempv.so','lib/arm64-v8a/libdiehash.so','lib/arm64-v8a/libdiephotorec.so'} <= set(names), 'Required native engine library missing'
+    assert {'lib/arm64-v8a/libdiemobile.so','lib/arm64-v8a/libdiebinwalk.so','lib/arm64-v8a/libdiempv.so','lib/arm64-v8a/libdiehash.so','lib/arm64-v8a/libdiephotorec.so','lib/arm64-v8a/libdiearchive.so'} <= set(names), 'Required native engine library missing'
     for name in names:
         assert name.startswith('lib/arm64-v8a/'), 'Unexpected native ABI: '+name
         data=archive.read(name);header=data[:20]
@@ -95,6 +95,8 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
                 loads.append(alignment)
         assert loads,'No ELF LOAD segments: '+name
         print('Static ARM64 / 16 KiB ELF verification:',name)
+    assert archive.read('assets/notices/archive-codecs.txt')==Path('archive-engine/NOTICE.txt').read_bytes(), 'Pinned archive/codec license notices differ'
+    assert archive.read('assets/notices/archive-source-headers.txt')==Path('archive-engine/source-headers.txt').read_bytes(), 'Pinned archive/codec source headers differ'
     import hashlib,json
     lock=json.loads(Path('media-engine/runtime-lock.json').read_text())
     for name,expected in lock['libraries'].items():
@@ -150,7 +152,8 @@ manifest="$(dirname "$apk")/build-manifest.txt"
   sha256sum regex-engine/source-lock.json
   sha256sum regex-engine/tracker-unicode-lock.json
   sha256sum signing-engine/source-lock.json package-engine/source-lock.json
-  sha256sum carving-engine/source-lock.json
+  sha256sum carving-engine/source-lock.json archive-engine/source-lock.json
+  sha256sum archive-engine/NOTICE.txt archive-engine/source-headers.txt
   echo "Canonical LibChecker catalog SHA-256: $(cat generated-assets/knowledge/libchecker-v5.json.sha256)"
   cat generated-assets/engine-revisions.properties generated-assets/knowledge/revisions.txt
   cat app/src/main/assets/analysis-engines.properties
