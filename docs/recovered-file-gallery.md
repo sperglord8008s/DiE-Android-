@@ -99,3 +99,9 @@ actual x86 Android media-helper and worker checks do not establish full gallery
 or SAF acceptance. Production ARM64, handset UI/providers, all media/document
 formats, complete PhotoRec file checks, fragmented recovery, MPV playback
 fallback and recursively recovered archive-member galleries remain incomplete.
+
+
+Archive members now have a separate [gallery and actual file ZIP workflow](archive-file-gallery.md)
+in development pre-alpha.15. This operates on each manually selected archive
+level and preserves native acquisition/finding context. It does not yet scan
+every decoded archive member recursively into the parent content map.

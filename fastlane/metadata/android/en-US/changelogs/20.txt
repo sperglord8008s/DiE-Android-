@@ -1,0 +1,1 @@
+Recover PDFs larger than 9 MiB when PhotoRec has established the footer but optional metadata reads reach their work limit. Exact file boundaries and incomplete metadata remain distinct. Eight worker contracts pass on Android API 26/35; PDF rendering and production ARM64 handset flows remain unverified. Preserve release titles during asset publication.

@@ -1106,3 +1106,66 @@ Next commit the coherent .14 file-recovery change, rebuild/freeze the exact
 clean-source APK/runtime artifacts, push, run both CI workflows and fix failures.
 Merge only after passing gates; publish the immutable .14 checkpoint afterward
 from the corrected publisher. Actual files/preview/exports remain the priority.
+
+
+## Published pre-alpha.14; archive member files and store preparation
+
+Source **8adac7bd2a8ed81caabf7d919b751859dc804590** passed both five-job source
+CI runs **44915200962 / 44915262364** and eight actual x86 API 26/35 contracts
+in **44915200949**. Complete downloaded reports/source/APK/library/completion
+hashes/counts are checked in `docs/verification/android-worker-runtime-8adac7b.json`.
+Both SDKs recover and compare the exact 9,437,636-byte PDF, SHA-256
+`0c37bd4faef8269249dfd6dba12d3aa6cfd4bb1f71dfa5a36b0e947a8b01de9c`.
+Optional metadata-work exhaustion remains explicit; no PDF rendering claim.
+
+PR #16 merged as **e2b8bf30926a5a904a8184253d9a47c024feeb70**. Publisher
+**44916538888** succeeded from updated main, including the display-title fix.
+All 14 public asset identities and the correct title/source/tag/channel were
+checked. Public `.14` APK: **52,836,245 bytes**, SHA-256
+`8f14ca18938bb07fbba6d679d72827a73c3cc37d8e14ab9a4137779e23fe15a9`.
+The downloaded original six-file CI checkpoint matches public hashes; exact-
+source static APK verification passes in the separate clean release-source
+worktree at 8adac7b. Original CI files remain in
+`/workspace/work/releases/0.6.0-pre-alpha.14/ci`; only the verified redundant
+outer ZIP was reclaimed. All frozen local/earlier APKs remain intact.
+
+Current branch **codex/archive-file-gallery**, pre-alpha.15/code21, adds a
+24-card native archive gallery, checked image/media/text observations, direct
+preview, typed saves and complete scoped actual-file ZIPs. `ArchiveListing`
+shares tree/gallery/export selection; `ArchiveFiles` handles safe names and
+checked payload/report staging independently of UI. Original indices/names,
+duplicate and unusual entries, excluded links and current native/finding-chain
+evidence remain explicit. No automatic recursive decompression or all-codec
+claim. See `docs/archive-file-gallery.md`.
+
+All **187 host tests** (six new archive cases) and required `scripts/test.sh` /
+`scripts/test-native.sh` pass. The initial whole-suite local attempts exhausted
+disk and one Robolectric Looper stalled after that failure; its stack/logs are
+retained and that attempt is not acceptance evidence. The successful complete
+rerun uses a local Gradle init script setting `forkEvery = 1` and
+`maxParallelForks = 1`, so every class runs and temporary engine copies are
+removed at JVM exit. Log: `/workspace/work/archive-gallery-full-ui-forked.log`;
+summary: `/workspace/work/archive-gallery-host-test-summary.json`. No tests
+were skipped or assertions weakened. CI retains its ordinary full-suite mode.
+
+Disk remains constrained. Regenerable PhotoRec Android object directories and
+unchanged host xxfclib compiler objects were reclaimed with library/fallback
+SHA audits; compiled JNI libraries remain. Do not run host native rebuilds while
+the test JVM is active. For local app packaging, verify the unchanged source/
+ARM64 library audit and reuse the documented CDiE/hash task exclusions; other
+engines keep their normal build tasks. Clean CI rebuilds everything.
+
+The user also requested GitHub-page polish after the UI and F-Droid guidance.
+README now prioritizes a concrete file workflow, installation and one precise
+published verification baseline, removing contradictory old counts/branches.
+Fastlane descriptions and the identical licensed icon are present.
+`docs/fdroid.md` cites current official guidance and audits actual blockers: the
+nine MPV/FFmpeg runtime libraries are still copied from upstream binaries;
+complete source rebuilding, release-variant acceptance, dependency/recipe and
+signing/reproducibility work remain. No F-Droid submission, external repo or
+private signing identity has been created. Genuine Android screenshots remain
+a following presentation task.
+
+Next: commit this coherent source/docs slice, compile/lint/check/freeze its
+exact clean ARM64 APK, push and run source/Android CI; fix failures before
+merging/publication. Continue actual file viewing/export/recovery coverage.

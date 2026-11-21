@@ -1,0 +1,11 @@
+Explore files, recovered media, archives and Android packages in one offline, free and open-source workbench.
+
+Gallerize combines PhotoRec and Binwalk findings into labeled file cards. Open bounded recovered files, inspect media and EXIF/XMP metadata, save individual payloads or export actual files in a ZIP. Content-identified archives have nested folders, checked member acquisition and a gallery view. Unsupported formats and extraction limits remain visible.
+
+Use Detect It Easy signatures, PE/ELF/Mach-O structures, disassembly, hex, hashes, entropy grids and grouped strings. Inspect DEX/smali, compiled Android resources, APK signatures and package relationships. Read sourced community package knowledge with practical and technical explanations.
+
+Technical evidence, original offsets, engine identities and contextual explanations are available by default. No account, ads, telemetry, cloud upload or INTERNET permission. Selected applications are inspected as data and never executed.
+
+Pre-alpha: ARM64, Android 8.0 or later. Host fixtures and selected x86 Android API 26/35 worker contracts are tested separately. Production ARM64/SAF/handset acceptance, all codecs and full desktop Detect It Easy parity remain incomplete. Recognition is not proof of complete validity, safety or malicious behavior.
+
+GlassDigestor is an independent application built around credited open-source engines. Previously DiE Android; application ID org.diemobile. Component licenses and corresponding-source information are included with the project.
