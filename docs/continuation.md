@@ -1195,3 +1195,67 @@ JNI libraries and every frozen APK. The test-only runtime module will need that
 static dependency cache regenerated if rebuilt locally; CI does its normal
 source build. Final app ARM64 packaging keeps the previously documented
 unchanged CDiE/hash task exclusions and normal engine tasks.
+
+
+## Published pre-alpha.15; next source-build and file-viewing work
+
+Final source **2dcfce358c6d82a0a76116a5c3142f3ebb3b7227** passed all **188**
+host tests, both five-job source CI runs **44940694548 / 44940700294** and
+eight selected actual x86 API 26/35 contracts in **44940694581** (PR runtime
+44940700258 also green). Downloaded full report/source/APK/library/completion
+identities pass; summary is `docs/verification/android-worker-runtime-2dcfce3.json`.
+The new seven archive gallery cases are host/widget checks; actual ARM64/SAF/
+gallery/codec/PDF rendering remains unverified.
+
+PR #17 merged as **d7a31d14525ddb286957ec7374678f0576f1ead1**. Publisher
+**44941636216** succeeded for immutable **v0.6.0-pre-alpha.15**. Public APK:
+**52,836,245 bytes**, SHA-256
+`e96547fc2b7349048c5cb02d5fe7477004cdf6eddeac9b8231adb2dd5a16150e`.
+All original six checkpoint files match public asset hashes; exact-source APK
+static checks pass in the clean release-source worktree at 2dcfce3. Original
+CI files stay at `/workspace/work/releases/0.6.0-pre-alpha.15/ci`; its checked
+outer ZIP wrapper alone was reclaimed. All 14 public asset identities/title/
+source/tag/channel are verified; component-source payloads were publisher-gated.
+
+Final clean local .15 is frozen in
+`/workspace/work/checkpoints/0.6.0-pre-alpha.15-local-phone-layout`: 52,803,473
+bytes, SHA-256 `3efca78d275db01b642a23a9267a731a70e5f204d96c7e8e4f3a25f2b32a1230`.
+The earlier 9c077e6 local freeze and every older checkpoint remain. Source/
+ARM64-library reuse hashes were checked; clean source CI rebuilt all engines.
+The final full local suite used the external one-class-per-JVM init script;
+log `/workspace/work/archive-gallery-full-ui-layout.log`, summary
+`/workspace/work/archive-gallery-final-host-test-summary.json`.
+
+The user also asked whether all GitHub repositories are accessible. The plugin
+listed 14 owned repositories, including private ones, with push/admin repository
+permissions; no other repository was modified. Effective token scopes are
+narrower for settings: the optional About-description PATCH returned HTTP 403
+(Resource not accessible by integration). README/code/PR/release work succeeded.
+No alternate account or permission escalation was attempted for that cosmetic
+field. README, published build and F-Droid preparation remain available.
+
+F-Droid now has a concrete next reference: its existing is.xyz.mpv recipe for
+2026-09-17/code48 uses our exact upstream recipe/MPV/FFmpeg pins and NDK r30.
+See `docs/fdroid.md` and the local observed-reference JSON at
+`/workspace/work/fdroid-matching-mpv-recipe-reference.json`. Adapt and test its
+source-library preparation/runtime build, add a reviewed source-build receipt
+path without weakening existing official-binary hashes, and run the media
+reference/ownership/budget/platform/packaging checks. Build/test a real release
+variant and complete the F-Droid recipe/dependency/signing review before any
+submission. No engine is disabled for store eligibility, and no store request
+or signing identity change has been made.
+
+Continue actual file work: platform PDF/image viewing proof and suitable
+thumbnails, remaining common PhotoRec file checks, and eventually a bounded
+single-pass native batch extraction so large archive galleries/bundles avoid
+repeated full-directory reads. Manual nested member galleries now work; one
+automatically recursively recovered member map remains incomplete. Genuine
+Android screenshots can follow the layout work; do not present generated/mock
+images as handset runtime proof.
+
+Local root disk has roughly 113 MiB free after preserving the final CI APK.
+Complete MPV sources/NDK r30 builds need a larger environment or a reviewed CI
+source-build job. Keep frozen APKs/pinned sources/toolchains; reclaim only
+verified duplicate wrappers or regenerable compiler caches. The generated x86
+archive dependency cache must be regenerated for a new local lab build; compiled
+JNI libraries remain. Do not mix native recompilation with a loaded test JVM.

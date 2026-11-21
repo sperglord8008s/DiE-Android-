@@ -181,3 +181,11 @@ The README now focuses on files/workflows and precise published verification.
 [F-Droid preparation](fdroid.md) identifies the prebuilt MPV runtime as a
 source-build integration blocker and records the release/signing/recipe work
 needed. Upstream store metadata is present; no store acceptance is claimed.
+
+
+Pre-alpha.15 source `2dcfce3` is now published after both five-job source CI
+runs, all 188 host tests and eight selected actual x86 API 26/35 contracts
+passed. The downloaded public APK and runtime report/source/library identities
+are independently verified; see [evidence](verification/android-worker-runtime-2dcfce3.json)
+and [release](releases/0.6.0-pre-alpha.15.md). Archive gallery/SAF/production
+ARM64/PDF-rendering acceptance remains separate and unverified.

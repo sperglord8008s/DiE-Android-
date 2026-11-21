@@ -86,7 +86,9 @@ gallery pages; complete acquisition-report identities; picker recreation after
 source expiry; duplicate and unsafe names; recursive displayed folders; explicit
 link/directory exclusions; a compressed 33 MiB member's automatic-preview refusal;
 cancellation after a ZIP has started writing; and the compact-phone viewport. The older archive cases are
-retained. The release checklist records full-suite/build/CI results separately.
+retained. All 188 host tests and both five-job source CI runs pass at 2dcfce3;
+pre-alpha.15 is published. The release checklist records these results
+separately from selected actual worker runtime contracts.
 
 OS IPC and document providers are substituted in these host tests. Production
 ARM64 gallery/SAF/codec/handset flows, full PDF rendering, animation and all file
