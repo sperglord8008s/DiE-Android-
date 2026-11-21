@@ -394,13 +394,14 @@ public final class WorkerRuntimeInstrumentation extends Instrumentation {
         bytes.write(new byte[97]);
         File blob = new File(directory, "pdf-disguised-as-image.jpg");
         write(blob, bytes.toByteArray());
-        JSONObject valid, truncated;
+        JSONObject valid, truncated, largeReport;
+        byte[] largePayload = MetadataFixtureFactory.pdf(9 * 1024 * 1024);
         try (BinaryWorkerClient client = new BinaryWorkerClient(target, "photorec")) {
             valid = new JSONObject(client.scan(blob, () -> false));
             worker(valid, "photorec");
             require(
                     valid.getBoolean("ok")
-                            && valid.getString("adapter").equals("diemobile-photorec-4"),
+                            && valid.getString("adapter").equals("diemobile-photorec-5"),
                     "Actual Android PhotoRec adapter differs from the reviewed file-check scope");
             require(
                     valid.getString("fileCheckCallbackScope")
@@ -433,12 +434,49 @@ public final class WorkerRuntimeInstrumentation extends Instrumentation {
             require(
                     failed.getBoolean("fileCheckExecuted") && failed.isNull("reportedSizeBytes"),
                     "Actual Android missing-footer PDF acquired a recovered boundary");
+            File largeFile = new File(directory, "large-document.blob");
+            try (OutputStream out = new FileOutputStream(largeFile)) {
+                out.write(new byte[37]);
+                out.write(largePayload);
+                out.write(new byte[97]);
+            }
+            largeReport = new JSONObject(client.scan(largeFile, () -> false));
+            worker(largeReport, "photorec");
+            require(largeReport.getBoolean("ok"), "Actual Android large PDF scan failed");
+            JSONObject largeRow = pdfRow(largeReport, 37);
+            require(
+                    largeRow.getLong("reportedSizeBytes") == largePayload.length
+                            && largeRow.getBoolean("fileCheckMetadataReadLimited")
+                            && largeRow.getBoolean("fileCheckBoundaryEstablished")
+                            && largeRow.getLong("fileCheckSourceBytesProcessed")
+                                    <= 8L * 1024 * 1024,
+                    "Actual Bionic optional date-read work discarded the established PDF file");
+            try (RandomAccessFile input = new RandomAccessFile(largeFile, "r")) {
+                input.seek(37);
+                byte[] block = new byte[65536];
+                for (int position = 0; position < largePayload.length; ) {
+                    int count = Math.min(block.length, largePayload.length - position);
+                    input.readFully(block, 0, count);
+                    for (int i = 0; i < count; i++)
+                        require(
+                                block[i] == largePayload[position + i],
+                                "Actual large PDF native range differs from the expected file"
+                                    + " bytes");
+                    position += count;
+                }
+            }
         }
         record(
                 "isolated-photorec-pdf-recovery",
                 new JSONObject()
                         .put("valid", valid)
                         .put("truncated", truncated)
+                        .put("large", largeReport)
+                        .put("expectedLargePayloadSizeBytes", largePayload.length)
+                        .put(
+                                "expectedLargePayloadSha256",
+                                Inspector.toHex(
+                                        MessageDigest.getInstance("SHA-256").digest(largePayload)))
                         .put("expectedPayloadSizeBytes", pdf.length)
                         .put(
                                 "expectedPayloadSha256",

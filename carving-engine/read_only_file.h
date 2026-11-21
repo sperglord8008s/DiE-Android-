@@ -19,6 +19,11 @@ class ReadOnlyFile {
 public:
     static constexpr size_t BUFFER_BYTES = 65536;
 
+    /** Only an explicit work limit may preserve an already reported PDF footer boundary. */
+    struct WorkLimit final : std::exception {
+        const char *what() const noexcept override { return "aggregate-file-read-budget"; }
+    };
+
     ReadOnlyFile(BlobInput &input, uint64_t start, uint64_t length, uint64_t maximum_work,
                  std::function<void(uint64_t)> charge)
         : input_(input), start_(start), length_(length), maximum_work_(maximum_work),
@@ -47,6 +52,7 @@ public:
 
     uint64_t work() const { return work_; }
     const char *failure() const { return failure_; }
+    bool read_limit_reached() const { return read_limited_; }
 
 private:
     BlobInput &input_;
@@ -54,6 +60,7 @@ private:
     uint64_t start_, length_, maximum_work_, position_ = 0, work_ = 0;
     std::function<void(uint64_t)> charge_;
     const char *failure_ = nullptr;
+    bool read_limited_ = false;
 
     ssize_t read(char *output, size_t requested) {
         if (failure_ != nullptr) { errno = EIO; return -1; }
@@ -61,6 +68,7 @@ private:
         if (count == 0) return 0;
         if (count > maximum_work_ - work_) {
             failure_ = "per-candidate-file-read-budget";
+            read_limited_ = true;
             errno = EFBIG;
             return -1;
         }
@@ -71,8 +79,13 @@ private:
             position_ += count;
             work_ += count;
             return ssize_t(count);
+        } catch (const WorkLimit &) {
+            failure_ = "aggregate-file-read-budget";
+            read_limited_ = true;
+            errno = EFBIG;
+            return -1;
         } catch (...) {
-            failure_ = "source-read-or-aggregate-work-limit";
+            failure_ = "source-read-or-deadline-failure";
             errno = EIO;
             return -1;
         }

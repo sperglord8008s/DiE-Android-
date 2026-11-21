@@ -1,6 +1,6 @@
 # Development continuation point
 
-The workbench is on main through PR #13 (`faa3272`) in **sperglord8008s/GlassDigestor** (the owner's rename of DiE-Android-, repository ID 1460636999). Current work uses `codex/pdf-file-recovery`, **0.6.0-pre-alpha.13 / code 19**. User priority is the actual recovered files: combined PhotoRec/Binwalk galleries, usable in-app previews and file exports. Preserve production `org.diemobile`, existing signing and immutable checkpoint APKs. Full desktop parity and handset verification remain incomplete. Read AGENTS.md and the three design/parity documents before changes.
+The workbench is on main through PR #13 (`faa3272`) in **sperglord8008s/GlassDigestor** (the owner's rename of DiE-Android-, repository ID 1460636999). Current work uses `codex/pdf-footer-budgets`, **0.6.0-pre-alpha.14 / code 20**. User priority is the actual recovered files: combined PhotoRec/Binwalk galleries, usable in-app previews and file exports. Preserve production `org.diemobile`, existing signing and immutable checkpoint APKs. Full desktop parity and handset verification remain incomplete. Read AGENTS.md and the three design/parity documents before changes.
 
 ## Implemented and fixture-verified in this work
 
@@ -1039,3 +1039,70 @@ and manifest are retained separately from locally generated audit sidecars in
 `/workspace/work/releases/0.6.0-pre-alpha.12`. Its public SHA above is confirmed
 against the actual downloaded APK bytes; component-source payloads remain
 publisher-gated rather than newly independently downloaded here.
+
+
+## PDF checkpoint published; retain larger recovered PDFs
+
+Source **431f98d** passed source five-job CI **44786668067** and PR CI
+**44786680158**, plus eight actual x86 Android API 26/35 contracts in
+**44786667682**. The completion fix passes without weakening report/source/
+UID/SDK assertions. Both downloaded artifacts pass independent source, native
+adapter/fixture, APK/library and completion/file SHA/count/size checks. API 26
+artifact 14653733902 has SHA
+`f05c20a97db5d0570b0414e43522a9b2073d77a0f82fb8d1d771395f297d2eae`;
+API 35 artifact 14655266595 has SHA
+`7a29058b0b6d0377ed1c4485803b09331705227e45f2331a25ce2f73787e5491`.
+The repo summary is `docs/verification/android-worker-runtime-431f98d.json`.
+
+PR #15 merged as **d03f90dfa900a6fd498b12c7b43d28ecb52d93c3**. Publisher
+**44788478653** succeeded for immutable **v0.6.0-pre-alpha.13**. Local final
+source431f98d APK is 52,803,469 bytes, SHA
+`8be8d1d124e0706898db4b7d24946119441d851294fce9fb5e8e11684777221f`
+in `/workspace/work/checkpoints/0.6.0-pre-alpha.13-local-final`; initial source
+531dff4 and every earlier checkpoint are retained. Root origin now uses the
+owner's canonical GlassDigestor URL. Release audit worktree is clean at source
+123193d for the completed .12 audit.
+
+New branch `codex/pdf-footer-budgets` is based on main d03f90d, version
+**pre-alpha.14/code20**. Adapter 5 preserves a positive original PDF footer size
+when only optional post-footer newline/date reads hit a classified work limit.
+Missing footer, source IO and deadline errors stay unresolved. Scope is based
+on reviewed/pinned file_pdf.c + filegen.c behavior; no boundary comes from a
+next header/EOF. Separate native boundary/partial-metadata flags, counters,
+error/work/raw-time fields and strict Java/legacy-scope validation remain.
+The input/read/aggregate caps are unchanged.
+
+Actual >9 MiB PDF gallery/file export and independent Python exact-byte/xref
+checks pass, including invalid error/flag/count/legacy refusals. Full native
+PhotoRec 80/256 MiB and C stdio guard regressions pass. The existing Android
+host gallery case now uses >9 MiB, and the eight-case actual Android lab adds a
+large PDF with byte comparisons. Full host/ARM64/runtime compile/CI gates are
+pending. Next finish those gates, correct failures, freeze/commit/push and
+publish only passing checkpoints. Continue actual file galleries/previews/
+exports over File info work. Actual PDF rendering and other common-format
+recovery coverage remain useful following priorities.
+
+
+The .14 local gate is now passing: all **181 host cases** (the existing PDF
+viewer/save handoff case now uses >9 MiB), required generic/native checks,
+original 80/256 MiB PhotoRec/C stdio guards, embedded archive/manual-range and
+combined media payload/ZIP regressions, ARM64 PhotoRec build plus app assembly/
+lint/APK verification, matching corresponding-source bundle and x86 runtime
+APK compilation/static identity/strip verification. The extended large-PDF
+Bionic case has not yet run on Android. Keep that acceptance claim pending.
+Local packaging reuses the verified unchanged CDiE/hash libraries using the
+previous recorded task exclusions; PhotoRec builds normally.
+
+A separate publisher regression was found: its release title variable was
+reused for asset names, making the final title RELEASE-SHA256SUMS. Commit
+**d2e901e** separates release/asset names and tests resumed-draft publication
+through actual update payloads; all seven publisher contract tests pass. The
+published .13 title/notes were corrected through an identity-complete metadata
+PATCH, with all 14 asset IDs/names/sizes/digests and tag/source/channel verified
+unchanged. Preserve this publisher fix when merging .14, then dispatch the
+publisher from updated main so the fix is used.
+
+Next commit the coherent .14 file-recovery change, rebuild/freeze the exact
+clean-source APK/runtime artifacts, push, run both CI workflows and fix failures.
+Merge only after passing gates; publish the immutable .14 checkpoint afterward
+from the corrected publisher. Actual files/preview/exports remain the priority.

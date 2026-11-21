@@ -169,7 +169,7 @@ struct Registry {
 struct Budget {
     uint64_t bytes = 0;
     size_t limited_candidates = 0;
-    size_t file_attempted = 0, file_checked = 0, file_limited = 0;
+    size_t file_attempted = 0, file_checked = 0, file_limited = 0, file_metadata_limited = 0;
     std::chrono::steady_clock::time_point deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
     void check(uint64_t amount = 0) {
         if (amount > MAX_WORK - bytes) throw std::runtime_error("PhotoRec callback buffer work exceeds 256 MiB; no complete result");
@@ -277,11 +277,15 @@ std::string candidate(const Registry &registry, size_t pattern, uint64_t magic,
     const bool file_attempted = accepted && has_file && std::strcmp(hint->extension, "pdf") == 0;
     bool file_checked = false;
     uint64_t file_check_work = 0, file_check_size = 0;
+    bool file_read_limited = false, file_metadata_limited = false;
     std::string file_failure;
     if (file_attempted) {
         ++budget.file_attempted;
         diemobile::ReadOnlyFile view(input, start, remaining, MAX_CANDIDATE_WORK,
-                [&budget](uint64_t count) { budget.check(count); });
+                [&budget](uint64_t count) {
+                    if (count > MAX_WORK - budget.bytes) throw diemobile::ReadOnlyFile::WorkLimit();
+                    budget.check(count);
+                });
         FILE *stream = view.open();
         if (stream != nullptr) {
             file_checked = true;
@@ -296,12 +300,22 @@ std::string candidate(const Registry &registry, size_t pattern, uint64_t magic,
         file_check_work = view.work();
         if (view.failure() != nullptr) file_failure = view.failure();
         if (!file_failure.empty()) ++budget.file_limited;
+        file_read_limited = view.read_limit_reached();
         extent = 0;
-        if (file_failure.empty() && file_check_size > 0 && file_check_size >= minimum
+        const bool bounded_footer = file_checked && file_check_size > 0 && file_check_size >= minimum
                 && file_check_size <= remaining && file_check_size <= hint->max_filesize
-                && recovered.offset_error == 0) {
+                && recovered.offset_error == 0;
+        // Reviewed file_pdf.c: both PDF callbacks clear file_size on footer/read failure.
+        // A positive size can survive a work limit only after the footer is established:
+        // file_allow_nl may append an optional newline; file_date_pdf never changes its size.
+        // Neither optional reader can invent a footer. No IO/deadline error is exempted.
+        file_metadata_limited = bounded_footer && file_read_limited;
+        if (file_metadata_limited) ++budget.file_metadata_limited;
+        if (bounded_footer && (file_failure.empty() || file_metadata_limited)) {
             extent = file_check_size;
-            meaning = "header-accepted/upstream-pdf-file-check-bounded-extent";
+            meaning = file_metadata_limited
+                    ? "header-accepted/upstream-pdf-footer-bounded/optional-date-read-limited"
+                    : "header-accepted/upstream-pdf-file-check-bounded-extent";
         } else meaning = file_failure.empty() ? "header-accepted/upstream-pdf-file-check-rejected"
                 : "header-accepted/upstream-pdf-file-check-limited/extent-unknown";
     }
@@ -340,6 +354,9 @@ std::string candidate(const Registry &registry, size_t pattern, uint64_t magic,
         << ",\"fileCheckSourceBytesProcessed\":" << file_check_work
         << ",\"fileCheckSizeBytes\":" << (file_checked ? quoted(std::to_string(file_check_size).c_str()) : "null")
         << ",\"fileCheckFailureReason\":" << (file_failure.empty() ? "null" : quoted(file_failure.c_str()))
+        << ",\"fileCheckReadBudgetLimited\":" << (file_read_limited ? "true" : "false")
+        << ",\"fileCheckMetadataReadLimited\":" << (file_metadata_limited ? "true" : "false")
+        << ",\"fileCheckBoundaryEstablished\":" << (file_attempted && extent > 0 ? "true" : "false")
         << ",\"renameCheckExecuted\":false"
         << ",\"upstreamTime\":" << int64_t(recovered.time) << ",\"upstreamFlags\":" << recovered.flags << '}';
     return out.str();
@@ -419,7 +436,7 @@ std::string scan(int fd) {
     out << "{\"ok\":true,\"schema\":\"org.diemobile.photorec-evidence\",\"schemaVersion\":2"
         << ",\"engine\":\"PhotoRec\",\"engineVersion\":\"7.2\",\"sourceRevision\":" << quoted(REVISION)
         << ",\"sourceArchiveSha256\":\"0cfd82ca6890188a3a4fe01c9b970f654eb3af396580f408ed024789e2873616\""
-        << ",\"adapter\":\"diemobile-photorec-4\",\"fileSizeBytes\":" << source_size
+        << ",\"adapter\":\"diemobile-photorec-5\",\"fileSizeBytes\":" << source_size
         << ",\"compactRejectedCandidateCount\":" << compact_rejections
         << ",\"rejectedRecoveryStateCount\":" << rejected_states.size()
         << ",\"compactRejectedEncoding\":\"[patternIndex,magicOffset,recoveryStateIndex]; original row ordinal is unchanged\""
@@ -437,6 +454,8 @@ std::string scan(int fd) {
         << ",\"fullBlobSearch\":true,\"nestedResultsPruned\":false,\"unknownExtentsInferred\":false"
         << ",\"externalExtractorsExecuted\":false,\"fileCheckCallbacksExecuted\":" << (budget.file_checked > 0 ? "true" : "false")
         << ",\"fileCheckCallbackScope\":\"pdf-only/read-only-relative-stdio\""
+        << ",\"fileCheckBoundaryPolicy\":\"native-positive-footer-survives-optional-post-footer-read-limit\""
+        << ",\"fileCheckMetadataReadLimitedCount\":" << budget.file_metadata_limited
         << ",\"fileCheckCandidatesAttempted\":" << budget.file_attempted
         << ",\"fileCheckCandidatesExecuted\":" << budget.file_checked
         << ",\"fileCheckCandidatesLimited\":" << budget.file_limited

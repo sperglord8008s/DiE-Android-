@@ -144,3 +144,12 @@ byte size, SHA-256 and report path. The runner checks this identity against the
 complete captured bytes. Source 531dff4's eight checks completed on Android, but
 its previous duplicate pretty-report return caused TransactionTooLargeException;
 that workflow remains failed, and the bounded completion fix must pass anew.
+
+
+All eight contracts and bounded completion passed on actual API 26/35 in run
+44786667682 at source 431f98d. Complete downloaded evidence and every source/
+APK/native-library identity were independently checked;
+[summary](../docs/verification/android-worker-runtime-431f98d.json).
+The next adapter-5 source extends the PDF case to a file larger than 9 MiB,
+checking its exact native bytes and explicit optional-date work limit. That new
+large-file Android execution is pending.

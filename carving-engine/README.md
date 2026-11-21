@@ -87,3 +87,11 @@ upstream callback scratch/records/JNI/process overhead. PDF reads have an 8 MiB
 per-candidate work cap and share the existing 256 MiB aggregate callback budget.
 Read/write/seek/budget/exception/descriptor guards have host checks; actual
 Bionic callback execution is not established by host tests or ARM64 compilation.
+
+
+Adapter 5 keeps a positive, source-bounded native PDF footer size when only
+optional post-footer newline/date read work is limited. Typed work-limit errors
+remain distinct from source/deadline failures. Original failure/work/time fields,
+separate boundary/partial-metadata flags and complete counts remain in evidence.
+Java validates the new policy while older captures retain their own semantics.
+No input/work buffer limit is increased; see the PDF recovery contract.

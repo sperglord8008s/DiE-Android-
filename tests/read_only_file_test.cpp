@@ -44,12 +44,17 @@ int main(int argc, char **argv) {
             diemobile::ReadOnlyFile budget(input, 0, 70000, 3, [](uint64_t) {});
             stream = budget.open(); require(stream != nullptr, "Budget stream open failed");
             require(fread(found.data(), 1, 16, stream) == 0 && ferror(stream), "Read cap was ignored");
-            require(budget.work() <= 3 && budget.failure() != nullptr, "Read cap failure was hidden"); fclose(stream);
+            require(budget.work() <= 3 && budget.failure() != nullptr && budget.read_limit_reached(), "Read cap failure was hidden"); fclose(stream);
             diemobile::ReadOnlyFile throwing(input, 0, 70000, 80000,
                     [](uint64_t) { throw std::runtime_error("deliberate cooperative refusal"); });
             stream = throwing.open(); require(stream != nullptr, "Throwing stream open failed");
             require(fread(found.data(), 1, 16, stream) == 0 && ferror(stream)
-                    && throwing.failure() != nullptr, "C++ exception escaped the C stdio boundary"); fclose(stream);
+                    && throwing.failure() != nullptr && !throwing.read_limit_reached(), "C++ exception escaped the C stdio boundary"); fclose(stream);
+            diemobile::ReadOnlyFile aggregate(input, 0, 70000, 80000,
+                    [](uint64_t) { throw diemobile::ReadOnlyFile::WorkLimit(); });
+            stream = aggregate.open(); require(stream != nullptr, "Aggregate budget stream open failed");
+            require(fread(found.data(), 1, 16, stream) == 0 && ferror(stream) && aggregate.read_limit_reached(),
+                    "Explicit aggregate work limit did not retain its distinct failure class"); fclose(stream);
             bool refused = false;
             try { diemobile::ReadOnlyFile invalid(input, 131140, 100, 100, [](uint64_t) {}); }
             catch (const std::runtime_error &) { refused = true; }

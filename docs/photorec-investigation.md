@@ -223,3 +223,14 @@ memory or maximum input size. Original 2/3 captures retain their own limits.
 The existing aggregate callback budget and a separate 8 MiB per-PDF read-work
 cap remain explicit. Detailed provenance, refusal conditions, optional-date
 work limitation and tested actual file exports are in the [PDF contract](pdf-file-recovery.md).
+
+
+## Adapter 5: file boundaries and optional work
+
+An established native PDF footer survives only a typed optional post-footer
+read-work limit. Missing footer, source IO, deadline and other errors remain
+unresolved. Original error/work/time values and separate native boundary versus
+partial-metadata flags/counts are retained. Java validates the exact policy,
+flags and counters; older captures keep their original stricter semantics.
+The input and memory/work caps stay unchanged. Actual >9 MiB file/gallery/export
+and independent xref/byte tests pass; see [PDF policy](pdf-file-recovery.md).

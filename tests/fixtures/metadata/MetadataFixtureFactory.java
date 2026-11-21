@@ -80,7 +80,12 @@ public final class MetadataFixtureFactory {
         ByteArrayOutputStream info=new ByteArrayOutputStream();info.write("INFO".getBytes(StandardCharsets.US_ASCII));riff(info,"INAM",ascii("Fixture tone"));riff(info,"IART",ascii("FOSS community"));riff(body,"LIST",info.toByteArray());riff(body,"data",new byte[16]);
         ByteArrayOutputStream out=new ByteArrayOutputStream();out.write("RIFF".getBytes(StandardCharsets.US_ASCII));out.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(body.size()).array());body.writeTo(out);return out.toByteArray();
     }
-    public static byte[] pdf() throws Exception {
+    public static byte[] pdf() throws Exception { return pdf(0); }
+
+    /** A valid large content-stream comment adds bytes without adding document pages. */
+    public static byte[] pdf(int padding) throws Exception {
+        if (padding < 0 || padding > 16 * 1024 * 1024) throw new IOException("PDF fixture padding exceeds 16 MiB");
+        String stream = "q Q\n" + (padding == 0 ? "" : "%" + repeat('x', padding) + "\n");
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         bytes.write("%PDF-1.4\n%".getBytes(StandardCharsets.US_ASCII));
         bytes.write(new byte[] {(byte) 0xe2, (byte) 0xe3, (byte) 0xcf, (byte) 0xd3, 10});
@@ -90,7 +95,7 @@ public final class MetadataFixtureFactory {
             "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 144 144] /Contents 4 0 R /Resources << >>"
                     + " >>",
-            "<< /Length 4 >>\nstream\nq Q\nendstream"
+            "<< /Length " + stream.length() + " >>\nstream\n" + stream + "endstream"
         };
         for (int i = 0; i < data.length; i++) {
             objects.add(bytes.size());

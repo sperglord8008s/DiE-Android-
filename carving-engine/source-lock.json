@@ -14,7 +14,7 @@
     "src/Makefile.am",
     "src/file_pdf.c"
   ],
-  "adapter": "diemobile-photorec-4",
+  "adapter": "diemobile-photorec-5",
   "optionalLibraries": [],
   "auxiliarySignatureFiles": false,
   "renameCallbacksExecuted": false,
@@ -40,5 +40,6 @@
   "fileCheckCallbacksEnabled": true,
   "fileCheckCallbackScope": "pdf-only/read-only-relative-stdio",
   "maximumCandidateFileReadBytes": 8388608,
-  "fileCheckReadBufferBytes": 65536
+  "fileCheckReadBufferBytes": 65536,
+  "fileCheckBoundaryPolicy": "native-positive-footer-survives-optional-post-footer-read-limit"
 }
