@@ -20,10 +20,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
-import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -35,31 +32,18 @@ public final class NativeArchiveExplorerActivity extends Activity {
     private ArchiveRunner runner;
     private AtomicBoolean cancellation = new AtomicBoolean();
     private volatile int generation;
-    private boolean busy, binding;
+    private boolean busy, binding, galleryMode;
     private String restoreState, stableState;
     private PreparedExport pendingExport;
     private TextView title, status;
     private EditText filter;
     private ListView list;
+    private GridView gallery;
+    private NativeArchiveGalleryAdapter galleryAdapter;
+    private Button galleryToggle;
     private Button parent, back, viewMode, previous, next, cancel;
     private final List<View> actions = new ArrayList<>();
-    private List<Row> visible = new ArrayList<>();
-
-    private static final class Row {
-        final String label, folder;
-        final NativeArchiveStore.Member member;
-
-        Row(String label, String folder, NativeArchiveStore.Member member) {
-            this.label = label;
-            this.folder = folder;
-            this.member = member;
-        }
-
-        @Override
-        public String toString() {
-            return label;
-        }
-    }
+    private List<ArchiveListing.Entry> visible = new ArrayList<>();
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
@@ -88,6 +72,7 @@ public final class NativeArchiveExplorerActivity extends Activity {
     public void onCreate(Bundle state) {
         super.onCreate(state);
         runner = new BinaryWorkerClient(this, "archive");
+        galleryMode = state != null && state.getBoolean("galleryMode", false);
         createViews();
         if (state != null) {
             restoreState = state.getString("archiveState");
@@ -130,6 +115,8 @@ public final class NativeArchiveExplorerActivity extends Activity {
         }
         title = new TextView(this);
         title.setTextSize(17);
+        title.setMaxLines(2);
+        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
         root.addView(title);
         LinearLayout navigation = new LinearLayout(this);
         root.addView(navigation);
@@ -146,24 +133,19 @@ public final class NativeArchiveExplorerActivity extends Activity {
                                 render();
                             }
                         });
-        LinearLayout tools = new LinearLayout(this);
-        root.addView(tools);
-        button(tools, "Evidence", this::evidence);
-        button(tools, "Export report", this::exportReport);
-        button(tools, "Parsing interval", this::scope);
-        LinearLayout operations = new LinearLayout(this);
-        root.addView(operations);
-        button(operations, "Reload", this::load);
-        button(operations, "Classic ZIP", this::classicZip);
-        cancel =
+        LinearLayout files = new LinearLayout(this);
+        root.addView(files);
+        galleryToggle =
                 button(
-                        operations,
-                        "Cancel",
+                        files,
+                        "Gallery",
                         () -> {
-                            cancellation.set(true);
-                            status.setText("Cancellation requested; waiting for archive worker");
+                            galleryMode = !galleryMode;
+                            if (session != null) session.current().page = 0;
+                            render();
                         });
-        actions.remove(cancel);
+        button(files, "Export files ZIP", () -> stageExport(1, null));
+        button(files, "Tools / evidence", this::tools);
         filter = new EditText(this);
         filter.setSingleLine();
         filter.setHint("Filter names / entry indices in this view");
@@ -188,12 +170,34 @@ public final class NativeArchiveExplorerActivity extends Activity {
                             session.current().page++;
                             render();
                         });
+        cancel =
+                button(
+                        pages,
+                        "Cancel",
+                        () -> {
+                            cancellation.set(true);
+                            status.setText("Cancellation requested; waiting for archive worker");
+                        });
+        actions.remove(cancel);
         status = new TextView(this);
         status.setTextIsSelectable(true);
+        status.setMaxLines(2);
+        status.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        status.setContentDescription("Archive status. Tap for complete source, scope and limits.");
+        status.setOnClickListener(view -> statusDetails());
         root.addView(status);
         list = new ListView(this);
         root.addView(list, new LinearLayout.LayoutParams(-1, 0, 1));
         actions.add(list);
+        gallery = new GridView(this);
+        gallery.setColumnWidth(dp(180));
+        gallery.setNumColumns(GridView.AUTO_FIT);
+        gallery.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
+        gallery.setHorizontalSpacing(dp(6));
+        gallery.setVerticalSpacing(dp(6));
+        gallery.setVisibility(View.GONE);
+        root.addView(gallery, new LinearLayout.LayoutParams(-1, 0, 1));
+        actions.add(gallery);
         setContentView(root);
         filter.addTextChangedListener(
                 new TextWatcher() {
@@ -210,21 +214,40 @@ public final class NativeArchiveExplorerActivity extends Activity {
                         }
                     }
                 });
-        list.setOnItemClickListener(
-                (p, view, index, id) -> {
-                    if (busy || session == null) return;
-                    Row row = visible.get(index);
-                    if (row.member == null) {
-                        session.current().prefix = row.folder;
-                        session.current().filter = "";
-                        session.current().page = 0;
-                        bind();
-                        render();
-                    } else details(row.member);
+        list.setOnItemClickListener((parent, view, index, id) -> openEntry(index, false));
+        gallery.setOnItemClickListener((parent, view, index, id) -> openEntry(index, true));
+        gallery.setOnItemLongClickListener(
+                (parent, view, index, id) -> {
+                    if (busy || session == null) return true;
+                    ArchiveListing.Entry entry = visible.get(index);
+                    if (entry.member != null) details(entry.member);
+                    return true;
                 });
     }
 
+    private void openEntry(int index, boolean direct) {
+        if (busy || session == null) return;
+        ArchiveListing.Entry row = visible.get(index);
+        if (row.member == null) {
+            session.current().prefix = row.folder;
+            session.current().filter = "";
+            session.current().page = 0;
+            bind();
+            render();
+        } else if (direct && session.current().inventory.complete && row.member.canAcquire())
+            select(row.member, 0);
+        else details(row.member);
+    }
+
+    private void closeGalleryPage() {
+        if (galleryAdapter != null) {
+            galleryAdapter.close();
+            galleryAdapter = null;
+        }
+    }
+
     private int begin(String text) {
+        closeGalleryPage();
         cancellation.set(true);
         cancellation = new AtomicBoolean();
         busy = true;
@@ -363,67 +386,43 @@ public final class NativeArchiveExplorerActivity extends Activity {
         NativeArchiveStore.Inventory inventory = location.inventory;
         title.setText(
                 inventory.format
-                        + "\n"
-                        + NativeArchiveSession.abbreviated(location.name, 200)
                         + " · level "
                         + session.depth()
                         + "/16\n"
                         + (location.allEntries
-                                ? "All original entry indices"
-                                : "/" + NativeArchiveSession.abbreviated(location.prefix, 200)));
+                                ? "All entries"
+                                : "/" + NativeArchiveSession.abbreviated(location.prefix, 160))
+                        + " · "
+                        + NativeArchiveSession.abbreviated(location.name, 160));
         viewMode.setText(location.allEntries ? "Folder tree" : "All entries");
         parent.setEnabled(!busy && !location.allEntries && !location.prefix.isEmpty());
         back.setEnabled(!busy && session.depth() > 1);
-        String query = location.filter.toLowerCase(Locale.ROOT);
-        TreeMap<String, Row> folders = new TreeMap<>();
-        ArrayList<Row> rows = new ArrayList<>();
-        for (NativeArchiveStore.Member member : inventory.members) {
-            String label =
-                    "#"
-                            + member.index
-                            + " "
-                            + NativeArchiveSession.abbreviated(member.name, 160)
-                            + "\n"
-                            + (member.directory
-                                    ? "Directory"
-                                    : member.linked
-                                            ? "Link (never materialized)"
-                                            : member.regular
-                                                    ? "Regular member"
-                                                    : "Special / unknown type")
-                            + " · declared size="
-                            + (member.size == null ? "unknown" : member.size)
-                            + (member.encrypted ? " · encrypted" : "")
-                            + (!member.treeName() ? " · name outside virtual tree" : "");
-            if (!location.allEntries && member.treeName()) {
-                if (!member.name.startsWith(location.prefix) || member.name.equals(location.prefix))
-                    continue;
-                String tail = member.name.substring(location.prefix.length());
-                int slash = tail.indexOf('/');
-                if (slash >= 0) {
-                    String folder = tail.substring(0, slash + 1);
-                    if (folder.toLowerCase(Locale.ROOT).contains(query))
-                        folders.putIfAbsent(
-                                folder,
-                                new Row(
-                                        "Directory: "
-                                                + NativeArchiveSession.abbreviated(folder, 160),
-                                        location.prefix + folder,
-                                        null));
-                    continue;
-                }
-            } else if (!location.allEntries && !location.prefix.isEmpty()) continue;
-            if (member.name.toLowerCase(Locale.ROOT).contains(query)
-                    || label.toLowerCase(Locale.ROOT).contains(query))
-                rows.add(new Row(label, null, member));
-        }
-        rows.sort(Comparator.comparingInt(row -> row.member.index));
-        rows.addAll(0, folders.values());
-        int pages = Math.max(1, (rows.size() + 49) / 50);
+        List<ArchiveListing.Entry> rows = ArchiveListing.entries(location);
+        int pageSize = galleryMode ? 24 : 50;
+        int pages = Math.max(1, (rows.size() + pageSize - 1) / pageSize);
         location.page = Math.max(0, Math.min(location.page, pages - 1));
-        int first = location.page * 50;
-        visible = new ArrayList<>(rows.subList(first, Math.min(rows.size(), first + 50)));
-        list.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, visible));
+        int first = location.page * pageSize;
+        visible = new ArrayList<>(rows.subList(first, Math.min(rows.size(), first + pageSize)));
+        closeGalleryPage();
+        galleryToggle.setText(galleryMode ? "List" : "Gallery");
+        previous.setText("Previous " + pageSize);
+        next.setText("Next " + pageSize);
+        list.setVisibility(galleryMode ? View.GONE : View.VISIBLE);
+        gallery.setVisibility(galleryMode ? View.VISIBLE : View.GONE);
+        if (galleryMode) {
+            galleryAdapter =
+                    new NativeArchiveGalleryAdapter(
+                            this,
+                            visible,
+                            inventory,
+                            runner,
+                            new File(getCacheDir(), "archive-gallery-members"),
+                            worker,
+                            member -> stageExport(2, member),
+                            member -> select(member, 2));
+            gallery.setAdapter(galleryAdapter);
+        } else
+            list.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, visible));
         previous.setEnabled(!busy && location.page > 0);
         next.setEnabled(!busy && location.page + 1 < pages);
         String retentionWarning = "";
@@ -436,7 +435,26 @@ public final class NativeArchiveExplorerActivity extends Activity {
             }
         if (!busy)
             status.setText(
-                    (session.launch == null ? "" : session.launch.summary() + "\n")
+                    inventory.members.size()
+                            + " entries · "
+                            + rows.size()
+                            + " matches · page "
+                            + (location.page + 1)
+                            + "/"
+                            + pages
+                            + (inventory.complete ? " · complete" : " · FAILED / PARTIAL")
+                            + "\nScope: "
+                            + inventory.offset
+                            + " + "
+                            + inventory.length
+                            + " bytes"
+                            + "\nTap for source, status and limits\n\n"
+                            + "Source: "
+                            + location.name
+                            + "\nSHA-256 "
+                            + location.input.sha256
+                            + "\n"
+                            + (session.launch == null ? "" : session.launch.summary() + "\n")
                             + (inventory.complete
                                     ? "Complete returned inventory"
                                     : "FAILED / PARTIAL inventory: " + inventory.failure)
@@ -460,6 +478,15 @@ public final class NativeArchiveExplorerActivity extends Activity {
                             + " unusual names. Metadata iteration does not verify every payload. "
                             + session.retainedBytes()
                             + " nested bytes retained."
+                            + (galleryMode
+                                    ? "\n"
+                                          + "Gallery previews acquire checked files (≤32 MiB each,"
+                                          + " ≤96 MiB member bytes and ≤512 MiB sum of archive"
+                                          + " source sizes per page). Explicit preview/save uses"
+                                          + " the ordinary 256 MiB member limit. ZIP exports span"
+                                          + " every matching page and include displayed folders"
+                                          + " recursively."
+                                    : "")
                             + retentionWarning);
     }
 
@@ -731,6 +758,51 @@ public final class NativeArchiveExplorerActivity extends Activity {
                 });
     }
 
+    private void tools() {
+        if (busy || session == null) return;
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(content);
+        AlertDialog dialog =
+                new AlertDialog.Builder(this)
+                        .setTitle("Archive tools / evidence")
+                        .setView(scroll)
+                        .setNegativeButton("Close", null)
+                        .create();
+        String[] labels = {
+            "Evidence",
+            "Export report",
+            "Parsing interval",
+            "Reload",
+            "Classic ZIP",
+            "Status / limits"
+        };
+        Runnable[] commands = {
+            this::evidence,
+            this::exportReport,
+            this::scope,
+            this::load,
+            this::classicZip,
+            this::statusDetails
+        };
+        for (int i = 0; i < labels.length; i++) {
+            Runnable command = commands[i];
+            addAction(
+                    content,
+                    labels[i],
+                    () -> {
+                        dialog.dismiss();
+                        command.run();
+                    });
+        }
+        dialog.show();
+    }
+
+    private void statusDetails() {
+        if (!busy) raw("Archive source, status and limits", status.getText().toString());
+    }
+
     private void evidence() {
         if (session == null || busy) return;
         raw(
@@ -874,23 +946,37 @@ public final class NativeArchiveExplorerActivity extends Activity {
     }
 
     private void exportReport() {
+        stageExport(0, null);
+    }
+
+    private void stageExport(int mode, NativeArchiveStore.Member member) {
         if (session == null || busy || pendingExport != null) return;
-        int ticket = begin("Staging complete archive trail and original reports…");
+        int ticket =
+                begin(
+                        mode == 0
+                                ? "Staging complete archive trail and original reports…"
+                                : mode == 1
+                                        ? "Acquiring all matching archive files and staging ZIP…"
+                                        : "Acquiring complete member and staging file…");
         AtomicBoolean stop = cancellation;
         worker.execute(
                 () -> {
                     PreparedExport staged = null;
                     String error = null;
                     try {
-                        staged =
-                                PreparedExport.stream(
-                                        exports(),
-                                        "GlassDigestor-archive-evidence.json",
-                                        "application/json",
-                                        out ->
-                                                EvidenceJson.write(
-                                                        out, session.evidence(), stop::get),
-                                        stop::get);
+                        if (mode == 1) staged = ArchiveFiles.zip(session, exports(), stop::get);
+                        else if (mode == 2)
+                            staged = ArchiveFiles.file(session, member, exports(), stop::get);
+                        else
+                            staged =
+                                    PreparedExport.stream(
+                                            exports(),
+                                            "GlassDigestor-archive-evidence.json",
+                                            "application/json",
+                                            out ->
+                                                    EvidenceJson.write(
+                                                            out, session.evidence(), stop::get),
+                                            stop::get);
                     } catch (Exception failure) {
                         error = failure.toString();
                     }
@@ -943,10 +1029,10 @@ public final class NativeArchiveExplorerActivity extends Activity {
         pendingExport = null;
         if (code != RESULT_OK || data == null || data.getData() == null) {
             staged.discard();
-            status.setText("Archive report export cancelled");
+            status.setText("Archive export cancelled");
             return;
         }
-        int ticket = begin("Writing staged archive report…");
+        int ticket = begin("Writing staged archive export…");
         AtomicBoolean stop = cancellation;
         worker.execute(
                 () -> {
@@ -956,7 +1042,7 @@ public final class NativeArchiveExplorerActivity extends Activity {
                         if (output == null)
                             throw new IOException("Provider returned no writable stream");
                         staged.copyTo(output, stop::get);
-                        message = "Exported complete archive report · " + staged.size + " bytes";
+                        message = "Exported staged archive content · " + staged.size + " bytes";
                     } catch (Exception failure) {
                         message =
                                 "Archive export failed; provider may contain partial output: "
@@ -989,6 +1075,7 @@ public final class NativeArchiveExplorerActivity extends Activity {
 
     @Override
     protected void onSaveInstanceState(Bundle state) {
+        state.putBoolean("galleryMode", galleryMode);
         if (stableState != null) state.putString("archiveState", stableState);
         if (pendingExport != null) {
             state.putString("exportPath", pendingExport.file.getAbsolutePath());
@@ -1001,6 +1088,7 @@ public final class NativeArchiveExplorerActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        closeGalleryPage();
         generation++;
         cancellation.set(true);
         runner.close();

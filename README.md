@@ -1,123 +1,114 @@
 <p align="center">
-  <img src="app/src/main/res/drawable-nodpi/brand_mark.png" width="136" alt="GlassDigestor: a hexagonal lens over file layers" />
+  <img src="app/src/main/res/drawable-nodpi/brand_mark.png" width="144" alt="GlassDigestor: a lens over file layers" />
 </p>
-
 <h1 align="center">GlassDigestor</h1>
-<p align="center"><strong>An offline investigation workbench for Android.</strong><br/>Explore the bytes. Follow the evidence. Understand the layers.</p>
+<p align="center"><strong>Open a file. Discover its contents. Follow the evidence.</strong><br/>An offline, free and open-source investigation workbench for Android.</p>
 <p align="center">
-  <a href="https://github.com/sperglord8008s/GlassDigestor/releases">Pre-release downloads</a> ·
-  <a href="docs/FEATURE-PARITY.md">Verified scope</a> ·
-  <a href="docs/continuation.md">Build & contribute</a> ·
-  <a href="https://github.com/sperglord8008s/GlassDigestor/issues">Report a problem</a>
+  <a href="https://github.com/sperglord8008s/GlassDigestor/releases"><strong>Download a pre-alpha</strong></a> ·
+  <a href="#recover-and-view-files">File recovery walkthrough</a> ·
+  <a href="docs/FEATURE-PARITY.md">Verified capabilities</a> ·
+  <a href="docs/continuation.md">Build & contribute</a>
 </p>
-
 <p align="center">
   <a href="https://github.com/sperglord8008s/GlassDigestor/actions/workflows/android.yml"><img alt="Android and host checks" src="https://github.com/sperglord8008s/GlassDigestor/actions/workflows/android.yml/badge.svg?branch=main" /></a>
-  <img alt="Android API 26+; ARM64" src="https://img.shields.io/badge/Android-API_26%2B_%C2%B7_ARM64-59e1ca?labelColor=101920" />
+  <img alt="Android 8.0+; ARM64" src="https://img.shields.io/badge/Android-8.0%2B_%C2%B7_ARM64-59e1ca?labelColor=101920" />
   <a href="LICENSE"><img alt="GPL-3.0-only frontend" src="https://img.shields.io/badge/license-GPL--3.0--only-ffbc66?labelColor=101920" /></a>
 </p>
 
-GlassDigestor brings file identification, binary structures, media discovery,
-Android package analysis and system investigation into one local workbench.
-Technical evidence is visible by default, with expandable explanations of what
-it means, where it came from and what remains unknown.
+GlassDigestor investigates files, embedded media, archives, executables and
+Android packages on your device. Technical facts, original evidence and
+expandable explanations are available together. Dense views, search, paging
+and complete exports support investigations beyond the first screen of results.
 
-**Previously DiE Android.** This is an independent FOSS application built around
-Detect It Easy / CDiE and other credited open-source engines. The original repository URL redirects here. The Android application ID
-remains `org.diemobile`.
+**No account, ads, telemetry, cloud upload or INTERNET permission.** Selected
+applications are inspected as data and never executed. Android's normal
+permissions determine which files and system information are accessible.
 
-## Start exploring
+## Recover and view files
 
-| Investigate | What you can do |
+1. **Select a file → Gallerize.** PhotoRec and Binwalk inspect the owned input;
+   **Files** shows bounded recovered payloads, with images, audio/video,
+   documents and candidate text. Nested and overlapping findings stay available.
+2. **Tap a file to preview it.** Use **Save file** for an individual payload,
+   or **Export files (ZIP)** for actual files across every page in the selected
+   group. Extensions, MIME types, source coordinates and original findings are
+   retained. Hold a card for evidence and expert actions.
+3. **Open an archive to explore its contents.** The native browser identifies
+   supported archives from bytes, offers virtual folders and nested Back, and
+   acquires members by exact index. Development pre-alpha.15 adds **Gallery**,
+   thumbnails, direct file saves and **Export files ZIP** for archive members.
+
+Platform image/audio/video, paged UTF-8, PDF and Hex viewers are available.
+Unsupported codecs, unknown extents and extraction limits are explicit.
+Recognition alone does not establish a complete file boundary or full validity.
+
+[Recovered file gallery](docs/recovered-file-gallery.md) ·
+[Archive gallery development](docs/archive-file-gallery.md) ·
+[PDF recovery](docs/pdf-file-recovery.md) ·
+[Input limits and large-file checks](docs/input-budgets.md)
+
+## Explore deeper
+
+| Workbench | Tools |
 |---|---|
-| **Any selected file** | Identify byte-based formats, run desktop DiE signatures, inspect all eight whole-file digests, page through hex and classify strings into overlapping evidence groups. |
-| **Mixed blobs & media** | Use **Gallerize** to see discovered images, audio, text and unknown regions; open owned previews, inspect EXIF/XMP and MPV codec metadata, and explore configurable byte/entropy grids. |
-| **Embedded content** | Run actual Binwalk and PhotoRec header/data checks, retain nested/overlapping findings, preview exact bounded payloads, export checked recovered bytes, and hand the captured input to Gallerize. |
-| **Executables** | Explore typed PE/ELF/Mach-O structures, maps, imports, exports, symbols, resources and disassembly; follow supported coordinates back to original bytes. |
-| **Android apps** | Inspect DEX and smali, binary manifests/resources, APK signatures and certificates, captured base/split relationships, SDK name rules and locally imported tracker rules. |
-| **Archives** | Browse content-identified archives and compressed streams with virtual folders, complete indexed metadata, nested Back, checked member previews/exports and explicit embedded intervals. Classic ZIP remains available. See the [archive contracts](docs/native-archives.md). |
-| **System evidence** | Browse visible packages, declared services and readable files; capture normal-UID Binder registrations with their original output and limitations. |
-| **Repeatable work** | Save scan profiles, run document batches, compare exact bytes and native detection trees, and export complete source-identified reports. |
+| **Files & mixed blobs** | Detect It Easy signatures; PhotoRec/Binwalk discoveries; eight whole-file digests; classified strings, complete hex and configurable byte/entropy grids. |
+| **Media & metadata** | Bounded in-app previews; EXIF/XMP/raw metadata; MPV/FFmpeg codec, container, track and property inspection; exact payload and report exports. |
+| **PE, ELF & Mach-O** | Typed structures, maps, imports, exports, symbols, resources and disassembly, with supported links back to original bytes. |
+| **Android packages** | DEX/smali; compiled manifests/resources; APK signatures/certificates; captured base/split relationships; sourced SDK/tracker matching and practical package knowledge. |
+| **System & repeatable analysis** | Visible package/file/service inventory; captured normal-UID Binder evidence; scan profiles, document batches, byte/tree comparisons and complete scoped reports. |
 
-No account, telemetry, cloud upload or `INTERNET` permission. Files stay on the
-device. Samples are inspected as data; the application does not run them.
-System visibility follows Android's permissions and sandbox.
+[Engine credits and detailed tools](docs/workbench-features.md) ·
+[Feature parity and remaining work](docs/FEATURE-PARITY.md)
 
-[Detailed capabilities and engine credits](docs/workbench-features.md) ·
-[Input budgets and tested file sizes](docs/input-budgets.md) ·
-[Gallerize contracts](docs/gallerize-implementation.md)
+## Install
 
-## Install a pre-release
+Get an **ARM64 APK** from [GitHub Releases](https://github.com/sperglord8008s/GlassDigestor/releases),
+alongside its SHA-256, build manifest and corresponding-source bundles. Requires
+**Android 8.0 / API 26 or later**. Every checkpoint has a numbered version and
+source revision; tap the app title or **Options → Build details** to inspect it.
 
-Download the ARM64 APK and its checksum/build manifest from
-[GitHub Releases](https://github.com/sperglord8008s/GlassDigestor/releases).
-The published numbered checkpoint is **0.6.0-pre-alpha.13** (Android version code **19**), including [sourced package knowledge](docs/package-knowledge.md), [independent preview origin evidence](docs/content-origins.md), [large text/Hex and full report navigation](docs/text-paging.md), the [native archive workbench](docs/native-archives.md), [embedded finding links](docs/archive-launches.md) and [checked recovery previews/exports](docs/recovered-content.md).
-Android 8.0 / API 26 or later is required.
+Current releases are debug testing builds. Check signer digests before updating:
+keys from separate CI runners can differ. Preserve your existing installation
+and data when keys differ. See [build identity and signing scope](docs/build-versioning.md).
 
-Debug APKs have numbered, source-identified names, for example
-`GlassDigestor-0.6.0-pre-alpha.5-dev.g0123456789ab-arm64-v8a-debug.apk`.
-Current development builds use **0.6.0-pre-alpha.14** / code **20**, including
-[direct gallery archive inspection and explicit byte-range previews](docs/gallery-inspection-ranges.md)
-and a separate [Android worker runtime laboratory](runtime-worker/README.md).
-Eight worker/media/compiled-manifest/PDF-recovery contracts passed on actual x86 Android API 26/35;
-[bounded gallery video frames/media observations](docs/gallery-media-previews.md)
-are covered by an actual platform-codec runtime check. Development now combines PhotoRec and Binwalk in an [actual recovered-file
-gallery with typed saves and payload ZIPs](docs/recovered-file-gallery.md).
-[Recovered PDF file exports](docs/pdf-file-recovery.md) now extend that gallery.
-[Observed APK → sourced community package knowledge](docs/apk-community-context.md)
-remains available.
-Package knowledge retains all 5,402 original UAD-NG records, including duplicate IDs. Earlier published checkpoints remain unchanged.
+**F-Droid:** not listed yet. [Packaging preparation](docs/fdroid.md) documents
+the MPV source-build, dependency, release and signing work needed for submission.
 
-Tap the app title or **Options → Build details** to see the same version and
-full source revision. See [build versioning](docs/build-versioning.md).
+## Verification
 
-These testing builds use the existing debug signing configuration. Compare the
-signer digest in each manifest before updating an existing installation; keys
-from separate CI runners can differ. The historical
-[0.5.0-alpha checkpoint](docs/releases/0.5.0-alpha.md) remains unchanged.
+The published [pre-alpha.14 checkpoint](https://github.com/sperglord8008s/GlassDigestor/releases/tag/v0.6.0-pre-alpha.14)
+passed all five source CI jobs and **181 Android host tests**, using real native
+engines/parsers where documented. ARM64 compilation, lint, APK signatures,
+offline assets and static 16 KiB alignment are checked.
 
-## What has been verified
+**Eight actual Android contracts** passed on x86 API 26 and 35. Downloaded
+reports were independently checked against source, APK/library and report
+hashes. They include isolated worker transport/cancellation, archive extraction,
+bounded media observations, compiled declarations and exact recovery of a
+9,437,636-byte PDF. [Exact verification evidence](docs/verification/android-worker-runtime-8adac7b.json).
 
-The published checkpoint passed **all five GitHub Actions jobs** and
-**175 Android host checks**, using real JNI/parsers
-where documented. ARM64 compilation, APK signature/offline packaging, static
-16 KiB alignment, source identities and independent host fixtures are checked.
-
-The current gallery-range integration passes **170 Android host tests**,
-ARM64 assembly/lint and the APK verifier for fifteen native libraries. Actual
-PhotoRec → gallery → libarchive tests verify exact decoded bytes and origin
-context; the fully written 80 MiB-plus gallery fixture remains green. Independent
-oracles also reconstruct every knowledge source record and UTF-16 unit. See the
-[knowledge](docs/package-knowledge.md), [text](docs/text-paging.md) and
-[origin contracts](docs/content-origins.md).
-
-**This remains a pre-alpha workbench.** Six worker/media-helper contracts pass
-on x86 Android API 26/35 ([exact evidence](docs/verification/android-worker-runtime-8f2ab38.json)).
-Production ARM64/handset/SAF/UI/media runtime acceptance and full desktop Detect
-It Easy parity remain incomplete. Header
-matches, declared permissions and high entropy are evidence to investigate;
-they do not establish malicious behavior, complete validity or safety.
-
-The [feature-parity checklist](docs/FEATURE-PARITY.md) distinguishes implemented,
-host-verified and device-unverified functionality. The verified workbench is on
-the default branch through [PR #9](https://github.com/sperglord8008s/GlassDigestor/pull/9).
-Gallery-range development continues on `codex/gallery-inspection-ranges`.
+**Pre-alpha scope:** production ARM64 handset/SAF/UI acceptance, every media
+codec, full PDF rendering, fragmented recovery and full desktop Detect It Easy
+parity remain incomplete. A permission, signature or entropy measurement does
+not establish malicious behavior or safety. The
+[parity checklist](docs/FEATURE-PARITY.md) separates implementation, host checks
+and actual Android verification.
 
 ## Build and contribute
 
-Use JDK 17, Gradle 8.11.1, Android SDK/build-tools 35, NDK 28.2.13676358, CMake
-3.22.1 and Rust 1.90.0. Dependency revisions, checksums, source bundles and
-licenses are pinned. Build-time downloads are separate from offline app use.
+Pinned toolchain: JDK 17, Gradle 8.11.1, SDK/build-tools 35, NDK 28.2.13676358,
+CMake 3.22.1 and Rust 1.90.0. Build-time dependency acquisition is separate from
+offline application use.
 
-Start with [AGENTS.md](AGENTS.md), the [design goals](docs/DESIGN-GOALS.md) and
-[continuation instructions](docs/continuation.md). They include the complete
-engine setup, build, host/native/UI checks and current next steps.
+Start with [AGENTS.md](AGENTS.md), [design goals](docs/DESIGN-GOALS.md) and the
+[complete build/check/continuation guide](docs/continuation.md). Contributions
+are welcome: reproducible recovery fixtures, handset test reports, accessibility,
+source-audited engines, documentation and evidence-backed package knowledge.
+For bugs, include the build identifier, Android version, tool and observed error.
+Share sample bytes only when you have permission.
 
-Useful contributions include reproducible parser fixtures, handset test reports,
-accessibility fixes, source-audited engines, documentation and practical package
-knowledge backed by evidence. For a bug, include the exact build identifier,
-Android version, selected tool and observed error; share sample bytes only when
-you have permission to do so.
+[Report an issue](https://github.com/sperglord8008s/GlassDigestor/issues) ·
+[Discuss a change in a pull request](https://github.com/sperglord8008s/GlassDigestor/pulls)
 
 ## Open-source foundations
 
@@ -125,8 +116,12 @@ Detect It Easy / CDiE · Binwalk · PhotoRec · libarchive · libmpv / FFmpeg ·
 metadata-extractor / Adobe XMP · AOSP apksig · Google smali / baksmali ·
 Google binary-resources · RE2/J · LibChecker · UAD-NG.
 
-The frontend is **GPL-3.0-only**. Upstream code, data and runtime components retain
-their own licenses and notices; the build packages those notices and corresponding
-source bundles where required. Imported Exodus data has its own ODbL/DbCL terms.
-See [LICENSE](LICENSE), [engine credits](docs/workbench-features.md#license),
-[brand artwork](docs/branding/README.md) and the component modules for exact pins.
+Frontend: **GPL-3.0-only**. Upstream components retain their own licenses;
+notices and corresponding-source information accompany the builds. Imported
+Exodus data has ODbL/DbCL terms. See [LICENSE](LICENSE),
+[component credits](docs/workbench-features.md#license) and
+[artwork provenance](docs/branding/README.md).
+
+Previously **DiE Android**. GlassDigestor is an independent application built
+around credited upstream engines. The old repository URL redirects here;
+the installed application ID remains `org.diemobile`.

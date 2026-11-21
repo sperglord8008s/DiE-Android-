@@ -1106,3 +1106,92 @@ Next commit the coherent .14 file-recovery change, rebuild/freeze the exact
 clean-source APK/runtime artifacts, push, run both CI workflows and fix failures.
 Merge only after passing gates; publish the immutable .14 checkpoint afterward
 from the corrected publisher. Actual files/preview/exports remain the priority.
+
+
+## Published pre-alpha.14; archive member files and store preparation
+
+Source **8adac7bd2a8ed81caabf7d919b751859dc804590** passed both five-job source
+CI runs **44915200962 / 44915262364** and eight actual x86 API 26/35 contracts
+in **44915200949**. Complete downloaded reports/source/APK/library/completion
+hashes/counts are checked in `docs/verification/android-worker-runtime-8adac7b.json`.
+Both SDKs recover and compare the exact 9,437,636-byte PDF, SHA-256
+`0c37bd4faef8269249dfd6dba12d3aa6cfd4bb1f71dfa5a36b0e947a8b01de9c`.
+Optional metadata-work exhaustion remains explicit; no PDF rendering claim.
+
+PR #16 merged as **e2b8bf30926a5a904a8184253d9a47c024feeb70**. Publisher
+**44916538888** succeeded from updated main, including the display-title fix.
+All 14 public asset identities and the correct title/source/tag/channel were
+checked. Public `.14` APK: **52,836,245 bytes**, SHA-256
+`8f14ca18938bb07fbba6d679d72827a73c3cc37d8e14ab9a4137779e23fe15a9`.
+The downloaded original six-file CI checkpoint matches public hashes; exact-
+source static APK verification passes in the separate clean release-source
+worktree at 8adac7b. Original CI files remain in
+`/workspace/work/releases/0.6.0-pre-alpha.14/ci`; only the verified redundant
+outer ZIP was reclaimed. All frozen local/earlier APKs remain intact.
+
+Current branch **codex/archive-file-gallery**, pre-alpha.15/code21, adds a
+24-card native archive gallery, checked image/media/text observations, direct
+preview, typed saves and complete scoped actual-file ZIPs. `ArchiveListing`
+shares tree/gallery/export selection; `ArchiveFiles` handles safe names and
+checked payload/report staging independently of UI. Original indices/names,
+duplicate and unusual entries, excluded links and current native/finding-chain
+evidence remain explicit. No automatic recursive decompression or all-codec
+claim. See `docs/archive-file-gallery.md`.
+
+All **187 host tests** (six new archive cases) and required `scripts/test.sh` /
+`scripts/test-native.sh` pass. The initial whole-suite local attempts exhausted
+disk and one Robolectric Looper stalled after that failure; its stack/logs are
+retained and that attempt is not acceptance evidence. The successful complete
+rerun uses a local Gradle init script setting `forkEvery = 1` and
+`maxParallelForks = 1`, so every class runs and temporary engine copies are
+removed at JVM exit. Log: `/workspace/work/archive-gallery-full-ui-forked.log`;
+summary: `/workspace/work/archive-gallery-host-test-summary.json`. No tests
+were skipped or assertions weakened. CI retains its ordinary full-suite mode.
+
+Disk remains constrained. Regenerable PhotoRec Android object directories and
+unchanged host xxfclib compiler objects were reclaimed with library/fallback
+SHA audits; compiled JNI libraries remain. Do not run host native rebuilds while
+the test JVM is active. For local app packaging, verify the unchanged source/
+ARM64 library audit and reuse the documented CDiE/hash task exclusions; other
+engines keep their normal build tasks. Clean CI rebuilds everything.
+
+The user also requested GitHub-page polish after the UI and F-Droid guidance.
+README now prioritizes a concrete file workflow, installation and one precise
+published verification baseline, removing contradictory old counts/branches.
+Fastlane descriptions and the identical licensed icon are present.
+`docs/fdroid.md` cites current official guidance and audits actual blockers: the
+nine MPV/FFmpeg runtime libraries are still copied from upstream binaries;
+complete source rebuilding, release-variant acceptance, dependency/recipe and
+signing/reproducibility work remain. No F-Droid submission, external repo or
+private signing identity has been created. Genuine Android screenshots remain
+a following presentation task.
+
+Next: commit this coherent source/docs slice, compile/lint/check/freeze its
+exact clean ARM64 APK, push and run source/Android CI; fix failures before
+merging/publication. Continue actual file viewing/export/recovery coverage.
+
+
+The first .15 slice is committed as **9c077e67cac0684a11069c45afb37a036772621d**
+in PR #17. Its clean ARM64 assembly/lint/static APK and freeze pass; local
+52,803,473-byte APK SHA-256 is
+`df56f56cf2ad512335fe7590628627ec2abe2c3fee0c226250189ca0b8e4743f`
+in `/workspace/work/checkpoints/0.6.0-pre-alpha.15-local`. Source CI
+44939977631 and actual API 26/35 run 44939977547 are for that source; the latter
+passed. Do not publish that source as the final .15 after the correction below.
+
+A new compact-phone case caught a real presentation failure: only 4 px remained
+for the archive gallery at 360×640. Secondary actions are now in Tools / evidence,
+the full status opens on tap/Status / limits, and source/folder headings/status
+are compact. The fixed case requires ≥200 px and all existing tool buttons; all
+**15 focused old/new archive cases pass**. A complete **188-case** run is in
+progress using the same one-class-per-JVM init script. Log:
+`/workspace/work/archive-gallery-full-ui-layout.log`. This is an additional
+functional usability gate, not a weakened assertion. Commit/push the correction
+and rebuild/freeze the new clean source, preserving the earlier frozen .15.
+
+The duplicated mutable .15 APK output and generated x86 archive static-dependency
+cache were reclaimed after APK/JNI SHA audits, keeping both compiled archive
+JNI libraries and every frozen APK. The test-only runtime module will need that
+static dependency cache regenerated if rebuilt locally; CI does its normal
+source build. Final app ARM64 packaging keeps the previously documented
+unchanged CDiE/hash task exclusions and normal engine tasks.

@@ -67,9 +67,9 @@ denied writes, bounded read accounting, cooperative exceptions and caller
 position/descriptor ownership. A host Android gallery case uses the actual new
 native recovery and checks PDF save and preview handoff bytes. It does not
 substitute for running the Android PDF renderer. Full-suite, ARM64 and CI status
-is recorded separately in the release checklist. Actual Bionic stdio execution,
-PDF rendering/SAF/handset flows and other PhotoRec file-check modules remain
-unverified or incomplete.
+is recorded separately in the release checklist. Actual Bionic stdio/isolated PhotoRec execution is now verified by the Android
+lab described below. PDF rendering/SAF/handset flows and other full file-check
+modules remain unverified or incomplete.
 
 
 The eighth runtime-lab contract now packages the source-built x86 PhotoRec
@@ -77,8 +77,10 @@ library and sends complete/missing-footer PDF fixtures through the real
 production isolated client/service. It records raw native results, UID, exact
 payload size/SHA and explicit `pdfRendererExecuted: false`. Static verification
 checks all native adapter/contract/fixture source hashes and the NDK-stripped
-library bytes. Test APK compilation/static checks pass; actual API 26/35
-execution is pending. All **181 host tests**, required generic/native checks,
+library bytes. Test APK compilation/static checks pass. Eight actual x86 API 26/35 contracts
+now pass at source 8adac7b in run 44915200949, including the >9 MiB native PDF
+case. [Downloaded verification evidence](verification/android-worker-runtime-8adac7b.json)
+checks source/APK/library/full-report and completion hashes/counts. All **181 host tests**, required generic/native checks,
 full ARM64 compilation/lint and APK signature/offline/notices/alignment checks
 pass. No host result is labeled as Android FILE/PDF runtime verification.
 

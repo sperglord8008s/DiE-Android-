@@ -156,3 +156,28 @@ New adapter 4 PDF file checks supply native bounded PDF payloads. All 181 host
 cases and ARM64/static gates pass. An eighth actual Bionic/PhotoRec contract is
 compiled/static-checked, with Android execution and source CI pending. See
 [file gallery](recovered-file-gallery.md) and [PDF recovery](pdf-file-recovery.md).
+
+
+## Published larger PDF recovery and archive file galleries
+
+Pre-alpha.14 at source `8adac7b` is published after all five source CI jobs,
+181 host tests and eight actual x86 API 26/35 contracts passed. Independently
+downloaded reports verify native Bionic/isolated PhotoRec recovery of the exact
+9,437,636-byte PDF with explicit incomplete optional metadata.
+[Evidence](verification/android-worker-runtime-8adac7b.json). PDF rendering and
+production ARM64/SAF/handset acceptance remain unverified.
+
+Pre-alpha.15 adds a gallery to each selected native archive level, checked
+image/media/text observations, direct member previews, typed individual saves
+and an actual-file ZIP over all matching pages/displayed-folder descendants.
+Original duplicate/unsafe names, indices, hashes, per-file acquisition reports
+and the current native/finding chain remain available; links are not
+materialized. Six new actual-libarchive host/widget cases are added; current
+full-suite/build/CI gates are recorded in continuation. See
+[archive file gallery](archive-file-gallery.md). This is not automatic recursive
+decompression of every archive into a single gallery.
+
+The README now focuses on files/workflows and precise published verification.
+[F-Droid preparation](fdroid.md) identifies the prebuilt MPV runtime as a
+source-build integration blocker and records the release/signing/recipe work
+needed. Upstream store metadata is present; no store acceptance is claimed.

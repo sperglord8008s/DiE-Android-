@@ -1,0 +1,1 @@
+Archive member gallery with checked image/media/text previews, direct viewing and typed file saves. Export all matching files in a ZIP with original names, indices, hashes and native evidence. Preserve duplicate entries and exclude links explicitly. Compact phone layout with expandable status and grouped tools. Improved project README and F-Droid packaging preparation.
