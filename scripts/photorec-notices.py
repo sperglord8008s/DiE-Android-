@@ -20,7 +20,7 @@ notice = ('PhotoRec / TestDisk ' + lock['version'] + '\n'
           'Source revision: ' + lock['revision'] + '\nArchive: ' + lock['url'] + '\n'
           'Archive SHA-256: ' + lock['archiveSha256'] + '\n'
           'Reproduce: bash scripts/build-photorec.sh android\n'
-          'Adapter 4 enables only the upstream PDF file-check through bounded read-only relative stdio.\n'
+          'Adapter 5 retains native PDF footer boundaries when only optional date-read work is limited.\n'
           'Optional libjpeg/zlib dependencies, auxiliary signatures, other file checks, rename '
           'callbacks and filesystem/fragment recovery are not enabled.\n\n'
           + (upstream / 'COPYING').read_text())

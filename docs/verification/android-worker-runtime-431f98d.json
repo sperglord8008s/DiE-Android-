@@ -1,0 +1,38 @@
+[
+  {
+    "sdk": 26,
+    "abi": "x86_64",
+    "sourceRevision": "431f98d2ef996e99ab7c0a0938a9604c5979d171",
+    "artifactSha256": "f05c20a97db5d0570b0414e43522a9b2073d77a0f82fb8d1d771395f297d2eae",
+    "reportSha256": "6e56b3309b1587a10b61a8a0f555b1bba156c8587d01772fc2d8b5335368e188",
+    "reportSizeBytes": 529694,
+    "checksPassed": 8,
+    "workflowPassed": true,
+    "completionPassed": true,
+    "normalUid": 10077,
+    "pdfWorkerUid": 99005,
+    "pdfPayloadSizeBytes": 440,
+    "pdfPayloadSha256": "1a664f099b15369794cb9e32e27dcd7ca13f84527fb1e7947eecda0ee4a8c261",
+    "nativePdfRecoveryPassed": true,
+    "pdfRendererExecuted": false,
+    "productionArm64RuntimeVerified": false
+  },
+  {
+    "sdk": 35,
+    "abi": "x86_64",
+    "sourceRevision": "431f98d2ef996e99ab7c0a0938a9604c5979d171",
+    "artifactSha256": "7a29058b0b6d0377ed1c4485803b09331705227e45f2331a25ce2f73787e5491",
+    "reportSha256": "7aab0c6366e081df761266c3fa5d40ab488855054564002e2e352b36b467c8c9",
+    "reportSizeBytes": 529741,
+    "checksPassed": 8,
+    "workflowPassed": true,
+    "completionPassed": true,
+    "normalUid": 10209,
+    "pdfWorkerUid": 99005,
+    "pdfPayloadSizeBytes": 440,
+    "pdfPayloadSha256": "1a664f099b15369794cb9e32e27dcd7ca13f84527fb1e7947eecda0ee4a8c261",
+    "nativePdfRecoveryPassed": true,
+    "pdfRendererExecuted": false,
+    "productionArm64RuntimeVerified": false
+  }
+]

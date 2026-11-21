@@ -18,7 +18,8 @@ final class PhotoRecReport {
     static boolean supportedAdapter(String value) {
         return value.equals("diemobile-photorec-2")
                 || value.equals("diemobile-photorec-3")
-                || value.equals("diemobile-photorec-4");
+                || value.equals("diemobile-photorec-4")
+                || value.equals("diemobile-photorec-5");
     }
 
     static final String[] REJECTED_FIELDS = {
@@ -76,7 +77,9 @@ final class PhotoRecReport {
                         || !report.getBoolean("ownedDescriptorDuplicate")
                         || !report.getBoolean("callerDescriptorPositionPreserved")
                         || report.getLong("maximumInputReadBufferBytes")
-                                != (report.getString("adapter").equals("diemobile-photorec-4")
+                                != ((report.getString("adapter").equals("diemobile-photorec-4")
+                                                || report.getString("adapter")
+                                                        .equals("diemobile-photorec-5"))
                                         ? 1376256
                                         : 1310720)
                         || report.getLong("scanReadBufferBytes") != 1048576

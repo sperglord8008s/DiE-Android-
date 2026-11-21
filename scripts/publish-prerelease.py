@@ -328,6 +328,13 @@ def publish(run_id, tag, repository, temporary):
              + '**APK:** `' + metadata['apk'] + '`  \n**SHA-256:** `' + metadata['apkSha256']
              + '`  \n**Exact source:** `' + source + '`\n\n' + notes + '\n')
     notes = notes.replace('](../', '](https://github.com/' + repository + '/blob/' + tag + '/docs/')
+    publish_verified_release(prefix, repository, tag, source,
+                             properties['product.name'] + ' ' + properties['version.name'],
+                             notes, files, temporary)
+
+
+def publish_verified_release(prefix, repository, tag, source, release_name, notes, files, temporary):
+    """Publish immutable checked assets while keeping their names separate from the release title."""
     release = api(prefix + '/releases/tags/' + tag, optional=True)
     if release is None:
         # GitHub's by-tag endpoint returns published releases; the authenticated
@@ -341,10 +348,9 @@ def publish(run_id, tag, repository, temporary):
             require(len(drafts) < 100, 'Release listing needs pagination before proving this tag is absent')
     if release is None:
         release = api(prefix + '/releases', {'tag_name': tag, 'target_commitish': source,
-                      'name': properties['product.name'] + ' ' + properties['version.name'],
+                      'name': release_name,
                       'body': notes, 'draft': True, 'prerelease': True}, 'POST')
-    name = properties['product.name'] + ' ' + properties['version.name']
-    require(release['tag_name'] == tag and release['name'] == name
+    require(release['tag_name'] == tag and release['name'] == release_name
             and release['target_commitish'] == source and release['prerelease'],
             'Existing release belongs to another source or release channel')
     if not release['draft']:
@@ -354,17 +360,17 @@ def publish(run_id, tag, repository, temporary):
         return
     present = {item['name']: item for item in release['assets']}
     require(set(present) <= set(files), 'Draft contains unrecognized assets; nothing will be removed')
-    for name, item in present.items():
-        require(item.get('digest') == 'sha256:' + digest(files[name])
-                and item['size'] == files[name].stat().st_size,
+    for asset_name, item in present.items():
+        require(item.get('digest') == 'sha256:' + digest(files[asset_name])
+                and item['size'] == files[asset_name].stat().st_size,
                 'Draft asset differs; overwriting is prohibited')
-    release = update_release(prefix, release, tag, source, name, notes, True)
-    for name, path in files.items():
-        if name not in present:
+    release = update_release(prefix, release, tag, source, release_name, notes, True)
+    for asset_name, path in files.items():
+        if asset_name not in present:
             upload_asset(repository, release['id'], path)
     verify_remote_assets(prefix, release, files, temporary)
     verify_tag(prefix, tag, source, create=True)
-    published = update_release(prefix, release, tag, source, name, notes, False)
+    published = update_release(prefix, release, tag, source, release_name, notes, False)
     print('Published exact verified pre-release:', published['html_url'])
 
 

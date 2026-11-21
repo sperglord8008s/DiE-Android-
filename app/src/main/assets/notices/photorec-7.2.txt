@@ -7,7 +7,7 @@ Source revision: 281be432dd79121e08e0898887a9ee1f30fb3e96
 Archive: https://codeload.github.com/cgsecurity/testdisk/tar.gz/281be432dd79121e08e0898887a9ee1f30fb3e96
 Archive SHA-256: 0cfd82ca6890188a3a4fe01c9b970f654eb3af396580f408ed024789e2873616
 Reproduce: bash scripts/build-photorec.sh android
-Adapter 4 enables only the upstream PDF file-check through bounded read-only relative stdio.
+Adapter 5 retains native PDF footer boundaries when only optional date-read work is limited.
 Optional libjpeg/zlib dependencies, auxiliary signatures, other file checks, rename callbacks and filesystem/fragment recovery are not enabled.
 
 		    GNU GENERAL PUBLIC LICENSE

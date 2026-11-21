@@ -348,3 +348,19 @@ The eighth instrumented PhotoRec/Bionic test compiles/static-verifies with its
 matching native-source and packaged-library identities. Actual execution and
 current source CI remain pending; PDF rendering and other full file checks are
 not claimed. See [PDF recovery](pdf-file-recovery.md).
+
+
+Source **431f98d**, merged through PR #15 as d03f90d, passed all five source/PR
+checks and eight actual x86 Android API 26/35 contracts. Downloaded complete
+reports, completion/file SHA identity, native/Java/fixture sources, APK/library
+hashes and isolated PDF worker UIDs were independently verified;
+[retained summary](verification/android-worker-runtime-431f98d.json). This is
+actual Bionic PDF recovery, not production ARM64/SAF/PDF-renderer acceptance.
+Pre-alpha.13 is published.
+
+Adapter 5 now implements separate native PDF footer and optional metadata-work
+outcomes. Exact >9 MiB PDF file/gallery/save and independent Python byte/xref
+oracles pass, with missing-footer and forged error/flag/count/legacy refusals.
+The full existing host gallery case and actual Android lab are extended to the
+larger file. Current .14 full-suite/ARM64/CI gates remain pending; see
+[PDF recovery policy](pdf-file-recovery.md).

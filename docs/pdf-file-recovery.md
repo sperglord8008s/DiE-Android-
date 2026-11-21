@@ -1,6 +1,6 @@
 # Recovered PDF files
 
-PhotoRec adapter 4 enables the original upstream PDF `file_check` callback.
+PhotoRec adapters 4/5 enable the original upstream PDF `file_check` callback.
 A supported embedded PDF can now become an actual **Documents / Files** gallery
 item with an exact `.pdf` payload and `application/pdf` export. Tapping it hands
 those separately owned bytes to the existing in-app PDF viewer. It no longer
@@ -34,10 +34,9 @@ Attempts, actual executions, raw returned size, read work, failure reason and
 complete/limited counts remain in the original native capture. Partial PDF
 checks are visible in the tool/gallery status.
 
-The PDF date reader can scan the recovered file. Consequently a valid larger
+In adapter 4, the PDF date reader can scan the recovered file. Consequently a valid larger
 PDF can hit the 8 MiB callback-read budget and remain unresolved even if a footer
-was seen earlier. This limit is explicit; separating optional metadata work from
-footer recovery is a continuation priority. Missing footers never acquire an
+was seen earlier. This limit is explicit; adapter 5 now distinguishes optional work from the established footer as described below. Missing footers never acquire an
 input-tail or next-header size.
 
 Adapter 4's maximum input-read payload buffers are **1,376,256 bytes (1.3125
@@ -82,3 +81,37 @@ library bytes. Test APK compilation/static checks pass; actual API 26/35
 execution is pending. All **181 host tests**, required generic/native checks,
 full ARM64 compilation/lint and APK signature/offline/notices/alignment checks
 pass. No host result is labeled as Android FILE/PDF runtime verification.
+
+
+## Adapter 5: retain established larger files
+
+The original callbacks first establish a footer (or check a declared linearized
+size against its footer), then perform optional newline/date reads. Reviewed
+`file_pdf.c` and `filegen.c` clear the returned size when footer lookup or its
+required read fails. Optional newline handling can append real newline bytes;
+date reading never changes the recovered size. A positive returned size therefore
+remains usable after an explicitly identified optional read-work limit.
+
+Adapter 5 retains that exact native size when all source/minimum/maximum/offset
+checks pass and the stream identifies a per-candidate or aggregate work limit.
+Source IO failures, deadline failures, absent footers and other errors retain
+null extents. No extent comes from the next header or source tail. Existing
+adapter-4 captures keep their stricter original behavior.
+
+The original failure reason, processed bytes and raw time remain visible.
+`fileCheckBoundaryEstablished` describes the file boundary separately from
+`fileCheckMetadataReadLimited` and its count. These fields mean optional
+newline/date work was incomplete; they do not claim complete PDF structure,
+metadata or rendering. Java validates the exact new policy, flags, returned
+size and counter relationships before exposing an exportable file. Legacy
+capture policy and forged IO/deadline/partial claims cannot inherit this rule.
+The 8 MiB per-candidate read-work limit, 256 MiB input/aggregate-work limits and
+fixed input buffers stay unchanged.
+
+A valid PDF larger than 9 MiB now reaches the file gallery and exact typed save
+despite the optional date reader reaching its budget. Independent Python checks
+every payload byte and its xref/object locations. Missing-footer and invalid
+scope/error/flag/count cases remain refused. The existing gallery case now uses
+that larger payload, and the eight-case Android lab adds the same native large
+PDF check. Current full-suite/build/Android execution status is tracked in the
+release/continuation documents.

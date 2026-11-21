@@ -18,7 +18,7 @@ These are adapter limits, not verified maximum sizes on a phone. MiB means
 | ZIP-family member browser | 1 GiB archive | 20,000 entries; each selected expanded member at most 256 MiB; nested depth separately bounded |
 | Desktop document batches | 256 MiB/file | 64 files, 512 MiB total captured input; 16 MiB/report, 64 MiB total stored reports |
 | Exact aligned binary comparison | 256 MiB/side | 512 MiB pair; difference-record and report bounds remain separate |
-| PhotoRec adapter 4 | 256 MiB | 250,000 candidates; 24 MiB native report; PDF file reads and other per-candidate/aggregate callback work and deadlines remain bounded |
+| PhotoRec adapter 5 | 256 MiB | 250,000 candidates; 24 MiB native report; PDF file reads and other per-candidate/aggregate callback work and deadlines remain bounded |
 | Gallerize content/gallery/grid input | 256 MiB | PhotoRec whole-input scan; Binwalk separately limited to 64 MiB; 50,000 cards, original native report/callback budgets; grid at most 1,048,576 cells; previews/renderers separately bounded |
 | Binwalk adapter 2 | 64 MiB | Contiguous file-sized native copy; 20,000 raw magic matches and 32 MiB report |
 | MPV media probe | 256 MiB | Probe/property/worker limits; initialization is not full-frame/media-integrity verification |
@@ -80,3 +80,9 @@ All figures above are Linux host verification. Actual ARM64 devices, genuine
 isolated UIDs/Binder, document providers, memory pressure, cancellation/crash
 latency and API 26/35/16 KiB page runtime remain unverified. The feature checklist
 keeps those acceptance items separate from compilation and host fixtures.
+
+
+Adapter 5 preserves an already established positive native PDF footer when only
+optional post-footer newline/date work reaches its existing cap. It does not
+raise any input/read/work budget. Exact >9 MiB PDF file exports and xref/source
+oracles are host verified; new Android large-PDF execution is tracked separately.

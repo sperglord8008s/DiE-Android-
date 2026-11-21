@@ -43,7 +43,7 @@ public final class PhotoRecStreamingTest {
         JSONObject report = new JSONObject(PhotoRecEngine.scanPath(source.toString()));
         require(report.optBoolean("ok"), report.optString("error"));
         require(
-                report.getString("adapter").equals("diemobile-photorec-4")
+                report.getString("adapter").equals("diemobile-photorec-5")
                         && report.getLong("fileSizeBytes") == size,
                 "Streaming source/version mismatch");
         require(

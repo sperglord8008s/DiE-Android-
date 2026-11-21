@@ -112,16 +112,17 @@ class CarvingBackend extends InvestigationBackend {
             else validateBinwalkInput(response);
             PhotoRecReport decoded = photoRec ? new PhotoRecReport(response, stop) : null;
             int limitedDataCandidates = 0, compactRejectedCandidates = 0;
-            int fileAttempted = 0, fileExecuted = 0, fileLimited = 0;
+            int fileAttempted = 0, fileExecuted = 0, fileLimited = 0, fileMetadataLimited = 0;
             for (int i = 0; i < rows.length(); i++) {
                 EvidenceRows.check(stop);
                 JSONObject row = photoRec ? decoded.row(i) : rows.getJSONObject(i);
                 if (photoRec && decoded.compact(i)) compactRejectedCandidates++;
                 if (photoRec && row.optBoolean("dataCheckLimited")) limitedDataCandidates++;
                 if (photoRec) {
-                    PhotoRecFileChecks.validateRow(row, PhotoRecFileChecks.enabled(response));
+                    PhotoRecFileChecks.validateRow(row, response);
                     if (row.optBoolean("fileCheckAttempted")) fileAttempted++;
                     if (row.getBoolean("fileCheckExecuted")) fileExecuted++;
+                    if (row.optBoolean("fileCheckMetadataReadLimited")) fileMetadataLimited++;
                     if (row.has("fileCheckFailureReason") && !row.isNull("fileCheckFailureReason"))
                         fileLimited++;
                 }
@@ -174,7 +175,7 @@ class CarvingBackend extends InvestigationBackend {
                     if (photoRec) {
                         boolean established =
                                 row.optBoolean("fileCheckAttempted")
-                                        ? PhotoRecFileChecks.supportsExtent(row, count)
+                                        ? PhotoRecFileChecks.supportsExtent(row, count, response)
                                         : row.getBoolean("dataCheckExecuted")
                                                 && !row.getBoolean("dataCheckLimited")
                                                 && row.getInt("dataCheckStatus") == 2
@@ -187,7 +188,7 @@ class CarvingBackend extends InvestigationBackend {
                                                 .getLong("upstreamMaximumFileSizeBytes"))
                             throw new IOException(
                                     "PhotoRec extraction extent lacks a successful bounded"
-                                        + " data-stop or reviewed PDF file-check witness");
+                                            + " data-stop or reviewed PDF file-check witness");
                     }
                     if (count <= 0
                             || count > input.size - offset
@@ -198,7 +199,7 @@ class CarvingBackend extends InvestigationBackend {
             }
             if (photoRec)
                 PhotoRecFileChecks.validateReport(
-                        response, fileAttempted, fileExecuted, fileLimited);
+                        response, fileAttempted, fileExecuted, fileLimited, fileMetadataLimited);
             if (photoRec
                     && (response.getInt("dataCallbacksLimitedCount") != limitedDataCandidates
                             || response.getLong("callbackBufferWorkBytes") < 0
@@ -437,6 +438,12 @@ class CarvingBackend extends InvestigationBackend {
     }
 
     private String rowPdfInterpretation(JSONObject value) {
+        if (value.optBoolean("fileCheckMetadataReadLimited"))
+            return "PhotoRec established this stored PDF footer boundary before optional"
+                       + " newline/date reading reached a work limit. The original extent, raw time"
+                       + " and failure remain recorded separately. Optional metadata is incomplete;"
+                       + " full PDF structure and rendering remain separate checks.";
+
         if (value.optBoolean("fileCheckAttempted"))
             return "PhotoRec's original PDF file-check callback ran through a bounded read-only"
                     + " source-relative FILE view where execution is recorded. Its reported footer"
@@ -474,7 +481,7 @@ class CarvingBackend extends InvestigationBackend {
                 .put(
                         "validationLimits",
                         photoRec
-                                ? "Upstream standalone safe-header/data callbacks and, in adapter 4"
+                                ? "Upstream standalone safe-header/data callbacks and, in adapters 4/5"
                                       + " only, the reviewed PDF file_check through bounded"
                                       + " read-only relative stdio. No other file checks, rename,"
                                       + " fragmented/disk recovery or optional codec libraries. 64"
@@ -565,8 +572,9 @@ class CarvingBackend extends InvestigationBackend {
                 photoRec && header != null && header.optInt("fileCheckCandidatesLimited") > 0
                         ? "PARTIAL PDF FILE CHECKS: "
                                 + header.optInt("fileCheckCandidatesLimited")
-                                + " candidates exceeded read/work/source limits; their extents"
-                                + " remain unknown. "
+                                + " candidates reached read/work/source limits; established native"
+                                + " footer boundaries remain available when only optional metadata"
+                                + " was limited. "
                         : "";
         return (fileChecks
                         + (photoRec

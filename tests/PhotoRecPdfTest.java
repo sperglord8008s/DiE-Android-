@@ -149,8 +149,93 @@ public final class PhotoRecPdfTest {
                     backend.open("all", () -> false).size() > 0,
                     "Budget-limited raw result rejected/dropped");
         }
+        // A large valid PDF has a real footer; only its optional date scan exhausts read work.
+        byte[] large = MetadataFixtureFactory.pdf(9 * 1024 * 1024);
+        try (OutputStream output = new FileOutputStream(source)) {
+            output.write(new byte[37]);
+            output.write(large);
+            output.write(new byte[97]);
+        }
+        JSONObject largeReport = new JSONObject(scan(source));
+        JSONObject largeRow = pdfRow(largeReport, 37);
+        require(
+                largeRow.getLong("reportedSizeBytes") == large.length
+                        && largeRow.getBoolean("fileCheckBoundaryEstablished")
+                        && largeRow.getBoolean("fileCheckMetadataReadLimited")
+                        && largeRow.getBoolean("fileCheckReadBudgetLimited")
+                        && !largeRow.isNull("fileCheckFailureReason"),
+                "Optional date-read limit discarded a valid large native PDF boundary");
+        require(
+                largeReport.getInt("fileCheckMetadataReadLimitedCount") == 1,
+                "Partial metadata count lost");
+        try (GallerizeSession gallery =
+                GallerizeSession.open(
+                        source,
+                        directory,
+                        "large.pdf",
+                        null,
+                        source.length(),
+                        null,
+                        (file, stop) -> scan(file),
+                        () -> false)) {
+            ContentMap.Card card =
+                    gallery.digest(() -> false).cards.stream()
+                            .filter(
+                                    c ->
+                                            c.offset == 37
+                                                    && c.format.equals("pdf")
+                                                    && c.length != null
+                                                    && c.length == large.length)
+                            .findFirst()
+                            .orElseThrow(
+                                    () ->
+                                            new AssertionError(
+                                                    "Actual large PDF missing from files"));
+            PreparedExport saved =
+                    RecoveredFiles.file(
+                            gallery.input, card, root.resolve("exports").toFile(), () -> false);
+            require(
+                    Arrays.equals(large, Files.readAllBytes(saved.file.toPath())),
+                    "Large PDF file export changed bytes");
+            require(saved.mime.equals("application/pdf"), "Large PDF MIME lost");
+            Files.copy(saved.file.toPath(), root.resolve("large-recovered.pdf"));
+            saved.discard();
+            require(
+                    gallery.statusSummary().contains("optional metadata"),
+                    "Partial date scope absent from status");
+        }
+        Files.write(root.resolve("large-expected.pdf"), large);
+        Files.writeString(root.resolve("large-report.json"), largeReport.toString());
+        for (Mutation mutation :
+                List.<Mutation>of(
+                        x ->
+                                pdfRow(x, 37)
+                                        .put(
+                                                "fileCheckFailureReason",
+                                                "source-read-or-deadline-failure"),
+                        x -> pdfRow(x, 37).put("fileCheckBoundaryEstablished", false),
+                        x -> pdfRow(x, 37).put("fileCheckMetadataReadLimited", false),
+                        x -> x.put("fileCheckMetadataReadLimitedCount", 0),
+                        x -> x.put("adapter", "diemobile-photorec-4"))) {
+            JSONObject altered = new JSONObject(largeReport.toString());
+            mutation.apply(altered);
+            try (PhotoRecBackend backend =
+                    new PhotoRecBackend(
+                            source,
+                            directory,
+                            "invalid-partial",
+                            (file, stop) -> altered.toString())) {
+                try {
+                    backend.open("all", () -> false);
+                    throw new AssertionError("Invalid partial footer claim accepted");
+                } catch (IOException expected) {
+                    /* Actual errors and legacy scopes cannot inherit the exception. */
+                }
+            }
+        }
         System.out.println(
                 "Actual upstream PDF footer recovery, exact gallery/application-pdf export,"
-                        + " truncated refusal and bounded read-only file-check work passed.");
+                    + " truncated refusal, >9 MiB exact PDF files with bounded optional date work"
+                    + " passed.");
     }
 }

@@ -320,7 +320,7 @@ public final class GallerizeWorkbenchTest {
     public void recoveredPdfOpensAnActualFileAndSavesWithItsNativeBoundaryAndPdfType()
             throws Exception {
         closeGallery();
-        byte[] pdf = MetadataFixtureFactory.pdf();
+        byte[] pdf = MetadataFixtureFactory.pdf(9 * 1024 * 1024);
         ByteArrayOutputStream source = new ByteArrayOutputStream();
         source.write(new byte[37]);
         source.write(pdf);
@@ -349,6 +349,12 @@ public final class GallerizeWorkbenchTest {
         ContentMap.Card card = (ContentMap.Card) gallery.getAdapter().getItem(index);
         assertEquals(ContentMap.Kind.DOCUMENT, card.kind);
         assertEquals("photorec", card.nativeEngine);
+        JSONObject finding =
+                ReflectionHelpers.<GallerizeSession>getField(activity, "session")
+                        .primaryFinding(card, () -> false)
+                        .json();
+        assertTrue(finding.getBoolean("fileCheckMetadataReadLimited"));
+        assertTrue(finding.getBoolean("fileCheckBoundaryEstablished"));
         View tile = gallery.getAdapter().getView(index, null, gallery);
         tile.findViewWithTag("save-recovered-file:" + card.offset + ":" + card.length)
                 .performClick();

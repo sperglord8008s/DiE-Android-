@@ -47,6 +47,42 @@ class PublicationContracts(unittest.TestCase):
                 publication.update_release('repos/owner/repo', {'id': 42},
                     'v0.6.0-pre-alpha.1', '1' * 40, 'GlassDigestor', 'notes', False)
 
+    def test_resumed_draft_and_asset_iteration_keep_the_release_title(self):
+        tag, source = 'v0.6.0-pre-alpha.14', '1' * 40
+        title = 'GlassDigestor 0.6.0-pre-alpha.14'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            original = root / 'source.zip'; original.write_bytes(b'original source')
+            last = root / 'RELEASE-SHA256SUMS'; last.write_bytes(b'complete checksums')
+            files = {original.name: original, last.name: last}
+            release = {'id': 42, 'tag_name': tag, 'target_commitish': source,
+                       'name': title, 'body': 'notes', 'draft': True, 'prerelease': True,
+                       'html_url': 'https://github.com/owner/repo/releases/tag/' + tag,
+                       'assets': [{'name': original.name, 'size': original.stat().st_size,
+                                   'digest': 'sha256:' + publication.digest(original)}]}
+            updates = []
+            def api(path, payload=None, method=None, optional=False):
+                if method == 'PATCH':
+                    updates.append(payload.copy()); release.update(payload)
+                return release.copy()
+            with mock.patch.object(publication, 'api', side_effect=api), \
+                 mock.patch.object(publication, 'upload_asset') as upload, \
+                 mock.patch.object(publication, 'verify_remote_assets') as verify, \
+                 mock.patch.object(publication, 'verify_tag') as verify_tag:
+                publication.publish_verified_release('repos/owner/repo', 'owner/repo',
+                        tag, source, title, 'complete notes', files, root)
+            self.assertEqual([True, False], [value['draft'] for value in updates])
+            for value in updates:
+                self.assertEqual(title, value['name'])
+                self.assertEqual(tag, value['tag_name'])
+                self.assertEqual(source, value['target_commitish'])
+                self.assertEqual('complete notes', value['body'])
+                self.assertTrue(value['prerelease'])
+            upload.assert_called_once_with('owner/repo', 42, last)
+            self.assertEqual(1, verify.call_count)
+            verify_tag.assert_called_once_with('repos/owner/repo', tag, source, create=True)
+            self.assertEqual(b'original source', original.read_bytes())
+
     def test_direct_draft_upload_streams_exact_bytes_without_tag_lookup(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / 'source.zip'
