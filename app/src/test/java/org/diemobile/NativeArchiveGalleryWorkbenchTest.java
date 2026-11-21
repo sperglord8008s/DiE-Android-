@@ -19,6 +19,7 @@ import org.junit.runner.RunWith;
 import org.robolectric.*;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.*;
+import org.robolectric.shadows.ShadowAlertDialog;
 import org.robolectric.util.ReflectionHelpers;
 
 import java.io.*;
@@ -305,6 +306,31 @@ public final class NativeArchiveGalleryWorkbenchTest {
         byte[] saved = Files.readAllBytes(staged().file.toPath());
         ReflectionHelpers.<EditText>getField(activity, "filter").setText("link");
         assertArrayEquals(saved, Files.readAllBytes(staged().file.toPath()));
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp-mdpi")
+    public void galleryKeepsUsableFileSpaceOnAPhoneSizedWindow() throws Exception {
+        open(zip(Map.of("image.png", MetadataFixtureFactory.png())), null);
+        click("Gallery");
+        assertEquals(View.VISIBLE, grid().getVisibility());
+        assertTrue(
+                "Gallery has only " + grid().getHeight() + " px on a 360×640 phone",
+                grid().getHeight() >= 200);
+        click("Tools / evidence");
+        View tools = ShadowAlertDialog.getLatestAlertDialog().getWindow().getDecorView();
+        for (String label :
+                new String[] {
+                    "Evidence",
+                    "Export report",
+                    "Parsing interval",
+                    "Reload",
+                    "Classic ZIP",
+                    "Status / limits"
+                }) assertNotNull("Missing existing tool " + label, button(tools, label));
+        ShadowAlertDialog.getLatestAlertDialog().dismiss();
+        ReflectionHelpers.<TextView>getField(activity, "status").performClick();
+        assertTrue(ShadowAlertDialog.getLatestAlertDialog().isShowing());
     }
 
     @Test

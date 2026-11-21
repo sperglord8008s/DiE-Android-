@@ -1169,3 +1169,29 @@ a following presentation task.
 Next: commit this coherent source/docs slice, compile/lint/check/freeze its
 exact clean ARM64 APK, push and run source/Android CI; fix failures before
 merging/publication. Continue actual file viewing/export/recovery coverage.
+
+
+The first .15 slice is committed as **9c077e67cac0684a11069c45afb37a036772621d**
+in PR #17. Its clean ARM64 assembly/lint/static APK and freeze pass; local
+52,803,473-byte APK SHA-256 is
+`df56f56cf2ad512335fe7590628627ec2abe2c3fee0c226250189ca0b8e4743f`
+in `/workspace/work/checkpoints/0.6.0-pre-alpha.15-local`. Source CI
+44939977631 and actual API 26/35 run 44939977547 are for that source; the latter
+passed. Do not publish that source as the final .15 after the correction below.
+
+A new compact-phone case caught a real presentation failure: only 4 px remained
+for the archive gallery at 360×640. Secondary actions are now in Tools / evidence,
+the full status opens on tap/Status / limits, and source/folder headings/status
+are compact. The fixed case requires ≥200 px and all existing tool buttons; all
+**15 focused old/new archive cases pass**. A complete **188-case** run is in
+progress using the same one-class-per-JVM init script. Log:
+`/workspace/work/archive-gallery-full-ui-layout.log`. This is an additional
+functional usability gate, not a weakened assertion. Commit/push the correction
+and rebuild/freeze the new clean source, preserving the earlier frozen .15.
+
+The duplicated mutable .15 APK output and generated x86 archive static-dependency
+cache were reclaimed after APK/JNI SHA audits, keeping both compiled archive
+JNI libraries and every frozen APK. The test-only runtime module will need that
+static dependency cache regenerated if rebuilt locally; CI does its normal
+source build. Final app ARM64 packaging keeps the previously documented
+unchanged CDiE/hash task exclusions and normal engine tasks.

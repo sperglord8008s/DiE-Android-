@@ -11,6 +11,12 @@ The original tree, All entries, parsing intervals, failed-attempt evidence,
 classic ZIP, nested Back and workbench handoffs remain available. Gallery mode
 and the existing folder/filter/page descriptors survive recreation.
 
+Secondary actions (original evidence, report export, parsing interval, reload
+and classic ZIP) are grouped under **Tools / evidence**. The two-line status
+expands on tap or through **Status / limits**, retaining full source/launch/
+failure/scope/budget text. A 360×640 phone-layout case verifies at least 200
+pixels for the file pane, all existing tool actions and status expansion.
+
 ## Actual bytes before previews
 
 Each automatic preview uses `NativeArchiveStore.acquire`: original source
@@ -79,7 +85,7 @@ byte-exact typed saves and direct preview handoffs; a 30-file export over two
 gallery pages; complete acquisition-report identities; picker recreation after
 source expiry; duplicate and unsafe names; recursive displayed folders; explicit
 link/directory exclusions; a compressed 33 MiB member's automatic-preview refusal;
-and cancellation after a ZIP has started writing. The older archive cases are
+cancellation after a ZIP has started writing; and the compact-phone viewport. The older archive cases are
 retained. The release checklist records full-suite/build/CI results separately.
 
 OS IPC and document providers are substituted in these host tests. Production

@@ -115,6 +115,8 @@ public final class NativeArchiveExplorerActivity extends Activity {
         }
         title = new TextView(this);
         title.setTextSize(17);
+        title.setMaxLines(2);
+        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
         root.addView(title);
         LinearLayout navigation = new LinearLayout(this);
         root.addView(navigation);
@@ -131,11 +133,6 @@ public final class NativeArchiveExplorerActivity extends Activity {
                                 render();
                             }
                         });
-        LinearLayout tools = new LinearLayout(this);
-        root.addView(tools);
-        button(tools, "Evidence", this::evidence);
-        button(tools, "Export report", this::exportReport);
-        button(tools, "Parsing interval", this::scope);
         LinearLayout files = new LinearLayout(this);
         root.addView(files);
         galleryToggle =
@@ -148,19 +145,7 @@ public final class NativeArchiveExplorerActivity extends Activity {
                             render();
                         });
         button(files, "Export files ZIP", () -> stageExport(1, null));
-        LinearLayout operations = new LinearLayout(this);
-        root.addView(operations);
-        button(operations, "Reload", this::load);
-        button(operations, "Classic ZIP", this::classicZip);
-        cancel =
-                button(
-                        operations,
-                        "Cancel",
-                        () -> {
-                            cancellation.set(true);
-                            status.setText("Cancellation requested; waiting for archive worker");
-                        });
-        actions.remove(cancel);
+        button(files, "Tools / evidence", this::tools);
         filter = new EditText(this);
         filter.setSingleLine();
         filter.setHint("Filter names / entry indices in this view");
@@ -185,8 +170,21 @@ public final class NativeArchiveExplorerActivity extends Activity {
                             session.current().page++;
                             render();
                         });
+        cancel =
+                button(
+                        pages,
+                        "Cancel",
+                        () -> {
+                            cancellation.set(true);
+                            status.setText("Cancellation requested; waiting for archive worker");
+                        });
+        actions.remove(cancel);
         status = new TextView(this);
         status.setTextIsSelectable(true);
+        status.setMaxLines(2);
+        status.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        status.setContentDescription("Archive status. Tap for complete source, scope and limits.");
+        status.setOnClickListener(view -> statusDetails());
         root.addView(status);
         list = new ListView(this);
         root.addView(list, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -388,14 +386,14 @@ public final class NativeArchiveExplorerActivity extends Activity {
         NativeArchiveStore.Inventory inventory = location.inventory;
         title.setText(
                 inventory.format
-                        + "\n"
-                        + NativeArchiveSession.abbreviated(location.name, 200)
                         + " · level "
                         + session.depth()
                         + "/16\n"
                         + (location.allEntries
-                                ? "All original entry indices"
-                                : "/" + NativeArchiveSession.abbreviated(location.prefix, 200)));
+                                ? "All entries"
+                                : "/" + NativeArchiveSession.abbreviated(location.prefix, 160))
+                        + " · "
+                        + NativeArchiveSession.abbreviated(location.name, 160));
         viewMode.setText(location.allEntries ? "Folder tree" : "All entries");
         parent.setEnabled(!busy && !location.allEntries && !location.prefix.isEmpty());
         back.setEnabled(!busy && session.depth() > 1);
@@ -437,7 +435,26 @@ public final class NativeArchiveExplorerActivity extends Activity {
             }
         if (!busy)
             status.setText(
-                    (session.launch == null ? "" : session.launch.summary() + "\n")
+                    inventory.members.size()
+                            + " entries · "
+                            + rows.size()
+                            + " matches · page "
+                            + (location.page + 1)
+                            + "/"
+                            + pages
+                            + (inventory.complete ? " · complete" : " · FAILED / PARTIAL")
+                            + "\nScope: "
+                            + inventory.offset
+                            + " + "
+                            + inventory.length
+                            + " bytes"
+                            + "\nTap for source, status and limits\n\n"
+                            + "Source: "
+                            + location.name
+                            + "\nSHA-256 "
+                            + location.input.sha256
+                            + "\n"
+                            + (session.launch == null ? "" : session.launch.summary() + "\n")
                             + (inventory.complete
                                     ? "Complete returned inventory"
                                     : "FAILED / PARTIAL inventory: " + inventory.failure)
@@ -739,6 +756,51 @@ public final class NativeArchiveExplorerActivity extends Activity {
                                             status::setText);
                             });
                 });
+    }
+
+    private void tools() {
+        if (busy || session == null) return;
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(content);
+        AlertDialog dialog =
+                new AlertDialog.Builder(this)
+                        .setTitle("Archive tools / evidence")
+                        .setView(scroll)
+                        .setNegativeButton("Close", null)
+                        .create();
+        String[] labels = {
+            "Evidence",
+            "Export report",
+            "Parsing interval",
+            "Reload",
+            "Classic ZIP",
+            "Status / limits"
+        };
+        Runnable[] commands = {
+            this::evidence,
+            this::exportReport,
+            this::scope,
+            this::load,
+            this::classicZip,
+            this::statusDetails
+        };
+        for (int i = 0; i < labels.length; i++) {
+            Runnable command = commands[i];
+            addAction(
+                    content,
+                    labels[i],
+                    () -> {
+                        dialog.dismiss();
+                        command.run();
+                    });
+        }
+        dialog.show();
+    }
+
+    private void statusDetails() {
+        if (!busy) raw("Archive source, status and limits", status.getText().toString());
     }
 
     private void evidence() {
