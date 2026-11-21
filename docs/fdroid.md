@@ -25,6 +25,21 @@ to make a recipe appear green, or call debug checkpoint hashes proof of
 reproducible release builds. Preserve useful functionality while completing
 the source build.
 
+## Matching MPV recipe reference
+
+F-Droid already maintains an [mpv-android source-build recipe](https://gitlab.com/fdroid/fdroiddata/-/blob/master/metadata/is.xyz.mpv.yml)
+for `2026-09-17-release`, code 48. Its upstream recipe commit
+`fdf74f6830c47dbaa8a22ac79726e8303f1db5af`, MPV
+`0b7ed670f7c353dd3dd4f8ae0fc788a181a15aa6`, FFmpeg
+`094a2f8a2a5e7fa64736e067de224ce28fdf5979` and NDK r30 match our pins.
+This is a concrete starting point for adapting the native source build. Its
+preparation stages source libraries, bootstraps unibreak/curl and builds the
+native runtime separately from the upstream application. It does not establish
+that GlassDigestor's integration, release APK or recipe has passed a source
+build. Retain our descriptor restrictions, component notices and runtime tests
+when accepting newly compiled libraries; preserve existing official-binary hash
+guards for old/default checkpoint builds.
+
 ## Submission path
 
 1. Complete the MPV source-build integration and dependency/build audit above.
